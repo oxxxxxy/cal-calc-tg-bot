@@ -1,0 +1,3 @@
+exports.inlineQuery = ctx => {
+	
+};

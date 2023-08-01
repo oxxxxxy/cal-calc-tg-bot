@@ -1,0 +1,1401 @@
+/* 
+
+
+
+
+
+*/
+
+const telegraf = require(`telegraf`);
+const pg = require(`pg`);
+
+require('dotenv').config()
+
+const inlineQuery = require(`./modules/inlineQuery.js`);
+const HZ = require(`./modules/checkSender.js`);
+const {
+	objKeysToColumnStr,
+	objKeysToColumn$IndexesStr,
+	objKeysValuesToColumnValuesStr,
+	getArrOfValuesFromObj,
+	getStrOfColumnNamesAndTheirSettedValues
+
+} = require(`./modules/queryUtils.js`);
+const {
+	COMMAND__CREATE_FOOD,
+	COMMAND__CREATE_FOOD__YES,
+	COMMAND__CREATE_FOOD__NO
+} = require(`./modules/user_commands/create_food_funcs.js`);
+
+
+const TG_USERS_LAST_ACTION_TIME = {};
+
+const ISofU = [];
+const NUTRIENTS = [];
+
+
+
+const RE_RU_NUTRIENTS = [];
+	/* /(б|белок|белки)(\\s+|)(\\d+(\\s+|)(,|\\.)(\\s+|)\\d+|\\d+)(\\s+|)(г|мкг|мг|ккал|)/u,
+	/(к|ккал|кал|калорийность)(\\s+|)(\\d+(\\s+|)(,|\\.)(\\s+|)\\d+|\\d+)(\\s+|)(г|мкг|мг|ккал|)/u,
+	/(ж|жир|жиры)(\\s+|)(\\d+(\\s+|)(,|\\.)(\\s+|)\\d+|\\d+)(\\s+|)(г|мкг|мг|ккал|)/u,
+	/(у|угли|углевод|углеводы)(\\s+|)(\\d+(\\s+|)(,|\\.)(\\s+|)\\d+|\\d+)(\\s+|)(г|мкг|мг|ккал|)/u, */
+
+const RE_RU_YES = /^(д|да)$/u;
+const RE_RU_NO = /^(н|не|нет)$/u;
+const RE_RU_COMMAND__DELETE_LAST_ACTION = /^(у|удалить)$/u;
+
+const RE_RU_COMMAND__CREATE_FOOD = /^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){4,})(\s+|)\./u;
+// /^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\((\s+|)((([а-яА-Яa-zA-Z0-9]+)(\s+|):(\s+|)(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)(\s+|)(г|мкг|мг|ккал)(\s+|))+)\)$/u;
+// ^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\((\s+|)([а-яА-Яa-zA-Z0-9\s]+)(\s+|)\)$
+// ^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\(
+
+
+
+
+
+
+const RE_RU_TIME = /^([0-1][0-9]|[2][0-3])(\s+|):(\s+|)([0-5][0-9])$/u;
+
+
+const RE_RU_COMMAND__DELETE_TODAY_ID_EATEN_FOOD_OR_DISH = /^(у|удалить)(\s+|)(с|съеденное)(\s+|)([0-9]+)$/u;
+const RE_RU_COMMAND__DELETE_ALLTIME_ID_EATEN_FOOD_OR_DISH = /^(у|удалить)(\s+|)(с|съеденное)(\s+|)за(\s+|)вс(ё|е)(\s+|)время(\s+|)([0-9]+)$/u;
+
+	
+const RE_RU_COMMAND__CREATE_DISH = /^(с|создать)(\s+|)(б|блюдо)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){4,})$/u;
+const RE_RU_COMMAND__CREATE_DISH_END = /^(ив|итоговый(\s+|)вес)\s+([0-9]+)(\s+|)(г|)$/u;
+//const RE_RU_COMMAND__EDIT_CREATED_FOOD_OR_DISH = /^(р|редактировать)(\s+|)((е|еду)|(б|блюдо))(\s+|)([0-9]+|)$/u;
+const RE_RU_COMMAND__SHOW_CREATED_FOOD_OR_DISHES = /^(п|показать)(\s+|)(с|созданную|созданные)(\s+|)((е|еду)|(б|блюда))$/u; // buttons ; s konca
+const RE_RU_COMMAND__DELETE_CREATED_FOOD_OR_DISH = /^(у|удалить)(\s+|)((е|еду)|(б|блюдо))(\s+|)((([0-9]+),(\s+|)|([0-9]+))+)$/u; 
+
+const RE_RU_COMMAND__CREATE_AIM = /^(с|создать)(\s+|)(ц|цель)(\s+|)((п|повторять)(\s+|)\((\s+|)(([0-9]+)(\s+|)д(\s+|)\((\s+|)(([а-яА-Я]+)(\s+|):(\s+|)(([0-9]+)(\s+|)(,|.|)(\s+|)([0-9]+|)(\s+|)(г|%|к))(\s+|)(,|)(\s+|))+(\s+|)\)(\s+|)(,|)(\s+|))+\)(\s+|)((вт|в(\s+|)течении)(\s+|)([0-9]+)(\s+|)(д|м)|)|(([0-9]+)(\s+|)д(\s+|)\((\s+|)(([а-яА-Я]+)(\s+|):(\s+|)(([0-9]+)(\s+|)(,|.|)(\s+|)([0-9]+|)(\s+|)(г|%|к))(\s+|)(,|)(\s+|))+(\s+|)\)(\s+|)(,|)(\s+|))+)$/u; // не больше 365 дней или 12 месяцев,
+const RE_RU_COMMAND__COMPLETE_AIM = /^(з|завершить)(\s+|)(ц|цель)(\s+|)([0-9]+)$/u;
+const RE_RU_COMMAND__SHOW_AIMS = /^(п|показать)(\s+|)(ц|цели)(\s+|)((а|активные)|(з|завершенные)|(у|удаленные)|)$/u;//???? кнопки
+const RE_RU_COMMAND__DELETE_AIM = /^(у|удалить)(\s+|)(ц|цель)$/u; //only active
+
+const RE_RU_COMMAND__ADD_WEIGHTING = /^(в|вес)(\s+|)([0-9]+|[0-9]+(\s+|)(,|.)(\s+|)[0-9]+)$/u;
+const RE_RU_COMMAND__DELETE_LAST_ADDED_WEIGHTING = /^(у|удалить)(\s+|)(в|вес)$/u;
+
+const RE_RU_COMMAND__ADD_GIRTH = /^(об|обхват)(\s+|)(талии|бедер|бедра|груди|плеч|бицепса|шеи|предплечья)([0-9]+|[0-9]+(\s+|)(,|.)(\s+|)[0-9]+)$/u;
+const RE_RU_COMMAND__DELETE_LAST_ADDED_GIRTH = /^(у|удалить)(\s+|)(об|обхват)(\s+|)(талии|бедер|бедра|груди|плеч|бицепса|шеи|предплечья|)$/u;
+
+const RE_RU_COMMAND__CANCEL = /^(от|отмена)$/u;
+
+const RE_RU_BOT_AND_INLINE_COMMAND__GET_STATS = /^(п|показать)(\s+|)(ст|статистику)(\s+|)(\s+|)((в|вес)|(п|потребление)|(ц|цели)|)(\s+|)((([0-9]+)(\s+|)(д|м|г))|(за(\s+|)вс(ё|е)(\s+|)время)|)$/u; // body or eaten food or aims //ras v chas
+const RE_RU_BOT_AND_INLINE_COMMAND__SHOW_EATEN = /^(п|показать)(\s+|)(с|съеденное)()$/u;//???????
+
+//const RE_RU_INLINE_COMMAND__OFFER_RANDOM_FOOD = /^/u; //????? //validate users to NOT reserve inline commands
+const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|поделиться)\s+((е|едой)|(б|блюдом))\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){2,})$/u;
+const RE_RU_INLINE_COMMAND__ADD_EATEN_FOOD_OR_DISH = /^(д|добавить)\s+([0-9]+)(\s+|)(г|)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){2,})$/u;
+const RE_RU_INLINE_COMMAND__CALC_EATEN_FOOD_OR_DISH = /^(сч|подсчитать)\s+([0-9]+)(\s+|)(г|)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){2,})$/u;
+const RE_RU_INLINE_COMMAND__SEARCH = /^(([а-яА-Яa-zA-Z0-9]+)(\s+|)){2,}$/u;
+
+
+/*
+*/
+
+const bot = new telegraf.Telegraf(process.env.BOT_TOKEN_edac);
+
+const DB_CLIENT = new pg.Client({
+	user: process.env.PGUSER,
+  host: process.env.PGHOST,
+  database: process.env.PGDATABASE,
+  password: process.env.PGPASSWORD,
+  port: process.env.PGPORT
+});
+
+const APP_STATE = {};
+
+DB_CLIENT.on('error', err => {
+	APP_STATE.isDBdead = true;
+
+  console.error('PostgreSQL shit has happened!', err.stack);
+
+  process.kill(process.pid, 'SIGINT');
+})
+
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+const app = async () => {
+
+try {
+	await DB_CLIENT.connect();
+  console.log('PostgreSQL is connected.');
+} catch (e) {
+  throw e;
+}
+
+ISofU.ids = {};
+ISofU.lang_codes_ru = {};
+(await DB_CLIENT.query(`
+	SELECT lang_code_ru, lang_code_en, id
+	FROM terms_and_their_translations
+	WHERE internal_definition_number IN (1,2);
+`)).rows.forEach(i => {
+	ISofU.push(i);
+	ISofU.ids[i.id] = i.lang_code_ru;
+	ISofU.lang_codes_ru[i.lang_code_ru.toLowerCase()] = i.id;
+});
+
+(await DB_CLIENT.query(`
+	SELECT lang_code_ru, lang_code_en, regexp_list_ru, internal_definition_number
+	FROM terms_and_their_translations
+	WHERE internal_definition_number IN (3, 4);
+`)).rows.forEach(i =>
+	NUTRIENTS.push(i));
+
+NUTRIENTS.forEach(i => {
+		let word = i.regexp_list_ru.join('|');
+		
+		RE_RU_NUTRIENTS.push(
+			new RegExp(`(${word})(\\s+|)(\\d+(\\s+|)(,|\\.)(\\s+|)\\d+|\\d+)(\\s+|)`, 'u') //(г|мкг|мг|ккал|)`, 'u')
+		)
+	
+
+		//en version
+
+
+	}
+);
+
+//console.log(NUTRIENTS, RE_RU_NUTRIENTS)
+
+const cleanFromOldUserCommands = async () => {
+	while (true) {
+		await DB_CLIENT.query(`
+			UPDATE telegram_user_commands tuc
+			SET completed = true,
+			time_is_up = true,
+			data = '{}',
+			life_time_ending = NULL
+			FROM (
+				SELECT *
+				FROM telegram_user_commands
+				WHERE completed != TRUE
+					AND life_time_ending < '${(new Date()).toISOString()}'
+			) as tuc2
+			WHERE tuc2.id = tuc.id;
+		`);
+		
+		await delay(30000);
+	}
+};
+
+const cleanTGUsersLastActionTime = async () => {
+	while (true) {
+		const date = Date.now();
+		const keys = Object.keys(TG_USERS_LAST_ACTION_TIME);
+
+		keys.forEach(k => {
+			if (date - TG_USERS_LAST_ACTION_TIME[k] > 5555) {
+				delete TG_USERS_LAST_ACTION_TIME[k];
+			}
+		});
+
+		await delay(5555);
+	}
+};
+
+const cleanLimitationOfUCFI = async () => {
+	while (true) {
+		const date = (new Date(Date.now() - 1000*60*60*24)).toISOString();
+	
+		await DB_CLIENT.query(`
+			UPDATE registered_users
+			SET first_user_created_fidi_time = null,
+			limit_count_of_user_created_fidi = null
+			WHERE first_user_created_fidi_time < '${date}'
+		;`);
+
+		await delay(30000);
+	}
+}
+
+const cleanTGInlineKeyboards = async () => {
+	while (true) {
+		const res = await DB_CLIENT.query(`
+			SELECT *
+			FROM telegram_inline_keyboards
+			WHERE	inline_keyboard_deleted = FALSE
+			AND life_time_ending < '${(new Date()).toISOString()}'
+			limit 1000
+		;`);
+
+		// const done = [];
+		res.rows.forEach(async e => {
+			try {
+				await bot.telegram.deleteMessage(e.tg_user_id, e.message_id);
+				//delete or replace inline_keyboard
+				// done.push(e.id);
+
+				await DB_CLIENT.query(`
+					UPDATE telegram_inline_keyboards
+					SET inline_keyboard_deleted = true
+					WHERE id = ${e.id}
+				;`);
+			} catch (e) {
+				console.log(e);
+			}
+		});
+
+		await delay(5000);
+	}
+};
+
+cleanFromOldUserCommands();
+cleanTGUsersLastActionTime();
+cleanLimitationOfUCFI();
+// cleanTGInlineKeyboards();
+
+
+const cleanArrFromRecurringItems = arr => {
+	for ( let i = 0; i < arr.length; i++) {					
+		for ( let k = i + 1; k < arr.length; k++) {
+			if (arr[i] == arr[k]) {
+				arr.splice(k, 1);
+				k--;
+			}
+		}
+	}
+	return arr;
+}
+
+const execAndGetAllREResults = (str, re) => {
+	if (!re.global) {
+		throw `RegExp has not global flag.`;
+	}
+	const result = [];
+	let arr;
+	while ((arr = re.exec(str)) !== null) {
+		result.push(arr[0]);
+	}
+	return result;
+}
+
+
+
+
+bot.use(async (ctx, next) => {
+	console.log(
+		`____use____________start`,
+		JSON.stringify(ctx.update),
+		// ctx,
+		`____use____________end`,
+	);
+
+
+	let from;
+	let date;
+
+	if (!!ctx.update.message) {
+		from = ctx.update.message.from;
+		date = ctx.update.message.date;
+	} else if (!!ctx.update.edited_message) {// ??? check them or not?
+		from = ctx.update.edited_message.from;
+		date = ctx.update.edited_message.date;
+	} else if (!!ctx.update.inline_query) {
+		from = ctx.update.inline_query.from;
+		date = ctx.update.inline_query.date;
+	} else if (!!ctx.update.chosen_inline_result) {
+		from = ctx.update.chosen_inline_result.from;
+		date = ctx.update.chosen_inline_result.date;
+	} else if (!!ctx.update.callback_query) {
+		from = ctx.update.callback_query.from;
+		date = ctx.update.callback_query.date;
+	} else if (!!ctx.update.shipping_query) {
+		from = ctx.update.shipping_query.from;        
+		date = ctx.update.shipping_query.date;
+		//create table
+	} else if (!!ctx.update.pre_checkout_query) {
+		from = ctx.update.pre_checkout_query.from;
+		date = ctx.update.pre_checkout_query.date;
+
+	} else if (!!ctx.update.poll) {
+		from = ctx.update.poll.from;
+		date = ctx.update.poll.date;
+		//create table
+	} else if (!!ctx.update.poll_answer) {
+		from = ctx.update.poll_answer.from;
+		date = ctx.update.poll_answer.date;
+
+	} else if (!!ctx.update.my_chat_member) {
+		from = ctx.update.my_chat_member.from;
+		date = ctx.update.my_chat_member.date;
+		//create table
+	} else if (!!ctx.update.chat_member) {
+		from = ctx.update.chat_member.from;
+		date = ctx.update.chat_member.date;
+	} else if (!!ctx.update.chat_join_request) {
+		from = ctx.update.chat_join_request.from;
+		date = ctx.update.chat_join_request.date;
+		//create table
+	} else if (!!ctx.update.channel_post) {
+		from = ctx.update.channel_post.from;
+		date = ctx.update.channel_post.date;
+		return; //create table???
+	} else if (!!ctx.update.edited_channel_post) {
+		from = ctx.update.edited_channel_post.from;
+		date = ctx.update.edited_channel_post.date;
+		return;
+	}
+
+	//antispam validaciya
+	if (!TG_USERS_LAST_ACTION_TIME[`${from.id}`] || date - TG_USERS_LAST_ACTION_TIME[`${from.id}`][0] > 1) {
+		TG_USERS_LAST_ACTION_TIME[`${from.id}`] = [date];
+	} else if (date - TG_USERS_LAST_ACTION_TIME[`${from.id}`][0] == 1 && TG_USERS_LAST_ACTION_TIME[`${from.id}`].length < 3) {
+		TG_USERS_LAST_ACTION_TIME[`${from.id}`].push(date);
+	} else {
+		return;
+	}
+
+
+	HZ.checkTelegramUserExistentAndRegistryHimIfNotExists(DB_CLIENT, from.id, from.is_bot);
+
+	if (process.env.TRACKMODE) {
+		HZ.trackTelegramUserAccountDataChanges(DB_CLIENT, from);
+	}
+
+	/* if (!from.is_bot){
+		let row = {};
+		// row.tg_user_id = from.id;
+		row.log = JSON.stringify(ctx.update);
+		row.creation_date = new Date();
+		
+		let paramQuery = {};
+		paramQuery.text = `
+			INSERT INTO telegram_user_log
+			(${objKeysToColumnStr(row)})
+			VALUES
+			(${objKeysToColumn$IndexesStr(row)})
+		;`;
+		paramQuery.values = getArrOfValuesFromObj(row);
+		
+		await DB_CLIENT.query(paramQuery);
+	} */
+
+	next();
+});
+
+bot.on(`message`, async ctx => {
+	/* console.log(
+		`________MESSAGE________start`,
+		Object.keys( ctx),
+		ctx.update,
+		ctx,
+		`________MESSAGE________end`
+	) */
+
+	if(ctx.update.message.chat.type == `private` && ctx.update.message.from.id != 2147423284) {
+		ctx.reply(`Я нахожусь в разработке. Посмотрите новости здесь @food_dairy. Напишите сюда @food_dairy_chat.\nI'm in development. See news here @food_dairy. Text here @food_dairy_chat.`);
+		return;
+	}
+
+
+	if(ctx.update.message.from.id != 2147423284) {
+		//ctx.reply(`Я нахожусь в разработке, напишите сюда @food_dairy_chat.\nRight now I'm being developed, write here @food_dairy_chat.`);
+		return;
+	}
+
+
+	if(ctx.update.message.from.is_bot) {
+		return;
+	}
+
+	if (!!ctx.update.via_bot && ctx.update.via_bot.id == 5467847506) {
+		
+	}
+
+	// console.log(ctx.update)
+	if (ctx.update.message.chat.type == `private`) {
+
+		const userInfo = await HZ.getTelegramUserInfo(DB_CLIENT, ctx.update.message.from.id);
+		const confirmCommand = (await DB_CLIENT.query(`
+			SELECT *
+			FROM telegram_user_sended_commands
+			WHERE tg_user_id = ${userInfo.tg_user_id}
+			AND confirmation 
+			limit 1;
+		`)).rows[0];
+
+			console.log(
+		userInfo,
+				confirmCommand
+	);
+		
+		let re_result;
+	
+		if(!ctx.update.message.text){
+			return;//
+		}
+
+		let text = ctx.update.message.text;
+		text = text.replaceAll(/\s+/g, ` `).trim().toLowerCase();
+	
+		if(!confirmCommand){
+	
+			if (Array.isArray(re_result = text.match(RE_RU_COMMAND__DELETE_LAST_ACTION))) {
+				const userLastCommand = (await DB_CLIENT.query(`
+						SELECT *
+						FROM telegram_user_sended_commands
+						WHERE	tg_user_id = ${userInfo.tg_user_id}
+						ORDER BY id DESC
+						LIMIT 1;
+				`)).rows[0];
+
+				console.log(userLastCommand);
+
+				if (!userLastCommand.can_it_be_removed){
+					ctx.reply(`Прости, не знаю, что удалить... Т_Т`);
+					return;
+				}
+				
+				if (userLastCommand.command == `CREATE_FOOD`) {
+					//deleted true food_items
+					//registered_users available_count_of_user_created_fi - 1 //add check for all users
+					//telegram_user_sended_commands add otmenu
+					//predlojit' otmenu
+					//
+					//
+				}
+
+				return;
+
+				let row = {};
+				row.tg_user_id = userInfo.tg_user_id;
+				row.creation_date = fi_creation_date;
+				row.command = `CREATE_FOOD`;
+				row.can_it_be_removed = true;
+
+				row.data = {};
+				row.data.food_items_id = foodItemsRes.rows[0].id;
+
+				row.data = JSON.stringify(row.data);
+	
+				paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO telegram_user_sended_commands
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)});`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				await db.query(paramQuery);
+
+				/* const extraParameters = telegraf.Markup.inlineKeyboard(
+					// [[telegraf.Markup.button.callback(`12`,`123`)]]
+					[]
+						// [[telegraf.Markup.button.callback(`1`, `iugblu`), telegraf.Markup.button.callback(`1<<`, `iugblu`)]]
+				);
+
+				extraParameters.parse_mode = 'HTML';
+				extraParameters.protect_content = true;
+				// extraParameters.allow_sending_without_reply = true;
+				// extraParameters.reply_to_message_id = ctx.update.message.message_id;
+				
+				 const response = await bot.telegram.editMessageText(
+					ctx.update.message.chat.id,
+					583,
+					``,
+					`asdasdasd`,
+					extraParameters
+				); 
+
+				const response = await bot.telegram.editMessageReplyMarkup(
+					ctx.update.message.chat.id,
+					583,
+					``,
+					extraParameters
+				);
+
+				console.log(
+					extraParameters,
+					response
+				); */
+
+
+			} else if (Array.isArray(re_result = text.match(RE_RU_BOT_AND_INLINE_COMMAND__SHOW_EATEN))) {
+				console.log(re_result);			
+			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__DELETE_TODAY_ID_EATEN_FOOD_OR_DISH))) {
+				console.log(re_result);			
+			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__DELETE_ALLTIME_ID_EATEN_FOOD_OR_DISH))) {
+				console.log(re_result);			
+			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__CREATE_FOOD))) {
+				console.log(re_result, `RE_RU_COMMAND__CREATE_FOOD`);
+
+				let db = DB_CLIENT;
+
+				let limit_count_of_user_created_fidi = 100;
+				if (!userInfo.privilege_type && userInfo.limit_count_of_user_created_fidi >= limit_count_of_user_created_fidi) { //think about it...
+					const limitResp =`Вы не можете создавать еду или блюда больше ${limit_count_of_user_created_fidi} раз за 24ч.`;
+					ctx.reply(limitResp);
+					return;
+					/* {
+						result: false,
+						cause: `limit_count_of_user_created_fidi`,
+						message: `Вы не можете создавать еду больше ${limit_count_of_user_created_fidi} раз за 24ч.`
+					}; */
+				}
+
+				let askingConfirmationResponse = `*Чпок, и готооова...*`;
+					
+				const foodName = (re_result[4].trim()).slice(0, 128); // poisk odinakovih imen, otpravka i ojidanie podtverjdeniya
+				askingConfirmationResponse += `\n\n\`\`\`\n${foodName}.\n`;
+
+				const foodNutrientMatches = [];
+
+				text = re_result.input.slice(re_result[0].length);
+				console.log(re_result, text)
+
+				RE_RU_NUTRIENTS.forEach((el, i) => {
+					const match = text.match(el);
+					
+					if (!Array.isArray(match)){
+						const obj = NUTRIENTS[i];
+						obj.nutrientName = NUTRIENTS[i].lang_code_en.replaceAll(/\s+/g, `_`);
+						obj[obj.nutrientName] = 0;
+						foodNutrientMatches.push(obj);
+						return;
+					}
+
+					const obj = NUTRIENTS[i];
+					obj.nutrientName = NUTRIENTS[i].lang_code_en.replaceAll(/\s+/g, `_`);
+					let strNutrientValue = match[3].replace(`,`, `.`);
+					let dotMatch = strNutrientValue.match(/\./);
+					if (Array.isArray(dotMatch)) {
+						strNutrientValue = strNutrientValue.slice(0, dotMatch.index + 3);
+					}
+					obj[obj.nutrientName] = Number(strNutrientValue);
+					foodNutrientMatches.push(obj);
+				});	
+
+				let noNutrientsResp = `Нутриентов не обнаружено. T_T`;
+				if (foodNutrientMatches.length == 0){ //podumat' o zamene, prosloyke i td...
+
+					ctx.reply(noNutrientsResp);
+
+					return;
+				}
+
+
+
+				let cal = foodNutrientMatches.find(el => el.nutrientName == `caloric_content`);
+				if(!cal.caloric_content){
+					let nutrient;
+
+					cal.caloric_content += (nutrient = foodNutrientMatches.find(el => el.nutrientName == `fat`)) ? nutrient.fat * 9 : 0;
+					cal.caloric_content += (nutrient = foodNutrientMatches.find(el => el.nutrientName == `carbohydrate`)) ? nutrient.carbohydrate * 4 : 0;
+					cal.caloric_content += (nutrient = foodNutrientMatches.find(el => el.nutrientName == `protein`)) ? nutrient.protein * 4 : 0;	
+				}
+
+
+
+				let nutrientValueMistakeResp = ``;
+				let sumOfBJU = 0;
+				foodNutrientMatches.forEach(el => {
+					if (el.internal_definition_number == 4 && el.caloric_content > 900) {// caloric_content
+						nutrientValueMistakeResp += `\n${el.lang_code_ru.slice(0,1).toUpperCase() + el.lang_code_ru.slice(1)} не может превышать 900 кКал.`;
+					}
+					if (el.internal_definition_number == 3 && el[el.nutrientName] > 100) { //БЖУ
+						nutrientValueMistakeResp += `\n${el.lang_code_ru.slice(0,1).toUpperCase() + el.lang_code_ru.slice(1)} не могут превышать 100 грамм.`;
+					}
+					if (el.internal_definition_number == 3) { //БЖУ sum
+						sumOfBJU += el[el.nutrientName];
+					}
+
+				});
+
+				if (Math.round(sumOfBJU) > 100) {
+					nutrientValueMistakeResp += `\nСумма БЖУ не может быть больше 100 грамм.`;
+				}
+				
+				if (nutrientValueMistakeResp) {//think about it
+					ctx.reply(nutrientValueMistakeResp);
+					return;
+				}
+
+
+				
+				foodNutrientMatches.forEach(el => {
+					askingConfirmationResponse += `\n  ${el.lang_code_ru} ${el[el.nutrientName]}`;
+					if (el.caloric_content){
+						askingConfirmationResponse += ` ккал`;
+					} else {
+						askingConfirmationResponse += ` г`;
+					}
+				});
+
+				askingConfirmationResponse += `\n\`\`\`\n\nОшибка? Отправьте *"у/удалить"*.`;
+
+
+				if (typeof userInfo.limit_count_of_user_created_fidi == `string`) {
+					userInfo.limit_count_of_user_created_fidi = Number(userInfo.limit_count_of_user_created_fidi);
+				} else {
+					userInfo.limit_count_of_user_created_fidi = 0;
+				}
+
+				const fi_creation_date = (new Date()).toISOString();
+				let row = {};
+				row.creation_date = fi_creation_date; 
+				row.tg_user_id = ctx.update.message.from.id;
+				row.view_json = {};
+				row.name__lang_code_ru = foodName;
+
+				foodNutrientMatches.forEach(e => {
+					row.view_json[e.nutrientName] = e[e.nutrientName];
+					row[e.nutrientName] = e[e.nutrientName];
+				});
+
+				row.view_json = JSON.stringify(row.view_json);
+
+				userInfo.count_of_user_created_fi = userInfo.count_of_user_created_fi ? Number(userInfo.count_of_user_created_fi) + 1 : 1;
+				row.fi_id_for_user = userInfo.count_of_user_created_fi;
+
+				let paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO food_items
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+					RETURNING id;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				const foodItemsRes = await db.query(paramQuery);
+				//do u remember me?
+				/* await db.query(`
+					INSERT INTO search_all_food
+					(name_tsv, user_created_food_items_id, r_user_id)
+					VALUES
+					(to_tsvector('simple', '${row.user_food_name}'),
+					${idOfucfi},
+					${row.r_user_id});
+				`); */
+
+
+
+
+				row = {};
+				row.tg_user_id = userInfo.tg_user_id;
+				row.creation_date = fi_creation_date;
+				row.command = `CREATE_FOOD`;
+				row.can_it_be_removed = true;
+
+				row.data = {};
+				row.data.food_items_id = foodItemsRes.rows[0].id;
+
+				row.data = JSON.stringify(row.data);
+	
+				paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO telegram_user_sended_commands
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)});`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				await db.query(paramQuery);
+
+
+
+
+				let setFUCFIDITime;
+				let setLimitCOfFIDI;
+
+				if (!userInfo.privilege_type) {
+					if (!userInfo.first_user_created_fidi_time) {
+						setFUCFIDITime = `first_user_created_fidi_time = '${fi_creation_date}'`;
+					}
+					setLimitCOfFIDI = `limit_count_of_user_created_fidi= ${userInfo.limit_count_of_user_created_fidi + 1}`;
+				}
+				
+				if (!userInfo.available_count_of_user_created_fi) {
+					userInfo.available_count_of_user_created_fi = 1;
+				} else {
+					userInfo.available_count_of_user_created_fi = Number(userInfo.available_count_of_user_created_fi) + 1;
+				}
+
+				await db.query(`
+					UPDATE registered_users
+					SET available_count_of_user_created_fi = ${userInfo.available_count_of_user_created_fi},
+					count_of_user_created_fi = ${userInfo.count_of_user_created_fi}
+					${setLimitCOfFIDI ? ', ' + setLimitCOfFIDI : ``}
+					${setFUCFIDITime ? ', ' + setFUCFIDITime : ``}
+					WHERE id = ${userInfo.r_user_id};
+				`);
+	
+
+
+				ctx.reply(askingConfirmationResponse, { parse_mode: 'Markdown', allow_sending_without_reply: true });
+
+			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__CREATE_DISH))) {
+				console.log(re_result);			
+			/* } else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__EDIT_CREATED_FOOD_OR_DISH))) {
+				console.log(re_result);			 */
+			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__SHOW_CREATED_FOOD_OR_DISHES))) {
+				console.log(re_result);
+
+				// if ()
+
+				const makeUnderlineIDOfUCFI = intId => {
+					if (!(typeof intId == `number`) && !(typeof intId == `string`) || Number.isNaN(Number(intId))) {
+						throw `intId is not number at all.`;
+					}
+					const str = String(intId);
+					const maxStrIDLength = 7;
+					
+					let result = ``;
+
+					for (let i = 0, diff = maxStrIDLength - str.length; i < diff; i++) {
+						result += `_`;
+					}
+					result += str;
+
+					return result;
+				};
+
+				if (re_result[5] == `е` || re_result[5] == `еду`) {
+			
+					const maxNumberOfLines = 10;
+					let selectedPage = 1;
+			
+					let numberOfPages = userInfo.available_count_of_user_created_fi / maxNumberOfLines;
+					const numberOfPagesRound = Math.round(numberOfPages);
+					const numberOfPagesFloor = Math.floor(numberOfPages);
+					numberOfPages = numberOfPagesRound > numberOfPagesFloor ? numberOfPagesRound : numberOfPagesFloor + 1;
+			
+					const pages = {};
+					pages.first = 1;
+					pages.selected = selectedPage;
+					pages.last = numberOfPages;
+			
+					if (numberOfPages == 1) {
+						pages.movePrevious = 1;
+						pages.movePreviousMinusFive = 1;
+						pages.selected = 1;
+						pages.moveNext = 1;
+						pages.moveNextPlusFive = 1;
+					} else if (numberOfPages > 1) {
+						pages.moveNext = selectedPage + 1;
+						if (pages.moveNext > numberOfPages) {
+							pages.moveNext = numberOfPages;
+						}
+			
+						pages.moveNextPlusFive = selectedPage + 6;
+						if (pages.moveNextPlusFive > numberOfPages - 1) {
+							pages.moveNextPlusFive = selectedPage + Math.round((numberOfPages - selectedPage ) / 2);
+						}
+					}
+			
+					if (selectedPage > numberOfPages){
+						selectedPage = numberOfPages;
+			
+						pages.selected = numberOfPages;
+						pages.moveNext = numberOfPages;
+						pages.moveNextPlusFive = numberOfPages;
+					}
+			
+					if (selectedPage > 1) {
+						pages.movePrevious = selectedPage - 1;
+						pages.movePreviousMinusFive = selectedPage - 6;
+						if (pages.movePreviousMinusFive < 1) {
+							pages.movePreviousMinusFive = Math.floor(selectedPage / 2);
+						}
+					} else {
+						pages.movePrevious = 1;
+						pages.movePreviousMinusFive = 1;
+					}
+
+					const str_listOfUCFI = `<b>Cписок вами созданной еды.</b> Всего: <b>${userInfo.available_count_of_user_created_fi}</b>.\n<b>_____ID</b> <b><i>Название еды</i></b> БЖУК (на 100г)`;
+
+					const res = await DB_CLIENT.query(`
+						SELECT view_json, ucfi_id_for_user
+						FROM user_created_food_items
+						WHERE r_user_id = ${userInfo.r_user_id}
+						AND deleted = false
+						ORDER BY ucfi_id_for_user DESC
+						LIMIT ${maxNumberOfLines};
+					`);
+					
+					let text = str_listOfUCFI;
+
+					res.rows.forEach(e => {
+						text += `\n<b>${makeUnderlineIDOfUCFI(e.ucfi_id_for_user)}</b> <b><i>${
+							e.view_json.user_food_name}</i></b> Б:${
+							e.view_json.protein ? e.view_json.protein : 0} Ж:${
+							e.view_json.fat ? e.view_json.fat : 0} У:${
+							e.view_json.carbohydrate ? e.view_json.carbohydrate : 0} К:${
+							e.view_json.caloric_content ? e.view_json.caloric_content : 0}`
+					});
+
+					const extraParameters = telegraf.Markup.inlineKeyboard([[
+							telegraf.Markup.button.callback(`${pages.first}`, `ucfi${pages.first}`),
+							telegraf.Markup.button.callback(`${pages.movePreviousMinusFive}<<`, `ucfi${pages.movePreviousMinusFive}`),
+							telegraf.Markup.button.callback(`${pages.movePrevious}<`, `ucfi${pages.movePrevious}`),
+							telegraf.Markup.button.callback(`${pages.selected}`, `ucfi${pages.selected}`),
+							telegraf.Markup.button.callback(`>${pages.moveNext}`, `ucfi${pages.moveNext}`),
+							telegraf.Markup.button.callback(`>>${pages.moveNextPlusFive}`, `ucfi${pages.moveNextPlusFive}`),
+							telegraf.Markup.button.callback(`${pages.last}`, `ucfi${pages.last}`)
+					]]);
+					
+					extraParameters.parse_mode = 'HTML';
+					extraParameters.protect_content = true;
+					extraParameters.allow_sending_without_reply = true;
+					extraParameters.reply_to_message_id = ctx.update.message.message_id;
+				
+					const response = await bot.telegram.sendMessage(
+						ctx.update.message.chat.id,
+						text,
+						extraParameters
+					);
+
+					let row = {};
+					row.tg_user_id = ctx.update.message.from.id;
+					row.chat_id = response.chat.id;
+					row.message_id = response.message_id;
+					row.creation_date = new Date();
+					row.life_time_ending = new Date(row.creation_date.valueOf() + 600000);
+
+					let paramQuery = {};
+					paramQuery.text = `
+						INSERT INTO telegram_inline_keyboards
+						(${objKeysToColumnStr(row)})
+						VALUES
+						(${objKeysToColumn$IndexesStr(row)})
+					;`;
+					paramQuery.values = getArrOfValuesFromObj(row);
+					
+					await DB_CLIENT.query(paramQuery);
+
+					row = {};
+					row.creation_date = new Date();
+					row.tg_user_id = ctx.update.message.from.id;
+					row.command = `SHOW_CREATED_FOOD_OR_DISHES`;
+					row.executed = true;
+					row.completed = true;
+					
+					paramQuery = {};
+					paramQuery.text = `
+						INSERT INTO telegram_user_commands
+						(${objKeysToColumnStr(row)})
+						VALUES
+						(${objKeysToColumn$IndexesStr(row)})
+					;`;
+					paramQuery.values = getArrOfValuesFromObj(row);
+					
+					await DB_CLIENT.query(paramQuery);
+				} else {
+					ctx.reply(`code me, bitch`);
+					console.log(`блюда не написаны...`);
+				}
+
+			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__DELETE_CREATED_FOOD_OR_DISH))) {
+				console.log(re_result);
+				if (re_result[3] == `е` || re_result[3] == `еду`) {
+					const ucfi_ids_for_user_str = re_result[7];
+					let ucfi_ids_for_user_arr = [];
+					const num_re = /[0-9]+/g;
+
+					ucfi_ids_for_user_arr = execAndGetAllREResults(ucfi_ids_for_user_str, num_re);
+					ucfi_ids_for_user_arr = cleanArrFromRecurringItems(ucfi_ids_for_user_arr);
+					// check existance of that ucfi_ids_for_user_arr
+					let row = {};
+
+					let paramQuery = {};
+					paramQuery.text = `
+						SELECT deleted
+						FROM user_created_food_items
+						WHERE r_user_id = ${userInfo.r_user_id}
+						AND ucfi_id_for_user = ANY (ARRAY[${ucfi_ids_for_user_arr.join(', ')}])
+						AND deleted
+					;`;
+
+					let res = await DB_CLIENT.query(paramQuery);
+
+					console.log(res);
+					if (res.rows.length) {
+						ctx.reply(`Уже удалено.`)
+						return;
+					}
+
+					// add to telegram_user_commands
+					row = {};
+					row.creation_date = new Date();
+					row.tg_user_id = ctx.update.message.from.id;
+					row.command = `DELETE_CREATED_FOOD`;
+					row.data = JSON.stringify({
+						ids: ucfi_ids_for_user_arr
+					});
+					row.executed = true;
+					row.completed = true;
+					
+					paramQuery = {};
+					paramQuery.text = `
+						INSERT INTO telegram_user_commands
+						(${objKeysToColumnStr(row)})
+						VALUES
+						(${objKeysToColumn$IndexesStr(row)})
+					;`;
+					paramQuery.values = getArrOfValuesFromObj(row);
+					
+					await DB_CLIENT.query(paramQuery);
+
+					// update deleted search_all_food rows
+					row = {};
+					row.deleted = true;
+
+					paramQuery = {};
+					paramQuery.text = `
+						UPDATE search_all_food
+						SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
+						WHERE r_user_id = ${userInfo.r_user_id}
+						AND user_created_food_items_id = ANY (ARRAY[${ucfi_ids_for_user_arr.join(', ')}])
+					;`;
+
+					await DB_CLIENT.query(paramQuery);
+					// update deleted ucfi rows   
+					row = {};
+					row.deleted = true;
+
+					paramQuery = {};
+					paramQuery.text = `
+						UPDATE user_created_food_items
+						SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
+						WHERE r_user_id = ${userInfo.r_user_id}
+						AND ucfi_id_for_user = ANY (ARRAY[${ucfi_ids_for_user_arr.join(', ')}])
+					;`;
+
+					await DB_CLIENT.query(paramQuery);
+
+					// update ucfi avaible in registered_users
+
+					await DB_CLIENT.query(`
+						UPDATE registered_users ru
+						SET available_count_of_user_created_fi = ucfi.count
+						FROM (
+							SELECT count(*) AS count
+							FROM user_created_food_items ucfi
+							WHERE ucfi.r_user_id = ${userInfo.r_user_id}
+							AND NOT ucfi.deleted
+						) AS ucfi
+						WHERE ru.id = ${userInfo.r_user_id};
+					`);
+
+					ctx.reply(`Удалено.`);
+				} else {
+					ctx.reply(`code me, btch`)
+					console.log(`b`)
+				}
+			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__CREATE_AIM))) {
+				console.log(re_result);			
+			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__COMPLETE_AIM))) {
+				console.log(re_result);			
+			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__SHOW_AIMS))) {
+				console.log(re_result);			
+			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__DELETE_AIM))) {
+				console.log(re_result);			
+			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__ADD_WEIGHTING))) {
+				console.log(re_result);			
+			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__DELETE_LAST_ADDED_WEIGHTING))) {
+				console.log(re_result);			
+			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__CANCEL))) {
+				console.log(re_result);		
+			} else if (Array.isArray(re_result = text.match(RE_RU_BOT_AND_INLINE_COMMAND__GET_STATS))) {
+				console.log(re_result);			
+			} else {
+				//ne mogu raspoznat' zapros //ssilka na manual
+
+				ctx.reply(`Не понимаю команду.\n\n*Краткая инструкция:*\n-создать еду\n  се мороженое Обамка. б3,4ж17,2у22,2к257\nи т.д.\n\n\nПодробная инструкция ссылка.`, { parse_mode: 'Markdown', allow_sending_without_reply: true })
+
+	
+			}
+		} else {
+			console.log(`user has last command`);
+			if (Array.isArray(re_result = text.match(RE_RU_YES))) {
+				console.log(re_result);
+
+				switch (confirmCommand.command) {
+					case `CREATE_FOOD`:						
+						await COMMAND__CREATE_FOOD__YES(confirmCommand, userInfo, DB_CLIENT);
+						ctx.reply(`Еда создана успешно.`);
+						break;
+		
+					default:
+						break;
+				}
+				
+			} else if (Array.isArray(re_result = text.match(RE_RU_NO))) {
+				console.log(re_result);
+				
+				switch (confirmCommand.command) {
+					case `CREATE_FOOD`:
+						await COMMAND__CREATE_FOOD__NO(DB_CLIENT, confirmCommand.id);
+						ctx.reply(`Создание еды отменено.`);
+						break;
+		
+					default:
+						break;
+				}
+			} else if (confirmCommand.command == `CREATE_DISH` && Array.isArray(re_result = text.match(RE_RU_COMMAND__CREATE_DISH_END))) {
+				console.log(re_result);			
+			} else {
+				ctx.reply(`Завершите операцию.`);	
+			}
+		}
+
+	}
+
+
+});
+
+/*
+ *{"update_id":517932729,"message":{"message_id":9,"from":{"id":2147423284,"is_bot":false,"first_name":"АРЧㅤ","language_code":"en"},"chat":{"id":2147423284,"first_name":"АРЧㅤ","type":"private"},"date":1657435311,"text":"gtybc"}} Context {
+ {"update_id":517932732,"message":{"message_id":10,"from":{"id":2147423284,"is_bot":false,"first_name":"АРЧㅤ","language_code":"en"},"chat":{"id":2147423284,"first_name":"АРЧㅤ","type":"private"},"date":1657435343,"text":"message text","via_bot":{"id":5467847506,"is_bot":true,"first_name":"Тест","username":"edac_bot"}}}
+ {"update_id":517932734,"message":{"message_id":11,"from":{"id":2147423284,"is_bot":false,"first_name":"АРЧㅤ","language_code":"en"},"chat":{"id":2147423284,"first_name":"АРЧㅤ","type":"private"},"date":1657436156,"forward_from":{"id":2147423284,"is_bot":false,"first_name":"АРЧㅤ","language_code":"en"},"forward_date":1657436149,"text":"message text","via_bot":{"id":5467847506,"is_bot":true,"first_name":"Тест","username":"edac_bot"}}}
+ {"update_id":517932737,"message":{"message_id":13,"from":{"id":2147423284,"is_bot":false,"first_name":"АРЧㅤ","language_code":"en"},"chat":{"id":-792733748,"title":"ботовая","type":"group","all_members_are_administrators":true},"date":1657442887,"text":"a"}}
+ {"update_id":517932738,"my_chat_member":{"chat":{"id":-1001579743247,"title":"ботовая","type":"channel"},"from":{"id":2147423284,"is_bot":false,"first_name":"АРЧㅤ","language_code":"en"},"date":1657446953,"old_chat_member":{"user":{"id":5467847506,"is_bot":true,"first_name":"Тест","username":"edac_bot"},"status":"left"},"new_chat_member":{"user":{"id":5467847506,"is_bot":true,"first_name":"Тест","username":"edac_bot"},"status":"administrator","can_be_edited":false,"can_manage_chat":true,"can_change_info":true,"can_post_messages":true,"can_edit_messages":true,"can_delete_messages":true,"can_invite_users":true,"can_restrict_members":true,"can_promote_members":false,"can_manage_video_chats":true,"is_anonymous":false,"can_manage_voice_chats":true}}}
+{"update_id":517932833,"inline_query":{"id":"9223112777671489909","from":{"id":2147423284,"is_bot":false,"first_name":". _","last_name":".","username":"zov_hohol","language_code":"en"},"chat_type":"sender","query":"435 г фаыв","offset":""}} 
+{"update_id":517932826,"my_chat_member":{"chat":{"id":2147423284,"first_name":". _","last_name":".","username":"zov_hohol","type":"private"},"from":{"id":2147423284,"is_bot":false,"first_name":". _","last_name":".","username":"zov_hohol","language_code":"en"},"date":1658606052,"old_chat_member":{"user":{"id":5467847506,"is_bot":true,"first_name":"Тест","username":"edac_bot"},"status":"member"},"new_chat_member":{"user":{"id":5467847506,"is_bot":true,"first_name":"Тест","username":"edac_bot"},"status":"kicked","until_date":0}}} Context 
+"update_id":517932827,"my_chat_member":{"chat":{"id":2147423284,"first_name":". _","last_name":".","username":"zov_hohol","type":"private"},"from":{"id":2147423284,"is_bot":false,"first_name":". _","last_name":".","username":"zov_hohol","language_code":"en"},"date":1658607560,"old_chat_member":{"user":{"id":5467847506,"is_bot":true,"first_name":"Тест","username":"edac_bot"},"status":"kicked","until_date":0},"new_chat_member":{"user":{"id":5467847506,"is_bot":true,"first_name":"Тест","username":"edac_bot"},"status":"member"}}} Context {
+{"update_id":517932828,"message":{"message_id":36,"from":{"id":2147423284,"is_bot":false,"first_name":". _","last_name":".","username":"zov_hohol","language_code":"en"},"chat":{"id":2147423284,"first_name":". _","last_name":".","username":"zov_hohol","type":"private"},"date":1658607561,"text":"/start","entities":[{"offset":0,"length":6,"type":"bot_command"}]}} Context {
+
+ *
+ * */
+bot.on(`callback_query`, async ctx => {
+	console.log(
+		`____________callback_____________`,
+		JSON.stringify(ctx.update),
+		ctx.update,
+		ctx,
+		`____________callbavk_____________`
+	);
+
+	const callbackQuery = ctx.update.callback_query;
+	
+	if(callbackQuery.from.id != 2147423284) {
+		return;
+	}
+	
+	const userInfo = await HZ.getTelegramUserInfo(DB_CLIENT, callbackQuery.from.id);
+	
+	if (callbackQuery.data.slice(0, 4) == `ucfi`) {
+
+		const maxNumberOfLines = 10;
+
+		let selectedPage = Number(callbackQuery.data.slice(4));
+
+		let numberOfPages = userInfo.available_count_of_user_created_fi / maxNumberOfLines;
+		const numberOfPagesRound = Math.round(numberOfPages);
+		const numberOfPagesFloor = Math.floor(numberOfPages);
+		numberOfPages = numberOfPagesRound > numberOfPagesFloor ? numberOfPagesRound : numberOfPagesFloor + 1;
+
+		const pages = {};
+		pages.first = 1;
+		pages.selected = selectedPage;
+		pages.last = numberOfPages;
+
+		if (numberOfPages == 1) {
+			pages.movePrevious = 1;
+			pages.movePreviousMinusFive = 1;
+			pages.selected = 1;
+			pages.moveNext = 1;
+			pages.moveNextPlusFive = 1;
+		} else if (numberOfPages > 1) {
+			pages.moveNext = selectedPage + 1;
+			if (pages.moveNext > numberOfPages) {
+				pages.moveNext = numberOfPages;
+			}
+
+			pages.moveNextPlusFive = selectedPage + 6;
+			if (pages.moveNextPlusFive > numberOfPages - 1) {
+				pages.moveNextPlusFive = selectedPage + Math.round((numberOfPages - selectedPage ) / 2);
+			}
+		}
+
+		if (selectedPage > numberOfPages){
+			selectedPage = numberOfPages;
+
+			pages.selected = numberOfPages;
+			pages.moveNext = numberOfPages;
+			pages.moveNextPlusFive = numberOfPages;
+		}
+
+		if (selectedPage > 1) {
+			pages.movePrevious = selectedPage - 1;
+			pages.movePreviousMinusFive = selectedPage - 6;
+			if (pages.movePreviousMinusFive < 1) {
+				pages.movePreviousMinusFive = Math.floor(selectedPage / 2);
+			}
+		} else {
+			pages.movePrevious = 1;
+			pages.movePreviousMinusFive = 1;
+		}
+
+		let ucfi_offset_string = ``;
+		if (selectedPage > 1) {
+			const ucfi_offset = maxNumberOfLines * (selectedPage - 1);
+			ucfi_offset_string = `OFFSET ${ucfi_offset}`;
+		}
+
+		
+				const makeUnderlineIDOfUCFI = intId => {
+					if (!(typeof intId == `number`) && !(typeof intId == `string`) || Number.isNaN(Number(intId))) {
+						throw `intId is not number at all.`;
+					}
+					const str = String(intId);
+					const maxStrIDLength = 7;
+					
+					let result = ``;
+
+					for (let i = 0, diff = maxStrIDLength - str.length; i < diff; i++) {
+						result += `_`;
+					}
+					result += str;
+
+					return result;
+				};
+
+
+					const str_listOfUCFI = `<b>Cписок вами созданной еды.</b> Всего: <b>${userInfo.available_count_of_user_created_fi}</b>.\n<b>_____ID</b> <b><i>Название еды</i></b> БЖУК (на 100г)`;
+
+					const res = await DB_CLIENT.query(`
+						SELECT view_json, ucfi_id_for_user
+						FROM user_created_food_items
+						WHERE r_user_id = ${userInfo.r_user_id}
+						AND deleted = false
+						ORDER BY ucfi_id_for_user DESC
+						LIMIT ${maxNumberOfLines}
+						${ucfi_offset_string}
+					;`);
+					
+					let responseText = str_listOfUCFI;
+
+					res.rows.forEach(e => {
+						responseText += `\n<b>${makeUnderlineIDOfUCFI(e.ucfi_id_for_user)}</b> <b><i>${
+							e.view_json.user_food_name}</i></b> Б:${
+							e.view_json.protein ? e.view_json.protein : 0} Ж:${
+							e.view_json.fat ? e.view_json.fat : 0} У:${
+							e.view_json.carbohydrate ? e.view_json.carbohydrate : 0} К:${
+							e.view_json.caloric_content ? e.view_json.caloric_content : 0}`
+					});
+
+					const extraParameters = telegraf.Markup.inlineKeyboard([[
+							telegraf.Markup.button.callback(`${pages.first}`, `ucfi${pages.first}`),
+							telegraf.Markup.button.callback(`${pages.movePreviousMinusFive}<<`, `ucfi${pages.movePreviousMinusFive}`),
+							telegraf.Markup.button.callback(`${pages.movePrevious}<`, `ucfi${pages.movePrevious}`),
+							telegraf.Markup.button.callback(`${pages.selected}`, `ucfi${pages.selected}`),
+							telegraf.Markup.button.callback(`>${pages.moveNext}`, `ucfi${pages.moveNext}`),
+							telegraf.Markup.button.callback(`>>${pages.moveNextPlusFive}`, `ucfi${pages.moveNextPlusFive}`),
+							telegraf.Markup.button.callback(`${pages.last}`, `ucfi${pages.last}`)
+					]]);
+					
+					const isResponseTextValid = responseText.replaceAll(/<b>|<\/b>|<i>|<\/i>/g, ``);
+					if ( isResponseTextValid == callbackQuery.message.text) {
+						return;
+					}
+
+					extraParameters.parse_mode = 'HTML';
+					extraParameters.protect_content = true;
+
+let response;
+
+		try {		
+				 response = await bot.telegram.editMessageText(
+					callbackQuery.message.chat.id,
+					callbackQuery.message.message_id,
+					``,
+					responseText,
+					extraParameters
+				); 
+		} catch (e) {
+			console.error(e);
+		}		
+
+				// update db inline_keyboard time out??
+		console.log(
+			response
+		);
+
+	}
+
+
+});
+
+bot.on(`inline_query`, async ctx => {
+	console.log(
+		`____________inline_____________`,
+//		JSON.stringify(ctx),
+		ctx.update,
+		ctx,
+		`____________inline_____________`
+	);
+	
+	if(ctx.update.inline_query.from.id != 2147423284) {
+		return;
+	}
+
+	if (ctx.update.inline_query.from.is_bot) {
+		return;
+	}
+	
+	const results = [];
+
+	let re_result;
+		
+	const text = ctx.update.inline_query.query;
+	text.replaceAll(/\s+/g, ` `);
+	
+	if (Array.isArray(re_result = text.match(RE_RU_BOT_AND_INLINE_COMMAND__SHOW_EATEN_TODAY))) {
+		console.log(re_result);
+	} else if (Array.isArray(re_result = text.match(RE_RU_BOT_AND_INLINE_COMMAND__GET_STATS))) {	
+		console.log(re_result);
+	} else if (Array.isArray(re_result = text.match(RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH))) {
+		console.log(re_result);
+	} else if (Array.isArray(re_result = text.match(RE_RU_INLINE_COMMAND__ADD_EATEN_FOOD_OR_DISH))) {
+		console.log(re_result);
+		
+		//search in db
+		const re_str_arr = re_result[3].split(/\s+/);
+
+		
+		const res = await DB_CLIENT.query();
+
+		searchBuiltinUserFoodAndDishes()//str arr([str, str], 50/*limit*/) and str, str etc, 50
+
+		//make results
+		//send response
+
+
+		
+
+	} else if (Array.isArray(re_result = text.match(RE_RU_INLINE_COMMAND__CALC_EATEN_FOOD_OR_DISH))) {
+		console.log(re_result);
+	} else if (Array.isArray(re_result = text.match(RE_RU_INLINE_COMMAND__SEARCH))) {
+		console.log(re_result);
+	} else {
+		//nichego ne naydeno ili komanda ne raspoznana //ssilka
+		//ctx.answerInlineQuery(results);
+	}
+	
+	/* const res = await DB_CLIENT.query(`
+			SELECT * from food_images as fi where fi.id = 55;
+		`);
+	
+	const InputTextMessageContent = {
+		message_text: `message text`,
+	}
+
+	const article = {
+		type: `article`,
+		id: `sasehe`,
+		title: `Title`,
+		input_message_content: InputTextMessageContent,
+		description: `description 1t23f3 gg5e desc .`,
+	}
+	result.push(Object.assign({}, article));
+	article.id = `8heog`;
+	result.push(article);
+
+	ctx.answerInlineQuery(results); */
+	
+});
+bot.launch()
+
+process.on('beforeExit', (...code)=>{
+console.log(code,`be`);
+	});  
+process.on('disconnect', (...code)=>{
+console.log(code,`dis`);
+	});  
+process.on('message', (...code)=>{
+console.log(code,`mes`);
+	});  
+process.on('multipleResolves', (...code)=>{
+console.log(code,`mul`);
+	});  
+process.on('rejectionHandled', (...code)=>{
+console.log(code,`reg`);
+	});  
+process.on('warning', (...code)=>{
+console.log(code,`war`);
+	});  
+process.on('worker', (...code)=>{
+console.log(code,`w`);
+	});  
+
+process.once('SIGSEGV', (...info)=>{console.log('SIGSEGV', info)})
+process.once('SIGFPE', (...info)=>{console.log('SIGFPE', info)})
+process.once('SIGABRT', (...info)=>{console.log('SIGABRT', info)})
+process.once('SIGALRM', (...info)=>{console.log('SIGALRM', info)})
+process.once('SIGBUS', (...info)=>{console.log('SIGBUS', info)})
+process.once('SIGCHLD', (...info)=>{console.log('SIGCHLD', info)})
+process.once('SIGCLD', (...info)=>{console.log('SIGCLD', info)})
+process.once('SIGCONT', (...info)=>{console.log('SIGCONT', info)})
+process.once('SIGEMT', (...info)=>{console.log('SIGEMT', info)})
+process.once('SIGHUP', (...info)=>{console.log('SIGHUP', info)})
+process.once('SIGILL', (...info)=>{console.log('SIGILL', info)})
+process.once('SIGINFO', (...info)=>{console.log('SIGINFO', info)})
+process.once('SIGPWR', (...info)=>{console.log('SIGPWR', info)})
+process.once('SIGINT', (...info)=>{console.log('SIGINT', info)})
+process.once('SIGIO', (...info)=>{console.log('SIGIO', info)})
+process.once('SIGIOT', (...info)=>{console.log('SIGIOT', info)})
+process.once('SIGLOST', (...info)=>{console.log('SIGLOST', info)})
+process.once('SIGPIPE', (...info)=>{console.log('SIGPIPE', info)})
+process.once('SIGPOLL', (...info)=>{console.log('SIGPOLL', info)})
+process.once('SIGPROF', (...info)=>{console.log('SIGPROF', info)})
+process.once('SIGQUIT', (...info)=>{console.log('SIGQUIT', info)})
+process.once('SIGSTKFLT', (...info)=>{console.log('SIGSTKFLT', info)})
+process.once('SIGTSTP', (...info)=>{console.log('SIGTSTP', info)})
+process.once('SIGSYS', (...info)=>{console.log('SIGSYS', info)})
+process.once('SIGTERM', (...info)=>{console.log('SIGTERM', info)})
+process.once('SIGTRAP', (...info)=>{console.log('SIGTRAP', info)})
+process.once('SIGTTIN', (...info)=>{console.log('SIGTTIN', info)})
+process.once('SIGTTOU', (...info)=>{console.log('SIGTTOU', info)})
+process.once('SIGUNUSED', (...info)=>{console.log('SIGUNUSED', info)})
+process.once('SIGURG', (...info)=>{console.log('SIGURG', info)})
+process.once('SIGUSR1', (...info)=>{console.log('SIGUSR1', info)})
+process.once('SIGUSR2', (...info)=>{
+	
+	APP_STATE.isDBdead = true;
+
+	DB_CLIENT.end();
+	
+  console.log('bye');
+
+	console.log('SIGUSR2', info)})
+process.once('SIGVTALRM', (...info)=>{console.log('SIGVTALRM', info)})
+process.once('SIGXCPU', (...info)=>{console.log('SIGXCPU', info)})
+process.once('SIGXFSZ', (...info)=>{console.log('SIGXFSZ', info)})
+process.once('SIGWINCH', (...info)=>{console.log('SIGWINCH', info)})
+process.once('SIGRTMIN', (...info)=>{console.log('SIGRTMIN', info)})
+process.once('SIGRTMAX', (...info)=>{console.log('SIGRTMAX', info)})
+process.once('EINTR', (...info)=>{console.log('EINTR', info)})
+
+
+
+process.on('exit', (code) => {
+
+	APP_STATE.isDBdead = true;
+
+	DB_CLIENT.end();
+
+  console.log(`About to exit with code: ${code}`);
+});
+
+process.once('SIGINT', () => {
+	bot.stop('SIGINT');
+
+	APP_STATE.isDBdead = true;
+
+	DB_CLIENT.end()
+
+  process.exit();
+
+  console.log('bye');
+
+})
+process.once('SIGTERM', () => bot.stop('SIGTERM'))
+
+console.log(
+
+);
+
+};
+
+app();
+
