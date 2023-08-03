@@ -36,37 +36,45 @@ const NUTRIENTS = [];
 
 
 const RE_RU_NUTRIENTS = [];
-	/* /(б|белок|белки)(\\s+|)(\\d+(\\s+|)(,|\\.)(\\s+|)\\d+|\\d+)(\\s+|)(г|мкг|мг|ккал|)/u,
-	/(к|ккал|кал|калорийность)(\\s+|)(\\d+(\\s+|)(,|\\.)(\\s+|)\\d+|\\d+)(\\s+|)(г|мкг|мг|ккал|)/u,
-	/(ж|жир|жиры)(\\s+|)(\\d+(\\s+|)(,|\\.)(\\s+|)\\d+|\\d+)(\\s+|)(г|мкг|мг|ккал|)/u,
-	/(у|угли|углевод|углеводы)(\\s+|)(\\d+(\\s+|)(,|\\.)(\\s+|)\\d+|\\d+)(\\s+|)(г|мкг|мг|ккал|)/u, */
+	/*
+	(б|белок|белки)(\\s+|)(\\d+(\\s+|)(,|\\.)(\\s+|)\\d+|\\d+)(\\s+|)/u  //(г|мкг|мг|ккал|)/u,
+	(к|ккал|кал|калорийность)(\\s+|)(\\d+(\\s+|)(,|\\.)(\\s+|)\\d+|\\d+)(\\s+|)/u  //(г|мкг|мг|ккал|)/u,
+	(ж|жир|жиры)(\\s+|)(\\d+(\\s+|)(,|\\.)(\\s+|)\\d+|\\d+)(\\s+|)/u  //(г|мкг|мг|ккал|)/u,
+	(у|угли|углевод|углеводы)(\\s+|)(\\d+(\\s+|)(,|\\.)(\\s+|)\\d+|\\d+)(\\s+|)(/u  //г|мкг|мг|ккал|)/u, 
+	*/
 
 const RE_RU_YES = /^(д|да)$/u;
 const RE_RU_NO = /^(н|не|нет)$/u;
 const RE_RU_COMMAND__DELETE_LAST_ACTION = /^(у|удалить)$/u;
+const RE_RU_COMMAND__CANCEL_LAST_ACTION = /^(о|отмена)$/u;
 
-const RE_RU_COMMAND__CREATE_FOOD = /^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){4,})(\s+|)\./u;
+const RE_RU_COMMAND__CREATE_FOOD = /^(с(\s+|)е\s+)((([а-яА-Яa-zA-Z0-9]+)(\s+|))+)\./u;
 // /^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\((\s+|)((([а-яА-Яa-zA-Z0-9]+)(\s+|):(\s+|)(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)(\s+|)(г|мкг|мг|ккал)(\s+|))+)\)$/u;
 // ^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\((\s+|)([а-яА-Яa-zA-Z0-9\s]+)(\s+|)\)$
 // ^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\(
+const RE_RU_COMMAND__SHOW_CREATED_FOOD = /^п(\s+|)с(\s+|)е$/u; // buttons ; s konca
+const RE_RU_COMMAND__DELETE_CREATED_FOOD_IDs = /^у(\s+|)е\s+/u;//(([0-9]+(\s+|)|[0-9]+)+)$/u;
+
+const RE_RU_COMMAND__CREATE_DISH = /^с(\s+|)б\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)))$/u;
+const RE_RU_COMMAND__CREATE_DISH_END = /^(ив|итоговый(\s+|)вес)\s+([0-9]+)(\s+|)(г|)$/u;
+const RE_RU_COMMAND__DELETE_CREATED_DISH_IDs = /^у(\s+|)б(\s+|)(([0-9]+(\s+|)|[0-9]+)+)$/u; 
+const RE_RU_COMMAND__SHOW_CREATED_DISHES = /^п(\s+|)с(\s+|)б$/u; // buttons ; s konca
 
 
 
 
+
+
+const RE_RU_COMMAND__DELETE_TODAY_EATEN_FOOD_OR_DISH_ID = /^(у|удалить)(\s+|)(с|съеденное)(\s+|)([0-9]+)$/u;
 
 
 const RE_RU_TIME = /^([0-1][0-9]|[2][0-3])(\s+|):(\s+|)([0-5][0-9])$/u;
 
 
-const RE_RU_COMMAND__DELETE_TODAY_ID_EATEN_FOOD_OR_DISH = /^(у|удалить)(\s+|)(с|съеденное)(\s+|)([0-9]+)$/u;
 const RE_RU_COMMAND__DELETE_ALLTIME_ID_EATEN_FOOD_OR_DISH = /^(у|удалить)(\s+|)(с|съеденное)(\s+|)за(\s+|)вс(ё|е)(\s+|)время(\s+|)([0-9]+)$/u;
 
 	
-const RE_RU_COMMAND__CREATE_DISH = /^(с|создать)(\s+|)(б|блюдо)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){4,})$/u;
-const RE_RU_COMMAND__CREATE_DISH_END = /^(ив|итоговый(\s+|)вес)\s+([0-9]+)(\s+|)(г|)$/u;
 //const RE_RU_COMMAND__EDIT_CREATED_FOOD_OR_DISH = /^(р|редактировать)(\s+|)((е|еду)|(б|блюдо))(\s+|)([0-9]+|)$/u;
-const RE_RU_COMMAND__SHOW_CREATED_FOOD_OR_DISHES = /^(п|показать)(\s+|)(с|созданную|созданные)(\s+|)((е|еду)|(б|блюда))$/u; // buttons ; s konca
-const RE_RU_COMMAND__DELETE_CREATED_FOOD_OR_DISH = /^(у|удалить)(\s+|)((е|еду)|(б|блюдо))(\s+|)((([0-9]+),(\s+|)|([0-9]+))+)$/u; 
 
 const RE_RU_COMMAND__CREATE_AIM = /^(с|создать)(\s+|)(ц|цель)(\s+|)((п|повторять)(\s+|)\((\s+|)(([0-9]+)(\s+|)д(\s+|)\((\s+|)(([а-яА-Я]+)(\s+|):(\s+|)(([0-9]+)(\s+|)(,|.|)(\s+|)([0-9]+|)(\s+|)(г|%|к))(\s+|)(,|)(\s+|))+(\s+|)\)(\s+|)(,|)(\s+|))+\)(\s+|)((вт|в(\s+|)течении)(\s+|)([0-9]+)(\s+|)(д|м)|)|(([0-9]+)(\s+|)д(\s+|)\((\s+|)(([а-яА-Я]+)(\s+|):(\s+|)(([0-9]+)(\s+|)(,|.|)(\s+|)([0-9]+|)(\s+|)(г|%|к))(\s+|)(,|)(\s+|))+(\s+|)\)(\s+|)(,|)(\s+|))+)$/u; // не больше 365 дней или 12 месяцев,
 const RE_RU_COMMAND__COMPLETE_AIM = /^(з|завершить)(\s+|)(ц|цель)(\s+|)([0-9]+)$/u;
@@ -79,7 +87,6 @@ const RE_RU_COMMAND__DELETE_LAST_ADDED_WEIGHTING = /^(у|удалить)(\s+|)(�
 const RE_RU_COMMAND__ADD_GIRTH = /^(об|обхват)(\s+|)(талии|бедер|бедра|груди|плеч|бицепса|шеи|предплечья)([0-9]+|[0-9]+(\s+|)(,|.)(\s+|)[0-9]+)$/u;
 const RE_RU_COMMAND__DELETE_LAST_ADDED_GIRTH = /^(у|удалить)(\s+|)(об|обхват)(\s+|)(талии|бедер|бедра|груди|плеч|бицепса|шеи|предплечья|)$/u;
 
-const RE_RU_COMMAND__CANCEL = /^(от|отмена)$/u;
 
 const RE_RU_BOT_AND_INLINE_COMMAND__GET_STATS = /^(п|показать)(\s+|)(ст|статистику)(\s+|)(\s+|)((в|вес)|(п|потребление)|(ц|цели)|)(\s+|)((([0-9]+)(\s+|)(д|м|г))|(за(\s+|)вс(ё|е)(\s+|)время)|)$/u; // body or eaten food or aims //ras v chas
 const RE_RU_BOT_AND_INLINE_COMMAND__SHOW_EATEN = /^(п|показать)(\s+|)(с|съеденное)()$/u;//???????
@@ -355,9 +362,9 @@ bot.use(async (ctx, next) => {
 		HZ.trackTelegramUserAccountDataChanges(DB_CLIENT, from);
 	}
 
-	/* if (!from.is_bot){
+ if (!from.is_bot){
 		let row = {};
-		// row.tg_user_id = from.id;
+		row.tg_user_id = from.id;
 		row.log = JSON.stringify(ctx.update);
 		row.creation_date = new Date();
 		
@@ -371,7 +378,7 @@ bot.use(async (ctx, next) => {
 		paramQuery.values = getArrOfValuesFromObj(row);
 		
 		await DB_CLIENT.query(paramQuery);
-	} */
+	} 
 
 	next();
 });
@@ -428,12 +435,11 @@ bot.on(`message`, async ctx => {
 			return;//
 		}
 
-		let text = ctx.update.message.text;
-		text = text.replaceAll(/\s+/g, ` `).trim().toLowerCase();
+		let text = ctx.update.message.text.replaceAll(/\s+/g, ` `).trim();
 	
 		if(!confirmCommand){
 	
-			if (Array.isArray(re_result = text.match(RE_RU_COMMAND__DELETE_LAST_ACTION))) {
+			if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_LAST_ACTION))) {
 				const userLastCommand = (await DB_CLIENT.query(`
 						SELECT *
 						FROM telegram_user_sended_commands
@@ -451,34 +457,51 @@ bot.on(`message`, async ctx => {
 				
 				if (userLastCommand.command == `CREATE_FOOD`) {
 					//deleted true food_items
+					await DB_CLIENT.query(`
+						UPDATE food_items
+						SET deleted = true
+						WHERE	id IN (${userLastCommand.data.food_items_ids.join()})
+					;`);
+
 					//registered_users available_count_of_user_created_fi - 1 //add check for all users
+					
+					userInfo.available_count_of_user_created_fi = Number(userInfo.available_count_of_user_created_fi) - 1;
+
+					await DB_CLIENT.query(`
+						UPDATE registered_users
+						SET available_count_of_user_created_fi = ${userInfo.available_count_of_user_created_fi}
+						WHERE id = ${userInfo.r_user_id};
+					`);
+
 					//telegram_user_sended_commands add otmenu
+					const row = {};
+					row.tg_user_id = userInfo.tg_user_id;
+					row.creation_date = (new Date()).toISOString();
+					row.command = `DELETE_FOOD`;
+					row.can_it_be_canceled = true;
+
+					row.data = {};
+					row.data.food_items_ids = userLastCommand.data.food_items_ids;
+
+					row.data = JSON.stringify(row.data);
+	
+					const paramQuery = {};
+					paramQuery.text = `
+						INSERT INTO telegram_user_sended_commands
+						(${objKeysToColumnStr(row)})
+						VALUES
+						(${objKeysToColumn$IndexesStr(row)});`;
+					paramQuery.values = getArrOfValuesFromObj(row);
+					await DB_CLIENT.query(paramQuery);
+				
 					//predlojit' otmenu
-					//
-					//
+					ctx.reply(`Удалено. Отменить? *"о/отмена"*.\n\nМем на тему удаления.`, {parse_mode:`Markdown`})
+				} else if (userLastCommand.command) {
+					console.log(`code me`)
+					ctx.reply(`code me`)
 				}
 
-				return;
 
-				let row = {};
-				row.tg_user_id = userInfo.tg_user_id;
-				row.creation_date = fi_creation_date;
-				row.command = `CREATE_FOOD`;
-				row.can_it_be_removed = true;
-
-				row.data = {};
-				row.data.food_items_id = foodItemsRes.rows[0].id;
-
-				row.data = JSON.stringify(row.data);
-	
-				paramQuery = {};
-				paramQuery.text = `
-					INSERT INTO telegram_user_sended_commands
-					(${objKeysToColumnStr(row)})
-					VALUES
-					(${objKeysToColumn$IndexesStr(row)});`;
-				paramQuery.values = getArrOfValuesFromObj(row);
-				await db.query(paramQuery);
 
 				/* const extraParameters = telegraf.Markup.inlineKeyboard(
 					// [[telegraf.Markup.button.callback(`12`,`123`)]]
@@ -511,15 +534,80 @@ bot.on(`message`, async ctx => {
 					response
 				); */
 
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__CANCEL_LAST_ACTION))) {
+				console.log(re_result);		
+				const userLastCommand = (await DB_CLIENT.query(`
+						SELECT *
+						FROM telegram_user_sended_commands
+						WHERE	tg_user_id = ${userInfo.tg_user_id}
+						ORDER BY id DESC
+						LIMIT 1;
+				`)).rows[0];
 
-			} else if (Array.isArray(re_result = text.match(RE_RU_BOT_AND_INLINE_COMMAND__SHOW_EATEN))) {
+				console.log(userLastCommand);
+
+				if (!userLastCommand.can_it_be_canceled){
+					ctx.reply(`Прости, не знаю, что отменить... Т_Т`);
+					return;
+				}
+				
+				if (userLastCommand.command == `DELETE_FOOD`) {
+					//cancel deleted true food_items
+					await DB_CLIENT.query(`
+						UPDATE food_items
+						SET deleted = false
+						WHERE	id IN (${userLastCommand.data.food_items_ids.join()})
+					;`);
+
+					//registered_users available_count_of_user_created_fi - 1 //add check for all users
+					
+					userInfo.available_count_of_user_created_fi = Number(userInfo.available_count_of_user_created_fi) + 1;
+
+					await DB_CLIENT.query(`
+						UPDATE registered_users
+						SET available_count_of_user_created_fi = ${userInfo.available_count_of_user_created_fi}
+						WHERE id = ${userInfo.r_user_id};
+					`);
+
+					//telegram_user_sended_commands add otmenu
+					const row = {};
+					row.tg_user_id = userInfo.tg_user_id;
+					row.creation_date = (new Date()).toISOString();
+					row.command = `CANCEL__DELETE_FOOD`;
+
+					row.data = {};
+					row.data.food_items_ids = userLastCommand.data.food_items_ids;
+
+					row.data = JSON.stringify(row.data);
+	
+					const paramQuery = {};
+					paramQuery.text = `
+						INSERT INTO telegram_user_sended_commands
+						(${objKeysToColumnStr(row)})
+						VALUES
+						(${objKeysToColumn$IndexesStr(row)});`;
+					paramQuery.values = getArrOfValuesFromObj(row);
+					await DB_CLIENT.query(paramQuery);
+				
+					//predlojit' otmenu
+					ctx.reply(`Удаление отменено\\.\n\n_Галя, у нас отмена\\.\\.\\._`, {parse_mode:`MarkdownV2`})
+				} else if (userLastCommand.command) {
+					console.log(`code me`)
+					ctx.reply(`code me`)
+				}
+
+
+
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_BOT_AND_INLINE_COMMAND__SHOW_EATEN))) {
 				console.log(re_result);			
-			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__DELETE_TODAY_ID_EATEN_FOOD_OR_DISH))) {
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_TODAY_EATEN_FOOD_OR_DISH_ID))) {
 				console.log(re_result);			
-			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__DELETE_ALLTIME_ID_EATEN_FOOD_OR_DISH))) {
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_ALLTIME_ID_EATEN_FOOD_OR_DISH))) {
 				console.log(re_result);			
-			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__CREATE_FOOD))) {
-				console.log(re_result, `RE_RU_COMMAND__CREATE_FOOD`);
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__CREATE_FOOD))) {
+				// console.log(re_result, `RE_RU_COMMAND__CREATE_FOOD`);
+				
+				// add text second param
 
 				let db = DB_CLIENT;
 
@@ -536,17 +624,20 @@ bot.on(`message`, async ctx => {
 				}
 
 				let askingConfirmationResponse = `*Чпок, и готооова...*`;
-					
-				const foodName = (re_result[4].trim()).slice(0, 128); // poisk odinakovih imen, otpravka i ojidanie podtverjdeniya
-				askingConfirmationResponse += `\n\n\`\`\`\n${foodName}.\n`;
+				
+				const foodName = text.slice(re_result[1].length-1, re_result[3].length + re_result[1].length).slice(0, 128).trim();//(re_result[2].trim()).slice(0, 128); // poisk odinakovih imen, otpravka i ojidanie podtverjdeniya
+				if (foodName.length < 4) {
+					ctx.reply(`Название еды должно иметь хотя бы 4 символа.`)
+				}
+				askingConfirmationResponse += `\n\n\`\`\` ${foodName}. `;
 
 				const foodNutrientMatches = [];
 
-				text = re_result.input.slice(re_result[0].length);
-				console.log(re_result, text)
+				let nutrientPart = re_result.input.slice(re_result[2].length);
+				// console.log(re_result, text)
 
 				RE_RU_NUTRIENTS.forEach((el, i) => {
-					const match = text.match(el);
+					const match = nutrientPart.match(el);
 					
 					if (!Array.isArray(match)){
 						const obj = NUTRIENTS[i];
@@ -613,17 +704,18 @@ bot.on(`message`, async ctx => {
 				}
 
 
+				foodNutrientMatches.forEach((el, i) => {
+					foodNutrientMatches[i][el.nutrientName] = Number(Number(el[el.nutrientName]).toFixed(1));
+				});
 				
 				foodNutrientMatches.forEach(el => {
-					askingConfirmationResponse += `\n  ${el.lang_code_ru} ${el[el.nutrientName]}`;
+					askingConfirmationResponse += `\n${el.lang_code_ru} ${el[el.nutrientName]}`;
 					if (el.caloric_content){
 						askingConfirmationResponse += ` ккал`;
 					} else {
 						askingConfirmationResponse += ` г`;
 					}
 				});
-
-				askingConfirmationResponse += `\n\`\`\`\n\nОшибка? Отправьте *"у/удалить"*.`;
 
 
 				if (typeof userInfo.limit_count_of_user_created_fidi == `string`) {
@@ -648,6 +740,8 @@ bot.on(`message`, async ctx => {
 
 				userInfo.count_of_user_created_fi = userInfo.count_of_user_created_fi ? Number(userInfo.count_of_user_created_fi) + 1 : 1;
 				row.fi_id_for_user = userInfo.count_of_user_created_fi;
+
+				askingConfirmationResponse += `\n\`\`\`\nЕда ID:\`\`\`${userInfo.count_of_user_created_fi}\`\`\`\n\nОшибка? Отправьте *"у/удалить"*.`;
 
 				let paramQuery = {};
 				paramQuery.text = `
@@ -678,7 +772,7 @@ bot.on(`message`, async ctx => {
 				row.can_it_be_removed = true;
 
 				row.data = {};
-				row.data.food_items_id = foodItemsRes.rows[0].id;
+				row.data.food_items_ids = [foodItemsRes.rows[0].id];
 
 				row.data = JSON.stringify(row.data);
 	
@@ -700,8 +794,9 @@ bot.on(`message`, async ctx => {
 				if (!userInfo.privilege_type) {
 					if (!userInfo.first_user_created_fidi_time) {
 						setFUCFIDITime = `first_user_created_fidi_time = '${fi_creation_date}'`;
+						userInfo.limit_count_of_user_created_fidi = 0;
 					}
-					setLimitCOfFIDI = `limit_count_of_user_created_fidi= ${userInfo.limit_count_of_user_created_fidi + 1}`;
+					setLimitCOfFIDI = `limit_count_of_user_created_fidi= ${Number(userInfo.limit_count_of_user_created_fidi) + 1}`;
 				}
 				
 				if (!userInfo.available_count_of_user_created_fi) {
@@ -723,21 +818,28 @@ bot.on(`message`, async ctx => {
 
 				ctx.reply(askingConfirmationResponse, { parse_mode: 'Markdown', allow_sending_without_reply: true });
 
-			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__CREATE_DISH))) {
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__CREATE_DISH))) {
 				console.log(re_result);			
-			/* } else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__EDIT_CREATED_FOOD_OR_DISH))) {
+			/* } else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__EDIT_CREATED_FOOD_OR_DISH))) {
 				console.log(re_result);			 */
-			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__SHOW_CREATED_FOOD_OR_DISHES))) {
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SHOW_CREATED_DISHES))) {
+
+				console.log(re_result);
+				
+					ctx.reply(`code me, bitch`);
+					console.log(`блюда не написаны...`);
+				
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SHOW_CREATED_FOOD))) {
 				console.log(re_result);
 
-				// if ()
+				if(!userInfo.available_count_of_user_created_fi){
+					ctx.reply(`Нет созданной еды... Т_Т`)
+					return;
+				}
 
-				const makeUnderlineIDOfUCFI = intId => {
-					if (!(typeof intId == `number`) && !(typeof intId == `string`) || Number.isNaN(Number(intId))) {
-						throw `intId is not number at all.`;
-					}
+				const makeUnderlineIDOfUserCreatedFI = intId => {
 					const str = String(intId);
-					const maxStrIDLength = 7;
+					const maxStrIDLength = 4;
 					
 					let result = ``;
 
@@ -748,13 +850,9 @@ bot.on(`message`, async ctx => {
 
 					return result;
 				};
-
-				if (re_result[5] == `е` || re_result[5] == `еду`) {
-			
-					const maxNumberOfLines = 10;
-					let selectedPage = 1;
-			
-					let numberOfPages = userInfo.available_count_of_user_created_fi / maxNumberOfLines;
+				
+				const getPages = (available_count_of_user_created_fi, maxNumberOfLines, selectedPage) => {
+					let numberOfPages = available_count_of_user_created_fi / maxNumberOfLines;
 					const numberOfPagesRound = Math.round(numberOfPages);
 					const numberOfPagesFloor = Math.floor(numberOfPages);
 					numberOfPages = numberOfPagesRound > numberOfPagesFloor ? numberOfPagesRound : numberOfPagesFloor + 1;
@@ -800,141 +898,134 @@ bot.on(`message`, async ctx => {
 						pages.movePrevious = 1;
 						pages.movePreviousMinusFive = 1;
 					}
+					return pages;
+				}
+ 		
+				const maxNumberOfLines = 10;
+				let selectedPage = 1;
+				const pages = getPages(userInfo.available_count_of_user_created_fi, maxNumberOfLines, selectedPage);
 
-					const str_listOfUCFI = `<b>Cписок вами созданной еды.</b> Всего: <b>${userInfo.available_count_of_user_created_fi}</b>.\n<b>_____ID</b> <b><i>Название еды</i></b> БЖУК (на 100г)`;
+				const res = await DB_CLIENT.query(`
+					SELECT view_json, fi_id_for_user, name__lang_code_ru
+					FROM food_items
+					WHERE tg_user_id = ${userInfo.tg_user_id}
+					AND fi_id_for_user IS NOT NULL
+					AND deleted = false
+					ORDER BY fi_id_for_user DESC
+					LIMIT ${maxNumberOfLines};
+				`);
 
-					const res = await DB_CLIENT.query(`
-						SELECT view_json, ucfi_id_for_user
-						FROM user_created_food_items
-						WHERE r_user_id = ${userInfo.r_user_id}
-						AND deleted = false
-						ORDER BY ucfi_id_for_user DESC
-						LIMIT ${maxNumberOfLines};
-					`);
+
+				const addCharBeforeValue = (value, maxLength, charS) => {
+					let str = Number(value).toFixed(1);
 					
-					let text = str_listOfUCFI;
+					let result = ``;
 
-					res.rows.forEach(e => {
-						text += `\n<b>${makeUnderlineIDOfUCFI(e.ucfi_id_for_user)}</b> <b><i>${
-							e.view_json.user_food_name}</i></b> Б:${
-							e.view_json.protein ? e.view_json.protein : 0} Ж:${
-							e.view_json.fat ? e.view_json.fat : 0} У:${
-							e.view_json.carbohydrate ? e.view_json.carbohydrate : 0} К:${
-							e.view_json.caloric_content ? e.view_json.caloric_content : 0}`
-					});
+					for (let i = 0, diff = maxLength - str.length; i < diff; i++) {
+						result += charS;
+					}
+					result += str;
 
-					const extraParameters = telegraf.Markup.inlineKeyboard([[
-							telegraf.Markup.button.callback(`${pages.first}`, `ucfi${pages.first}`),
-							telegraf.Markup.button.callback(`${pages.movePreviousMinusFive}<<`, `ucfi${pages.movePreviousMinusFive}`),
-							telegraf.Markup.button.callback(`${pages.movePrevious}<`, `ucfi${pages.movePrevious}`),
-							telegraf.Markup.button.callback(`${pages.selected}`, `ucfi${pages.selected}`),
-							telegraf.Markup.button.callback(`>${pages.moveNext}`, `ucfi${pages.moveNext}`),
-							telegraf.Markup.button.callback(`>>${pages.moveNextPlusFive}`, `ucfi${pages.moveNextPlusFive}`),
-							telegraf.Markup.button.callback(`${pages.last}`, `ucfi${pages.last}`)
+					return result;
+				};
+				let message = `<b>Cписок созданной еды.</b> Всего: <b>${userInfo.available_count_of_user_created_fi}</b>.\n<b>__ID</b> БЖУК (на 100г) <b><i>Название еды</i></b>`;
+
+				res.rows.forEach(e => {
+					message += `\n<b>${makeUnderlineIDOfUserCreatedFI(e.fi_id_for_user)}</b> Б:${
+						addCharBeforeValue(e.view_json.protein ? e.view_json.protein : 0, 4, '_')} Ж:${
+						addCharBeforeValue(e.view_json.fat ? e.view_json.fat : 0, 4, '_')} У:${
+						addCharBeforeValue(e.view_json.carbohydrate ? e.view_json.carbohydrate : 0, 4, '_')} К:${
+						addCharBeforeValue(e.view_json.caloric_content ? e.view_json.caloric_content : 0, 5, '_')} <i>${
+						e.name__lang_code_ru}</i> `
+				});
+
+				const makeInlineKeyboard = (pages, tableName, tgid) => {
+					return telegraf.Markup.inlineKeyboard([[
+							telegraf.Markup.button.callback(`${pages.first}`, `${tableName + pages.first}tgid${tgid}`),
+							telegraf.Markup.button.callback(`${pages.movePreviousMinusFive}<<`, `${tableName + pages.movePreviousMinusFive}tgid${tgid}`),
+							telegraf.Markup.button.callback(`${pages.movePrevious}<`, `${tableName + pages.movePrevious}tgid${tgid}`),
+							telegraf.Markup.button.callback(`${pages.selected}`, `${tableName + pages.selected}tgid${tgid}`),
+							telegraf.Markup.button.callback(`>${pages.moveNext}`, `${tableName + pages.moveNext}tgid${tgid}`),
+							telegraf.Markup.button.callback(`>>${pages.moveNextPlusFive}`, `${tableName + pages.moveNextPlusFive}tgid${tgid}`),
+							telegraf.Markup.button.callback(`${pages.last}`, `${tableName + pages.last}tgid${tgid}`)
 					]]);
-					
-					extraParameters.parse_mode = 'HTML';
-					extraParameters.protect_content = true;
-					extraParameters.allow_sending_without_reply = true;
-					extraParameters.reply_to_message_id = ctx.update.message.message_id;
-				
-					const response = await bot.telegram.sendMessage(
-						ctx.update.message.chat.id,
-						text,
-						extraParameters
-					);
-
-					let row = {};
-					row.tg_user_id = ctx.update.message.from.id;
-					row.chat_id = response.chat.id;
-					row.message_id = response.message_id;
-					row.creation_date = new Date();
-					row.life_time_ending = new Date(row.creation_date.valueOf() + 600000);
-
-					let paramQuery = {};
-					paramQuery.text = `
-						INSERT INTO telegram_inline_keyboards
-						(${objKeysToColumnStr(row)})
-						VALUES
-						(${objKeysToColumn$IndexesStr(row)})
-					;`;
-					paramQuery.values = getArrOfValuesFromObj(row);
-					
-					await DB_CLIENT.query(paramQuery);
-
-					row = {};
-					row.creation_date = new Date();
-					row.tg_user_id = ctx.update.message.from.id;
-					row.command = `SHOW_CREATED_FOOD_OR_DISHES`;
-					row.executed = true;
-					row.completed = true;
-					
-					paramQuery = {};
-					paramQuery.text = `
-						INSERT INTO telegram_user_commands
-						(${objKeysToColumnStr(row)})
-						VALUES
-						(${objKeysToColumn$IndexesStr(row)})
-					;`;
-					paramQuery.values = getArrOfValuesFromObj(row);
-					
-					await DB_CLIENT.query(paramQuery);
-				} else {
-					ctx.reply(`code me, bitch`);
-					console.log(`блюда не написаны...`);
 				}
 
-			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__DELETE_CREATED_FOOD_OR_DISH))) {
+				const inlineKeyboard = makeInlineKeyboard(pages, `fi`, userInfo.tg_user_id);
+
+				inlineKeyboard.parse_mode = 'HTML';
+				inlineKeyboard.protect_content = true;
+				inlineKeyboard.allow_sending_without_reply = true;
+				inlineKeyboard.reply_to_message_id = ctx.update.message.message_id;
+
+ 				const response = await bot.telegram.sendMessage(
+					ctx.update.message.chat.id,
+					message,
+					inlineKeyboard
+				);
+
+
+				let row = {};
+				row = {};
+				row.creation_date = new Date();
+				row.tg_user_id = ctx.update.message.from.id;
+				row.command = `SHOW_CREATED_FOOD`;
+				
+				let paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO telegram_user_sended_commands
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+				;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				await DB_CLIENT.query(paramQuery);
+
+
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_CREATED_FOOD_IDs))) {
 				console.log(re_result);
-				if (re_result[3] == `е` || re_result[3] == `еду`) {
-					const ucfi_ids_for_user_str = re_result[7];
-					let ucfi_ids_for_user_arr = [];
+				
+					const fi_id_for_userStr = re_result.input;
 					const num_re = /[0-9]+/g;
 
-					ucfi_ids_for_user_arr = execAndGetAllREResults(ucfi_ids_for_user_str, num_re);
-					ucfi_ids_for_user_arr = cleanArrFromRecurringItems(ucfi_ids_for_user_arr);
+					let fi_id_for_userArr = execAndGetAllREResults(fi_id_for_userStr, num_re);
+					fi_id_for_userArr = cleanArrFromRecurringItems(fi_id_for_userArr);
 					// check existance of that ucfi_ids_for_user_arr
 					let row = {};
 
 					let paramQuery = {};
 					paramQuery.text = `
-						SELECT deleted
-						FROM user_created_food_items
-						WHERE r_user_id = ${userInfo.r_user_id}
-						AND ucfi_id_for_user = ANY (ARRAY[${ucfi_ids_for_user_arr.join(', ')}])
+						SELECT fi_id_for_user
+						FROM food_items
+						WHERE tg_user_id = ${userInfo.tg_user_id}
+						AND fi_id_for_user = ANY (ARRAY[${fi_id_for_userArr.join(', ')}])
 						AND deleted
 					;`;
 
 					let res = await DB_CLIENT.query(paramQuery);
 
-					console.log(res);
 					if (res.rows.length) {
-						ctx.reply(`Уже удалено.`)
+						let alreadyDeleted = ``;
+						if (res.rows.length > 1) {
+							alreadyDeleted += `Не существует еды с такими ID: `;
+							res.rows.forEach((el, i) => {
+								if (res.rows.length - 1 == i) {
+									alreadyDeleted += el.fi_id_for_user;
+									return;
+								}
+								alreadyDeleted += el.fi_id_for_user + ', '
+							})
+						} else {
+							alreadyDeleted += `Не существует еды с таким ID: `;
+							res.rows.forEach(el => alreadyDeleted += el.fi_id_for_user);
+						}
+						alreadyDeleted += `.\n\n0_0`;
+						ctx.reply(alreadyDeleted)
 						return;
 					}
+				
 
-					// add to telegram_user_commands
-					row = {};
-					row.creation_date = new Date();
-					row.tg_user_id = ctx.update.message.from.id;
-					row.command = `DELETE_CREATED_FOOD`;
-					row.data = JSON.stringify({
-						ids: ucfi_ids_for_user_arr
-					});
-					row.executed = true;
-					row.completed = true;
-					
-					paramQuery = {};
-					paramQuery.text = `
-						INSERT INTO telegram_user_commands
-						(${objKeysToColumnStr(row)})
-						VALUES
-						(${objKeysToColumn$IndexesStr(row)})
-					;`;
-					paramQuery.values = getArrOfValuesFromObj(row);
-					
-					await DB_CLIENT.query(paramQuery);
-
+					/*
 					// update deleted search_all_food rows
 					row = {};
 					row.deleted = true;
@@ -946,56 +1037,115 @@ bot.on(`message`, async ctx => {
 						WHERE r_user_id = ${userInfo.r_user_id}
 						AND user_created_food_items_id = ANY (ARRAY[${ucfi_ids_for_user_arr.join(', ')}])
 					;`;
-
 					await DB_CLIENT.query(paramQuery);
+					*/
+
 					// update deleted ucfi rows   
 					row = {};
 					row.deleted = true;
 
 					paramQuery = {};
 					paramQuery.text = `
-						UPDATE user_created_food_items
+						UPDATE food_items
 						SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
-						WHERE r_user_id = ${userInfo.r_user_id}
-						AND ucfi_id_for_user = ANY (ARRAY[${ucfi_ids_for_user_arr.join(', ')}])
+						WHERE tg_user_id = ${userInfo.tg_user_id}
+						AND fi_id_for_user = ANY (ARRAY[${fi_id_for_userArr.join(', ')}])
+						RETURNING	id, name__lang_code_ru, fi_id_for_user, view_json
 					;`;
 
+					let updateFIRes = await DB_CLIENT.query(paramQuery);
+					
+					// add to telegram_user_commands
+					row = {};
+					row.creation_date = new Date();
+					row.tg_user_id = ctx.update.message.from.id;
+					row.command = `DELETE_FOOD`;
+					row.can_it_be_canceled = true;
+
+					row.data = {};
+					row.data.food_items_ids = [];
+					updateFIRes.rows.forEach(el => row.data.food_items_ids.push(el.id));
+					row.data = JSON.stringify(row.data);
+					
+					paramQuery = {};
+					paramQuery.text = `
+						INSERT INTO telegram_user_sended_commands
+						(${objKeysToColumnStr(row)})
+						VALUES
+						(${objKeysToColumn$IndexesStr(row)})
+					;`;
+					paramQuery.values = getArrOfValuesFromObj(row);
+					
 					await DB_CLIENT.query(paramQuery);
 
-					// update ucfi avaible in registered_users
-
+					// update available count fi in registered_users
+					row = {};
+					row.available_count_of_user_created_fi = Number(userInfo.available_count_of_user_created_fi) - fi_id_for_userArr.length;
+				
 					await DB_CLIENT.query(`
-						UPDATE registered_users ru
-						SET available_count_of_user_created_fi = ucfi.count
-						FROM (
-							SELECT count(*) AS count
-							FROM user_created_food_items ucfi
-							WHERE ucfi.r_user_id = ${userInfo.r_user_id}
-							AND NOT ucfi.deleted
-						) AS ucfi
-						WHERE ru.id = ${userInfo.r_user_id};
-					`);
+						UPDATE registered_users
+						SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
+						WHERE id = ${userInfo.r_user_id}
+					;`);
+					
+					let deletedMessage = `<b>Удалено:</b>\n\n<b>__ID</b> БЖУК (на 100г) <b><i>Название еды</i></b>`;
 
-					ctx.reply(`Удалено.`);
-				} else {
+				const makeUnderlineIDOfUserCreatedFI = intId => {
+					const str = String(intId);
+					const maxStrIDLength = 4;
+					
+					let result = ``;
+
+					for (let i = 0, diff = maxStrIDLength - str.length; i < diff; i++) {
+						result += `_`;
+					}
+					result += str;
+
+					return result;
+				};
+
+				const addCharBeforeValue = (value, maxLength, charS) => {
+					let str = Number(value).toFixed(1);
+					
+					let result = ``;
+
+					for (let i = 0, diff = maxLength - str.length; i < diff; i++) {
+						result += charS;
+					}
+					result += str;
+
+					return result;
+				};
+
+				updateFIRes.rows.forEach(e => {
+					deletedMessage += `\n<b>${makeUnderlineIDOfUserCreatedFI(e.fi_id_for_user)}</b> Б:${
+						addCharBeforeValue(e.view_json.protein ? e.view_json.protein : 0, 4, '_')} Ж:${
+						addCharBeforeValue(e.view_json.fat ? e.view_json.fat : 0, 4, '_')} У:${
+						addCharBeforeValue(e.view_json.carbohydrate ? e.view_json.carbohydrate : 0, 4, '_')} К:${
+						addCharBeforeValue(e.view_json.caloric_content ? e.view_json.caloric_content : 0, 5, '_')} <i>${
+						e.name__lang_code_ru}</i> `
+				});
+
+					
+					deletedMessage += `\n\nОтменить?<b>"о/отмена"</b>\n\nЯ ТЕБЯ ПОРОДИЛ, Я ТЕБЯ И УДАЛЮ.`;
+					ctx.reply(deletedMessage, {parse_mode : 'HTML'});
+
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_CREATED_DISH_IDs))) {
 					ctx.reply(`code me, btch`)
 					console.log(`b`)
-				}
-			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__CREATE_AIM))) {
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__CREATE_AIM))) {
 				console.log(re_result);			
-			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__COMPLETE_AIM))) {
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__COMPLETE_AIM))) {
 				console.log(re_result);			
-			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__SHOW_AIMS))) {
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SHOW_AIMS))) {
 				console.log(re_result);			
-			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__DELETE_AIM))) {
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_AIM))) {
 				console.log(re_result);			
-			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__ADD_WEIGHTING))) {
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__ADD_WEIGHTING))) {
 				console.log(re_result);			
-			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__DELETE_LAST_ADDED_WEIGHTING))) {
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_LAST_ADDED_WEIGHTING))) {
 				console.log(re_result);			
-			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__CANCEL))) {
-				console.log(re_result);		
-			} else if (Array.isArray(re_result = text.match(RE_RU_BOT_AND_INLINE_COMMAND__GET_STATS))) {
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_BOT_AND_INLINE_COMMAND__GET_STATS))) {
 				console.log(re_result);			
 			} else {
 				//ne mogu raspoznat' zapros //ssilka na manual
@@ -1006,7 +1156,7 @@ bot.on(`message`, async ctx => {
 			}
 		} else {
 			console.log(`user has last command`);
-			if (Array.isArray(re_result = text.match(RE_RU_YES))) {
+			if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_YES))) {
 				console.log(re_result);
 
 				switch (confirmCommand.command) {
@@ -1019,7 +1169,7 @@ bot.on(`message`, async ctx => {
 						break;
 				}
 				
-			} else if (Array.isArray(re_result = text.match(RE_RU_NO))) {
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_NO))) {
 				console.log(re_result);
 				
 				switch (confirmCommand.command) {
@@ -1031,7 +1181,7 @@ bot.on(`message`, async ctx => {
 					default:
 						break;
 				}
-			} else if (confirmCommand.command == `CREATE_DISH` && Array.isArray(re_result = text.match(RE_RU_COMMAND__CREATE_DISH_END))) {
+			} else if (confirmCommand.command == `CREATE_DISH` && Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__CREATE_DISH_END))) {
 				console.log(re_result);			
 			} else {
 				ctx.reply(`Завершите операцию.`);	
@@ -1065,6 +1215,11 @@ bot.on(`callback_query`, async ctx => {
 		`____________callbavk_____________`
 	);
 
+	const tableNames = {};
+	tableNames.food_items = `fi`;
+	
+
+
 	const callbackQuery = ctx.update.callback_query;
 	
 	if(callbackQuery.from.id != 2147423284) {
@@ -1073,11 +1228,18 @@ bot.on(`callback_query`, async ctx => {
 	
 	const userInfo = await HZ.getTelegramUserInfo(DB_CLIENT, callbackQuery.from.id);
 	
-	if (callbackQuery.data.slice(0, 4) == `ucfi`) {
+	const reFoodItems = new RegExp(`${tableNames.food_items}(\\d+)tgid(\\d+)`,)
+	let re_result;
+	
+	if (re_result = callbackQuery.data.match(reFoodItems)) {
+		
+		if (re_result[2] != userInfo.tg_user_id) {
+			return;
+		}
 
 		const maxNumberOfLines = 10;
 
-		let selectedPage = Number(callbackQuery.data.slice(4));
+		let selectedPage = Number(re_result[1]);
 
 		let numberOfPages = userInfo.available_count_of_user_created_fi / maxNumberOfLines;
 		const numberOfPagesRound = Math.round(numberOfPages);
@@ -1132,13 +1294,9 @@ bot.on(`callback_query`, async ctx => {
 			ucfi_offset_string = `OFFSET ${ucfi_offset}`;
 		}
 
-		
-				const makeUnderlineIDOfUCFI = intId => {
-					if (!(typeof intId == `number`) && !(typeof intId == `string`) || Number.isNaN(Number(intId))) {
-						throw `intId is not number at all.`;
-					}
+				const makeUnderlineIDOfUserCreatedFI = intId => {
 					const str = String(intId);
-					const maxStrIDLength = 7;
+					const maxStrIDLength = 4;
 					
 					let result = ``;
 
@@ -1151,46 +1309,64 @@ bot.on(`callback_query`, async ctx => {
 				};
 
 
-					const str_listOfUCFI = `<b>Cписок вами созданной еды.</b> Всего: <b>${userInfo.available_count_of_user_created_fi}</b>.\n<b>_____ID</b> <b><i>Название еды</i></b> БЖУК (на 100г)`;
+				let message = `<b>Cписок созданной еды.</b> Всего: <b>${userInfo.available_count_of_user_created_fi}</b>.\n<b>__ID</b> БЖУК (на 100г) <b><i>Название еды</i></b>`;
 
 					const res = await DB_CLIENT.query(`
-						SELECT view_json, ucfi_id_for_user
-						FROM user_created_food_items
-						WHERE r_user_id = ${userInfo.r_user_id}
+						SELECT view_json, fi_id_for_user, name__lang_code_ru
+						FROM food_items
+						WHERE tg_user_id = ${userInfo.tg_user_id}
 						AND deleted = false
-						ORDER BY ucfi_id_for_user DESC
+						ORDER BY fi_id_for_user DESC
 						LIMIT ${maxNumberOfLines}
 						${ucfi_offset_string}
 					;`);
+
+
+				const addCharBeforeValue = (value, maxLength, charS) => {
+					let str = Number(value).toFixed(1);
 					
-					let responseText = str_listOfUCFI;
+					let result = ``;
 
-					res.rows.forEach(e => {
-						responseText += `\n<b>${makeUnderlineIDOfUCFI(e.ucfi_id_for_user)}</b> <b><i>${
-							e.view_json.user_food_name}</i></b> Б:${
-							e.view_json.protein ? e.view_json.protein : 0} Ж:${
-							e.view_json.fat ? e.view_json.fat : 0} У:${
-							e.view_json.carbohydrate ? e.view_json.carbohydrate : 0} К:${
-							e.view_json.caloric_content ? e.view_json.caloric_content : 0}`
-					});
+					for (let i = 0, diff = maxLength - str.length; i < diff; i++) {
+						result += charS;
+					}
+					result += str;
 
-					const extraParameters = telegraf.Markup.inlineKeyboard([[
-							telegraf.Markup.button.callback(`${pages.first}`, `ucfi${pages.first}`),
-							telegraf.Markup.button.callback(`${pages.movePreviousMinusFive}<<`, `ucfi${pages.movePreviousMinusFive}`),
-							telegraf.Markup.button.callback(`${pages.movePrevious}<`, `ucfi${pages.movePrevious}`),
-							telegraf.Markup.button.callback(`${pages.selected}`, `ucfi${pages.selected}`),
-							telegraf.Markup.button.callback(`>${pages.moveNext}`, `ucfi${pages.moveNext}`),
-							telegraf.Markup.button.callback(`>>${pages.moveNextPlusFive}`, `ucfi${pages.moveNextPlusFive}`),
-							telegraf.Markup.button.callback(`${pages.last}`, `ucfi${pages.last}`)
+					return result;
+				};
+		
+					
+
+				res.rows.forEach(e => {
+					message += `\n<b>${makeUnderlineIDOfUserCreatedFI(e.fi_id_for_user)}</b> Б:${addCharBeforeValue(e.view_json.protein ? e.view_json.protein : 0, 4, '_')} Ж:${
+						addCharBeforeValue(e.view_json.fat ? e.view_json.fat : 0, 4, '_')} У:${
+						addCharBeforeValue(e.view_json.carbohydrate ? e.view_json.carbohydrate : 0, 4, '_')} К:${
+						addCharBeforeValue(e.view_json.caloric_content ? e.view_json.caloric_content : 0, 5, '_')} <i>${
+						e.name__lang_code_ru}</i> `
+				});
+
+
+				const makeInlineKeyboard = (pages, tableName, tgid) => {
+					return telegraf.Markup.inlineKeyboard([[
+							telegraf.Markup.button.callback(`${pages.first}`, `${tableName + pages.first}tgid${tgid}`),
+							telegraf.Markup.button.callback(`${pages.movePreviousMinusFive}<<`, `${tableName + pages.movePreviousMinusFive}tgid${tgid}`),
+							telegraf.Markup.button.callback(`${pages.movePrevious}<`, `${tableName + pages.movePrevious}tgid${tgid}`),
+							telegraf.Markup.button.callback(`${pages.selected}`, `${tableName + pages.selected}tgid${tgid}`),
+							telegraf.Markup.button.callback(`>${pages.moveNext}`, `${tableName + pages.moveNext}tgid${tgid}`),
+							telegraf.Markup.button.callback(`>>${pages.moveNextPlusFive}`, `${tableName + pages.moveNextPlusFive}tgid${tgid}`),
+							telegraf.Markup.button.callback(`${pages.last}`, `${tableName + pages.last}tgid${tgid}`)
 					]]);
+				}
+
+				const inlineKeyboard = makeInlineKeyboard(pages, `fi`, userInfo.tg_user_id);
 					
-					const isResponseTextValid = responseText.replaceAll(/<b>|<\/b>|<i>|<\/i>/g, ``);
+					const isResponseTextValid = message.replaceAll(/<b>|<\/b>|<i>|<\/i>/g, ``);
 					if ( isResponseTextValid == callbackQuery.message.text) {
 						return;
 					}
 
-					extraParameters.parse_mode = 'HTML';
-					extraParameters.protect_content = true;
+					inlineKeyboard.parse_mode = 'HTML';
+					inlineKeyboard.protect_content = true;
 
 let response;
 
@@ -1199,14 +1375,13 @@ let response;
 					callbackQuery.message.chat.id,
 					callbackQuery.message.message_id,
 					``,
-					responseText,
-					extraParameters
+					message,
+					 inlineKeyboard
 				); 
 		} catch (e) {
 			console.error(e);
 		}		
 
-				// update db inline_keyboard time out??
 		console.log(
 			response
 		);
@@ -1240,13 +1415,13 @@ bot.on(`inline_query`, async ctx => {
 	const text = ctx.update.inline_query.query;
 	text.replaceAll(/\s+/g, ` `);
 	
-	if (Array.isArray(re_result = text.match(RE_RU_BOT_AND_INLINE_COMMAND__SHOW_EATEN_TODAY))) {
+	if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_BOT_AND_INLINE_COMMAND__SHOW_EATEN_TODAY))) {
 		console.log(re_result);
-	} else if (Array.isArray(re_result = text.match(RE_RU_BOT_AND_INLINE_COMMAND__GET_STATS))) {	
+	} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_BOT_AND_INLINE_COMMAND__GET_STATS))) {	
 		console.log(re_result);
-	} else if (Array.isArray(re_result = text.match(RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH))) {
+	} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH))) {
 		console.log(re_result);
-	} else if (Array.isArray(re_result = text.match(RE_RU_INLINE_COMMAND__ADD_EATEN_FOOD_OR_DISH))) {
+	} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_INLINE_COMMAND__ADD_EATEN_FOOD_OR_DISH))) {
 		console.log(re_result);
 		
 		//search in db
@@ -1263,9 +1438,9 @@ bot.on(`inline_query`, async ctx => {
 
 		
 
-	} else if (Array.isArray(re_result = text.match(RE_RU_INLINE_COMMAND__CALC_EATEN_FOOD_OR_DISH))) {
+	} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_INLINE_COMMAND__CALC_EATEN_FOOD_OR_DISH))) {
 		console.log(re_result);
-	} else if (Array.isArray(re_result = text.match(RE_RU_INLINE_COMMAND__SEARCH))) {
+	} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_INLINE_COMMAND__SEARCH))) {
 		console.log(re_result);
 	} else {
 		//nichego ne naydeno ili komanda ne raspoznana //ssilka
