@@ -865,14 +865,75 @@ bot.on(`message`, async ctx => {
 			
 				askingConfirmationResponse += `<code>123</code> ${foodName}\n`;
 
+				const makeDishNumForSheetLine = num => {
+					const maxLength = 2;
+					const str = String(num);
+					let result = ``;
 
+					for (let i = 0, diff = maxLength - str.length; i < diff; i++) {
+						result += `_`;
+					}
+					result += `<code>${str}</code>`;
+
+					return result;
+				};
+				const addCharBeforeValue = (value, maxLength, charS) => {
+					let str = Number(value).toFixed(1);
+					
+					let result = ``;
+
+					for (let i = 0, diff = maxLength - str.length; i < diff; i++) {
+						result += charS;
+					}
+					result += str;
+
+					return result;
+				};
+
+				let dishSheetHead = `\n<u>|<b>№_|Б:____.__|Ж:____.__|У:____.__|К:_____.__|Вес:_._ (г)</b>  <i>Ингредиент</i></u>`;
+
+				askingConfirmationResponse += dishSheetHead;
+
+				const makeDishSheetLine = (ingreNum, protein, fat, carb, cal, weight, name) => {
+					return `\n|${
+						makeDishNumForSheetLine(ingreNum)} <u>|Б:${
+						addCharBeforeValue(protein, 6, '_')}|Ж:${
+						addCharBeforeValue(fat, 6, '_')}|У:${
+						addCharBeforeValue(carb, 6, '_')}|К:${
+						addCharBeforeValue(cal, 7, '_')}|В:${
+						addCharBeforeValue(weight, 6, '_')}</u> <i>${
+						name}</i>`
+				}
+
+				const rofl = () => {
+					let i = 10
+					let str = ``;
+					while(i){
+						str += makeDishSheetLine(3, 345.1, 33.3, 800.4, 8882.4, 799, `тестовый ингредиент оч оч много слов и букав опять таки привет`);
+						str += makeDishSheetLine(14, 1115.1, 991.3, 153.4, 4442.4, 3999, `тестовый ингредиент второй раз сюда записываю чтобы потестить вид посмотреть да ага`);
+						i--;
+					}
+
+					return str;
+				}
+
+				let dishSheet = rofl();
 				
-				
+				askingConfirmationResponse += dishSheet;
+
+				let dishSheetFooter = `\n<u>|<b>И__|Б:_364.8|Ж:__75.9|У:__88.2|К:__213.0|В:_100.0</b></u> Итоговый БЖУК на 100 грамм.`;
+				askingConfirmationResponse += dishSheetFooter;
+
+				askingConfirmationResponse += `\n\n—Перед добавлением ингридиента его нужно создать.\n—Если в блюде больше 20 ингредиентов, то блюдо придется разделить на два блюда. Создать одно и добавить его как ингредиент в создоваемое второе.\n\nОтменить? Отправь <code>о</code>`;
 
 
 
-				ctx.reply(askingConfirmationResponse, {parse_mode:`HTML`})
-
+ 				const response = await bot.telegram.sendMessage(
+					ctx.update.message.chat.id,
+					askingConfirmationResponse,
+					{parse_mode:'HTML'}
+				);
+console.log(response);
 				
 
 
