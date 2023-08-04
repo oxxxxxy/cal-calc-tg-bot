@@ -44,37 +44,55 @@ const RE_RU_NUTRIENTS = [];
 	*/
 
 const RE_RU_YES = /^(д|да)$/u;
-const RE_RU_NO = /^(н|не|нет)$/u;
+const RE_RU_NO = /^(н|нет)$/u;
 const RE_RU_COMMAND__DELETE_LAST_ACTION = /^(у|удалить)$/u;
 const RE_RU_COMMAND__CANCEL_LAST_ACTION = /^(о|отмена)$/u;
 
-const RE_RU_COMMAND__CREATE_FOOD = /^(с(\s+|)е\s+)((([а-яА-Яa-zA-Z0-9]+)(\s+|))+)\./u;
+const RE_RU_COMMAND__CREATE_FOOD = /^(се\s+)((([а-яА-Яa-zA-Z0-9]+)(\s+|))+)\./u;
 // /^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\((\s+|)((([а-яА-Яa-zA-Z0-9]+)(\s+|):(\s+|)(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)(\s+|)(г|мкг|мг|ккал)(\s+|))+)\)$/u;
 // ^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\((\s+|)([а-яА-Яa-zA-Z0-9\s]+)(\s+|)\)$
 // ^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\(
-const RE_RU_COMMAND__SHOW_CREATED_FOOD = /^п(\s+|)с(\s+|)е$/u; // buttons ; s konca
-const RE_RU_COMMAND__DELETE_CREATED_FOOD_IDs = /^у(\s+|)е\s+/u;//(([0-9]+(\s+|)|[0-9]+)+)$/u;
+const RE_RU_COMMAND__SHOW_CREATED_FOOD = /^псе$/u;
+const RE_RU_COMMAND__DELETE_CREATED_FOOD_IDs = /^уе/u;//(([0-9]+(\s+|)|[0-9]+)+)$/u;
 
-const RE_RU_COMMAND__CREATE_DISH = /^с(\s+|)б\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)))$/u;
-const RE_RU_COMMAND__CREATE_DISH_END = /^(ив|итоговый(\s+|)вес)\s+([0-9]+)(\s+|)(г|)$/u;
-const RE_RU_COMMAND__DELETE_CREATED_DISH_IDs = /^у(\s+|)б(\s+|)(([0-9]+(\s+|)|[0-9]+)+)$/u; 
-const RE_RU_COMMAND__SHOW_CREATED_DISHES = /^п(\s+|)с(\s+|)б$/u; // buttons ; s konca
+const RE_RU_COMMAND__CREATE_DISH = /^(сб\s+)((([а-яА-Яa-zA-Z0-9]+)(\s+|))+)$/u;
+const RE_RU_COMMAND__EDIT_DISH = /^рб(\s+|)([0-9]+)$/u;
+	const RE_RU_COMMAND__DELETE_INGREDIENT_FROM_DISH = /^у/u;
+	const RE_RU_COMMAND__EDIT_INGREDIENT_WEIGHT_IN_DISH = /^ви/u;
+const RE_RU_COMMAND__SAVE_DISH_FINAL_WEIGHT = /^и/u;
+const RE_RU_COMMAND__SAVE_DISH = /^с$/u;
+const RE_RU_COMMAND__DELETE_CREATED_DISH_IDs = /^уб/u; 
+const RE_RU_COMMAND__SHOW_CREATED_DISHES = /^псб$/u;
+
+const RE_RU_COMMAND__SHOW_EATEN_TODAY = /^пс$/u;
+const RE_RU_COMMAND__SHOW_EATEN_YESTODAY = /^псв$/u;
+const RE_RU_COMMAND__SHOW_EATEN_OF_ALL_TIME = /^псз$/u;
+const RE_RU_COMMAND__SHOW_EATEN_IN_DAY = /^псд\s+/u;//BY DATE
+const RE_RU_COMMAND__EDIT_WEIGHT_OF_EATEN_TODAY_Num = /^ив\s+/u;// num of eaten item, new weight
+const RE_RU_COMMAND__EDIT_WEIGHT_OF_EATEN_YESTODAY_Num = /^ивв\s+/u;// num of eaten item, new weight
+const RE_RU_COMMAND__EDIT_WEIGHT_OF_EATEN_IN_DAY_Num = /^ивд\s+/u;// num of eaten item, new weight
+const RE_RU_COMMAND__DELETE_EATEN_TODAY_Num = /^ус\s+/u;
+const RE_RU_COMMAND__DELETE_EATEN_YESTODAY_Num = /^усв\s+/u;
+const RE_RU_COMMAND__DELETE_EATEN_IN_DAY_Num = /^усд\s+/u;
+
+const RE_RU_COMMAND__SHOW_FOOD_BY_PARAMs = /^пе/u; //if no param prost eda proekta
+const RE_RU_COMMAND__SHOW_DISH_BY_PARAMs = /^пб/u; //if no param prost blyuda proekta
+
+const RE_RU_INLINE_COMMAND__WILL_EAT = /^([0-9]+)г\s+/u;//([0-9]+)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){2,})$/u; //в поиске выдавать с подсчитанным БЖУКом 
+	const RE_RU_INLINE_COMMAND__ADD_INGREDIENT_TO_DISH = /^/u;
+const RE_RU_INLINE_COMMAND__LOOK_AT_FOOD_OR_DISH = /^п\s+/u;// фильтры: еда, блюда проекта/юзера/других пользователей; бжук<>=num; name. e b drugih mojno dobavlyat'
 
 
 
-
-
-
-const RE_RU_COMMAND__DELETE_TODAY_EATEN_FOOD_OR_DISH_ID = /^(у|удалить)(\s+|)(с|съеденное)(\s+|)([0-9]+)$/u;
-
-
-const RE_RU_TIME = /^([0-1][0-9]|[2][0-3])(\s+|):(\s+|)([0-5][0-9])$/u;
-
-
-const RE_RU_COMMAND__DELETE_ALLTIME_ID_EATEN_FOOD_OR_DISH = /^(у|удалить)(\s+|)(с|съеденное)(\s+|)за(\s+|)вс(ё|е)(\s+|)время(\s+|)([0-9]+)$/u;
+const RE_RU_COMMAND__SET_DAY_BJUK = /^/u;
+const RE_RU_COMMAND__SET_LOCAL_TIME = /^([0-1][0-9]|[2][0-3])(\s+|):(\s+|)([0-5][0-9])$/u;
 
 	
-//const RE_RU_COMMAND__EDIT_CREATED_FOOD_OR_DISH = /^(р|редактировать)(\s+|)((е|еду)|(б|блюдо))(\s+|)([0-9]+|)$/u;
+
+// /help 
+// /settings
+
+
 
 const RE_RU_COMMAND__CREATE_AIM = /^(с|создать)(\s+|)(ц|цель)(\s+|)((п|повторять)(\s+|)\((\s+|)(([0-9]+)(\s+|)д(\s+|)\((\s+|)(([а-яА-Я]+)(\s+|):(\s+|)(([0-9]+)(\s+|)(,|.|)(\s+|)([0-9]+|)(\s+|)(г|%|к))(\s+|)(,|)(\s+|))+(\s+|)\)(\s+|)(,|)(\s+|))+\)(\s+|)((вт|в(\s+|)течении)(\s+|)([0-9]+)(\s+|)(д|м)|)|(([0-9]+)(\s+|)д(\s+|)\((\s+|)(([а-яА-Я]+)(\s+|):(\s+|)(([0-9]+)(\s+|)(,|.|)(\s+|)([0-9]+|)(\s+|)(г|%|к))(\s+|)(,|)(\s+|))+(\s+|)\)(\s+|)(,|)(\s+|))+)$/u; // не больше 365 дней или 12 месяцев,
 const RE_RU_COMMAND__COMPLETE_AIM = /^(з|завершить)(\s+|)(ц|цель)(\s+|)([0-9]+)$/u;
@@ -84,18 +102,12 @@ const RE_RU_COMMAND__DELETE_AIM = /^(у|удалить)(\s+|)(ц|цель)$/u; /
 const RE_RU_COMMAND__ADD_WEIGHTING = /^(в|вес)(\s+|)([0-9]+|[0-9]+(\s+|)(,|.)(\s+|)[0-9]+)$/u;
 const RE_RU_COMMAND__DELETE_LAST_ADDED_WEIGHTING = /^(у|удалить)(\s+|)(в|вес)$/u;
 
-const RE_RU_COMMAND__ADD_GIRTH = /^(об|обхват)(\s+|)(талии|бедер|бедра|груди|плеч|бицепса|шеи|предплечья)([0-9]+|[0-9]+(\s+|)(,|.)(\s+|)[0-9]+)$/u;
-const RE_RU_COMMAND__DELETE_LAST_ADDED_GIRTH = /^(у|удалить)(\s+|)(об|обхват)(\s+|)(талии|бедер|бедра|груди|плеч|бицепса|шеи|предплечья|)$/u;
-
 
 const RE_RU_BOT_AND_INLINE_COMMAND__GET_STATS = /^(п|показать)(\s+|)(ст|статистику)(\s+|)(\s+|)((в|вес)|(п|потребление)|(ц|цели)|)(\s+|)((([0-9]+)(\s+|)(д|м|г))|(за(\s+|)вс(ё|е)(\s+|)время)|)$/u; // body or eaten food or aims //ras v chas
-const RE_RU_BOT_AND_INLINE_COMMAND__SHOW_EATEN = /^(п|показать)(\s+|)(с|съеденное)()$/u;//???????
+const RE_RU_BOT_AND_INLINE_COMMAND__SHOW_EATEN = /^(п|показать)(\s+|)(с|съеденное)()$/u;//??? tok esli v chati gde ne dobavlen bot
 
-//const RE_RU_INLINE_COMMAND__OFFER_RANDOM_FOOD = /^/u; //????? //validate users to NOT reserve inline commands
+const RE_RU_INLINE_COMMAND__OFFER_RANDOM_FOOD = /^/u; //????? //validate users to NOT reserve inline commands
 const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|поделиться)\s+((е|едой)|(б|блюдом))\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){2,})$/u;
-const RE_RU_INLINE_COMMAND__ADD_EATEN_FOOD_OR_DISH = /^(д|добавить)\s+([0-9]+)(\s+|)(г|)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){2,})$/u;
-const RE_RU_INLINE_COMMAND__CALC_EATEN_FOOD_OR_DISH = /^(сч|подсчитать)\s+([0-9]+)(\s+|)(г|)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){2,})$/u;
-const RE_RU_INLINE_COMMAND__SEARCH = /^(([а-яА-Яa-zA-Z0-9]+)(\s+|)){2,}$/u;
 
 
 /*
@@ -297,52 +309,63 @@ bot.use(async (ctx, next) => {
 	if (!!ctx.update.message) {
 		from = ctx.update.message.from;
 		date = ctx.update.message.date;
+		console.log(`message`);
 	} else if (!!ctx.update.edited_message) {// ??? check them or not?
 		from = ctx.update.edited_message.from;
 		date = ctx.update.edited_message.date;
+		console.log(`edited_message`);
 	} else if (!!ctx.update.inline_query) {
 		from = ctx.update.inline_query.from;
 		date = ctx.update.inline_query.date;
+		console.log(`inline_query`);
 	} else if (!!ctx.update.chosen_inline_result) {
 		from = ctx.update.chosen_inline_result.from;
 		date = ctx.update.chosen_inline_result.date;
+		console.log(`chosen_inline_result`);
 	} else if (!!ctx.update.callback_query) {
 		from = ctx.update.callback_query.from;
 		date = ctx.update.callback_query.date;
+		console.log(`callback_query`);
 	} else if (!!ctx.update.shipping_query) {
 		from = ctx.update.shipping_query.from;        
 		date = ctx.update.shipping_query.date;
-		//create table
+		console.log(`shipping_query`);
 	} else if (!!ctx.update.pre_checkout_query) {
 		from = ctx.update.pre_checkout_query.from;
 		date = ctx.update.pre_checkout_query.date;
-
+		console.log(`pre_chechout_query`);
 	} else if (!!ctx.update.poll) {
 		from = ctx.update.poll.from;
 		date = ctx.update.poll.date;
-		//create table
+		console.log(`poll`);
 	} else if (!!ctx.update.poll_answer) {
 		from = ctx.update.poll_answer.from;
 		date = ctx.update.poll_answer.date;
+		console.log(`poll_answer`);
 
 	} else if (!!ctx.update.my_chat_member) {
 		from = ctx.update.my_chat_member.from;
 		date = ctx.update.my_chat_member.date;
+		console.log(`my_chat_member`);
 		//create table
 	} else if (!!ctx.update.chat_member) {
 		from = ctx.update.chat_member.from;
 		date = ctx.update.chat_member.date;
+		console.log(`chat_member`);
 	} else if (!!ctx.update.chat_join_request) {
 		from = ctx.update.chat_join_request.from;
 		date = ctx.update.chat_join_request.date;
+		console.log(`chat_join_request`);
 		//create table
 	} else if (!!ctx.update.channel_post) {
 		from = ctx.update.channel_post.from;
 		date = ctx.update.channel_post.date;
+		console.log(`channel_post`);
 		return; //create table???
 	} else if (!!ctx.update.edited_channel_post) {
 		from = ctx.update.edited_channel_post.from;
 		date = ctx.update.edited_channel_post.date;
+		console.log(`editted_channel_post`);
 		return;
 	}
 
@@ -600,9 +623,7 @@ bot.on(`message`, async ctx => {
 
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_BOT_AND_INLINE_COMMAND__SHOW_EATEN))) {
 				console.log(re_result);			
-			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_TODAY_EATEN_FOOD_OR_DISH_ID))) {
 				console.log(re_result);			
-			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_ALLTIME_ID_EATEN_FOOD_OR_DISH))) {
 				console.log(re_result);			
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__CREATE_FOOD))) {
 				// console.log(re_result, `RE_RU_COMMAND__CREATE_FOOD`);
@@ -625,7 +646,8 @@ bot.on(`message`, async ctx => {
 
 				let askingConfirmationResponse = `*Чпок, и готооова...*`;
 				
-				const foodName = text.slice(re_result[1].length-1, re_result[3].length + re_result[1].length).slice(0, 128).trim();//(re_result[2].trim()).slice(0, 128); // poisk odinakovih imen, otpravka i ojidanie podtverjdeniya
+				const foodName = text.slice(re_result[1].length-1, re_result[2].length + re_result[1].length).slice(0, 128).trim();//(re_result[2].trim()).slice(0, 128); // poisk odinakovih imen, otpravka i ojidanie podtverjdeniya
+				// console.log( foodName, re_result);return;
 				if (foodName.length < 4) {
 					ctx.reply(`Название еды должно иметь хотя бы 4 символа.`)
 				}
@@ -820,6 +842,40 @@ bot.on(`message`, async ctx => {
 
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__CREATE_DISH))) {
 				console.log(re_result);			
+				
+				let limit_count_of_user_created_fidi = 100;
+				if (!userInfo.privilege_type && userInfo.limit_count_of_user_created_fidi >= limit_count_of_user_created_fidi) { //think about it...
+					const limitResp =`Вы не можете создавать еду или блюда больше ${limit_count_of_user_created_fidi} раз за 24ч.`;
+					ctx.reply(limitResp);
+					return;
+					/* {
+						result: false,
+						cause: `limit_count_of_user_created_fidi`,
+						message: `Вы не можете создавать еду больше ${limit_count_of_user_created_fidi} раз за 24ч.`
+					}; */
+				}
+
+				let askingConfirmationResponse = `<b>__ID Название блюда</b>\n`;
+
+				const foodName = re_result[2].slice(0, 128).trim();//(re_result[2].trim()).slice(0, 128); // poisk odinakovih imen, otpravka i ojidanie podtverjdeniya
+				
+				if (foodName.length < 4) {
+					ctx.reply(`Название еды должно иметь хотя бы 4 символа.`)
+				}
+			
+				askingConfirmationResponse += `<code>123</code> ${foodName}\n`;
+
+
+				
+				
+
+
+
+				ctx.reply(askingConfirmationResponse, {parse_mode:`HTML`})
+
+				
+
+
 			/* } else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__EDIT_CREATED_FOOD_OR_DISH))) {
 				console.log(re_result);			 */
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SHOW_CREATED_DISHES))) {
@@ -928,10 +984,10 @@ bot.on(`message`, async ctx => {
 
 					return result;
 				};
-				let message = `<b>Cписок созданной еды.</b> Всего: <b>${userInfo.available_count_of_user_created_fi}</b>.\n<b>__ID</b> БЖУК (на 100г) <b><i>Название еды</i></b>`;
+				let message = `<b>Cписок созданной еды.</b> Всего: <b>${userInfo.available_count_of_user_created_fi}</b>.\n<b>ID</b>   БЖУК (на 100г) <b><i>Название еды</i></b>`;
 
 				res.rows.forEach(e => {
-					message += `\n<b>${makeUnderlineIDOfUserCreatedFI(e.fi_id_for_user)}</b> Б:${
+					message += `\n<code>${e.fi_id_for_user}</code> Б:${
 						addCharBeforeValue(e.view_json.protein ? e.view_json.protein : 0, 4, '_')} Ж:${
 						addCharBeforeValue(e.view_json.fat ? e.view_json.fat : 0, 4, '_')} У:${
 						addCharBeforeValue(e.view_json.carbohydrate ? e.view_json.carbohydrate : 0, 4, '_')} К:${
@@ -939,24 +995,23 @@ bot.on(`message`, async ctx => {
 						e.name__lang_code_ru}</i> `
 				});
 
-				const makeInlineKeyboard = (pages, tableName, tgid) => {
+				const makeInlineKeyboard = (pages, tableName, uid) => {
 					return telegraf.Markup.inlineKeyboard([[
-							telegraf.Markup.button.callback(`${pages.first}`, `${tableName + pages.first}tgid${tgid}`),
-							telegraf.Markup.button.callback(`${pages.movePreviousMinusFive}<<`, `${tableName + pages.movePreviousMinusFive}tgid${tgid}`),
-							telegraf.Markup.button.callback(`${pages.movePrevious}<`, `${tableName + pages.movePrevious}tgid${tgid}`),
-							telegraf.Markup.button.callback(`${pages.selected}`, `${tableName + pages.selected}tgid${tgid}`),
-							telegraf.Markup.button.callback(`>${pages.moveNext}`, `${tableName + pages.moveNext}tgid${tgid}`),
-							telegraf.Markup.button.callback(`>>${pages.moveNextPlusFive}`, `${tableName + pages.moveNextPlusFive}tgid${tgid}`),
-							telegraf.Markup.button.callback(`${pages.last}`, `${tableName + pages.last}tgid${tgid}`)
+							telegraf.Markup.button.callback(`${pages.first}`, `${tableName + pages.first}uid${uid}`),
+							telegraf.Markup.button.callback(`${pages.movePreviousMinusFive}<<`, `${tableName + pages.movePreviousMinusFive}uid${uid}`),
+							telegraf.Markup.button.callback(`${pages.movePrevious}<`, `${tableName + pages.movePrevious}uid${uid}`),
+							telegraf.Markup.button.callback(`${pages.selected}`, `${tableName + pages.selected}uid${uid}`),
+							telegraf.Markup.button.callback(`>${pages.moveNext}`, `${tableName + pages.moveNext}uid${uid}`),
+							telegraf.Markup.button.callback(`>>${pages.moveNextPlusFive}`, `${tableName + pages.moveNextPlusFive}uid${uid}`),
+							telegraf.Markup.button.callback(`${pages.last}`, `${tableName + pages.last}uid${uid}`)
 					]]);
 				}
 
 				const inlineKeyboard = makeInlineKeyboard(pages, `fi`, userInfo.tg_user_id);
 
 				inlineKeyboard.parse_mode = 'HTML';
-				inlineKeyboard.protect_content = true;
 				inlineKeyboard.allow_sending_without_reply = true;
-				inlineKeyboard.reply_to_message_id = ctx.update.message.message_id;
+				// inlineKeyboard.reply_to_message_id = ctx.update.message.message_id; //only if in groups
 
  				const response = await bot.telegram.sendMessage(
 					ctx.update.message.chat.id,
@@ -1088,7 +1143,7 @@ bot.on(`message`, async ctx => {
 						WHERE id = ${userInfo.r_user_id}
 					;`);
 					
-					let deletedMessage = `<b>Удалено:</b>\n\n<b>__ID</b> БЖУК (на 100г) <b><i>Название еды</i></b>`;
+					let deletedMessage = `<b>Удалено:</b>\n\n<b>ID</b>   БЖУК (на 100г) <b><i>Название еды</i></b>`;
 
 				const makeUnderlineIDOfUserCreatedFI = intId => {
 					const str = String(intId);
@@ -1127,7 +1182,7 @@ bot.on(`message`, async ctx => {
 				});
 
 					
-					deletedMessage += `\n\nОтменить?<b>"о/отмена"</b>\n\nЯ ТЕБЯ ПОРОДИЛ, Я ТЕБЯ И УДАЛЮ.`;
+					deletedMessage += `\n\nОтменить?<b> "о/отмена"</b>\n\n<i>Я ТЕБЯ ПОРОДИЛ, Я ТЕБЯ И УДАЛЮ...</i>`;
 					ctx.reply(deletedMessage, {parse_mode : 'HTML'});
 
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_CREATED_DISH_IDs))) {
@@ -1228,7 +1283,7 @@ bot.on(`callback_query`, async ctx => {
 	
 	const userInfo = await HZ.getTelegramUserInfo(DB_CLIENT, callbackQuery.from.id);
 	
-	const reFoodItems = new RegExp(`${tableNames.food_items}(\\d+)tgid(\\d+)`,)
+	const reFoodItems = new RegExp(`${tableNames.food_items}(\\d+)uid(\\d+)`,)
 	let re_result;
 	
 	if (re_result = callbackQuery.data.match(reFoodItems)) {
@@ -1237,7 +1292,7 @@ bot.on(`callback_query`, async ctx => {
 			return;
 		}
 
-		const maxNumberOfLines = 10;
+		const maxNumberOfLines = 10;//25
 
 		let selectedPage = Number(re_result[1]);
 
@@ -1294,22 +1349,21 @@ bot.on(`callback_query`, async ctx => {
 			ucfi_offset_string = `OFFSET ${ucfi_offset}`;
 		}
 
-				const makeUnderlineIDOfUserCreatedFI = intId => {
-					const str = String(intId);
+				const makeUnderlineIDOfUserCreatedFI = id => {
+					const str = String(id);
 					const maxStrIDLength = 4;
 					
 					let result = ``;
 
-					for (let i = 0, diff = maxStrIDLength - str.length; i < diff; i++) {
+					for (let i = 0, diff = maxStrIDLength - str.len; i < diff; i++) {
 						result += `_`;
 					}
-					result += str;
 
 					return result;
 				};
 
 
-				let message = `<b>Cписок созданной еды.</b> Всего: <b>${userInfo.available_count_of_user_created_fi}</b>.\n<b>__ID</b> БЖУК (на 100г) <b><i>Название еды</i></b>`;
+				let message = `<b>Cписок созданной еды.</b> Всего: <b>${userInfo.available_count_of_user_created_fi}</b>.\n<b>ID</b>   БЖУК (на 100г) <b><i>Название еды</i></b>`;
 
 					const res = await DB_CLIENT.query(`
 						SELECT view_json, fi_id_for_user, name__lang_code_ru
@@ -1338,7 +1392,8 @@ bot.on(`callback_query`, async ctx => {
 					
 
 				res.rows.forEach(e => {
-					message += `\n<b>${makeUnderlineIDOfUserCreatedFI(e.fi_id_for_user)}</b> Б:${addCharBeforeValue(e.view_json.protein ? e.view_json.protein : 0, 4, '_')} Ж:${
+					message += `\n<code>${e.fi_id_for_user}</code> Б:${
+						addCharBeforeValue(e.view_json.protein ? e.view_json.protein : 0, 4, '_')} Ж:${
 						addCharBeforeValue(e.view_json.fat ? e.view_json.fat : 0, 4, '_')} У:${
 						addCharBeforeValue(e.view_json.carbohydrate ? e.view_json.carbohydrate : 0, 4, '_')} К:${
 						addCharBeforeValue(e.view_json.caloric_content ? e.view_json.caloric_content : 0, 5, '_')} <i>${
@@ -1346,15 +1401,15 @@ bot.on(`callback_query`, async ctx => {
 				});
 
 
-				const makeInlineKeyboard = (pages, tableName, tgid) => {
+				const makeInlineKeyboard = (pages, tableName, uid) => {
 					return telegraf.Markup.inlineKeyboard([[
-							telegraf.Markup.button.callback(`${pages.first}`, `${tableName + pages.first}tgid${tgid}`),
-							telegraf.Markup.button.callback(`${pages.movePreviousMinusFive}<<`, `${tableName + pages.movePreviousMinusFive}tgid${tgid}`),
-							telegraf.Markup.button.callback(`${pages.movePrevious}<`, `${tableName + pages.movePrevious}tgid${tgid}`),
-							telegraf.Markup.button.callback(`${pages.selected}`, `${tableName + pages.selected}tgid${tgid}`),
-							telegraf.Markup.button.callback(`>${pages.moveNext}`, `${tableName + pages.moveNext}tgid${tgid}`),
-							telegraf.Markup.button.callback(`>>${pages.moveNextPlusFive}`, `${tableName + pages.moveNextPlusFive}tgid${tgid}`),
-							telegraf.Markup.button.callback(`${pages.last}`, `${tableName + pages.last}tgid${tgid}`)
+							telegraf.Markup.button.callback(`${pages.first}`, `${tableName + pages.first}uid${uid}`),
+							telegraf.Markup.button.callback(`${pages.movePreviousMinusFive}<<`, `${tableName + pages.movePreviousMinusFive}uid${uid}`),
+							telegraf.Markup.button.callback(`${pages.movePrevious}<`, `${tableName + pages.movePrevious}uid${uid}`),
+							telegraf.Markup.button.callback(`${pages.selected}`, `${tableName + pages.selected}uid${uid}`),
+							telegraf.Markup.button.callback(`>${pages.moveNext}`, `${tableName + pages.moveNext}uid${uid}`),
+							telegraf.Markup.button.callback(`>>${pages.moveNextPlusFive}`, `${tableName + pages.moveNextPlusFive}uid${uid}`),
+							telegraf.Markup.button.callback(`${pages.last}`, `${tableName + pages.last}uid${uid}`)
 					]]);
 				}
 
@@ -1415,22 +1470,19 @@ bot.on(`inline_query`, async ctx => {
 	const text = ctx.update.inline_query.query;
 	text.replaceAll(/\s+/g, ` `);
 	
-	if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_BOT_AND_INLINE_COMMAND__SHOW_EATEN_TODAY))) {
-		console.log(re_result);
-	} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_BOT_AND_INLINE_COMMAND__GET_STATS))) {	
+	if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_BOT_AND_INLINE_COMMAND__GET_STATS))) {	
 		console.log(re_result);
 	} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH))) {
 		console.log(re_result);
-	} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_INLINE_COMMAND__ADD_EATEN_FOOD_OR_DISH))) {
 		console.log(re_result);
 		
 		//search in db
 		const re_str_arr = re_result[3].split(/\s+/);
 
 		
-		const res = await DB_CLIENT.query();
+		// const res = await DB_CLIENT.query();
 
-		searchBuiltinUserFoodAndDishes()//str arr([str, str], 50/*limit*/) and str, str etc, 50
+		// searchBuiltinUserFoodAndDishes()//str arr([str, str], 50/*limit*/) and str, str etc, 50
 
 		//make results
 		//send response
@@ -1438,9 +1490,6 @@ bot.on(`inline_query`, async ctx => {
 
 		
 
-	} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_INLINE_COMMAND__CALC_EATEN_FOOD_OR_DISH))) {
-		console.log(re_result);
-	} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_INLINE_COMMAND__SEARCH))) {
 		console.log(re_result);
 	} else {
 		//nichego ne naydeno ili komanda ne raspoznana //ssilka
