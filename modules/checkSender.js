@@ -40,8 +40,19 @@ const getTelegramUserInfo = async (db, tg_user_id) => {
 exports.getTelegramUserInfo = getTelegramUserInfo;
 
 const registryTelegramUser = async (db, tg_user_id, is_bot) => {
+
 	const res = await db.query(`WITH
-		tu AS (INSERT INTO telegram_users (tg_user_id, is_bot) VALUES (${tg_user_id}, ${is_bot}) RETURNING * ),
+		tu AS (INSERT INTO telegram_users (
+		tg_user_id,
+		is_bot,
+		count_of_user_created_di,
+		count_of_user_created_fi,
+		available_count_of_user_created_fi,
+		available_count_of_user_created_di
+		) VALUES (
+		${tg_user_id},
+		${is_bot},
+		0,0,0,0) RETURNING * ),
 		ru AS (INSERT INTO registered_users (tg_user_id) VALUES (${tg_user_id}) RETURNING *)
 		SELECT 
 		${renamedColumnsOfTablesTgUsersAndRegUsers}

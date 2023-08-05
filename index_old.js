@@ -385,11 +385,14 @@ bot.use(async (ctx, next) => {
 		HZ.trackTelegramUserAccountDataChanges(DB_CLIENT, from);
 	}
 
+
+	const reqDate = date * 1000;
+
  if (!from.is_bot){
 		let row = {};
 		row.tg_user_id = from.id;
 		row.log = JSON.stringify(ctx.update);
-		row.creation_date = new Date();
+		row.creation_date = new Date(reqDate).toISOString();
 		
 		let paramQuery = {};
 		paramQuery.text = `
@@ -415,19 +418,19 @@ bot.on(`message`, async ctx => {
 		`________MESSAGE________end`
 	) */
 
-	if(ctx.update.message.chat.type == `private` && ctx.update.message.from.id != 2147423284) {
-		ctx.reply(`Я нахожусь в разработке. Посмотрите новости здесь @food_dairy. Напишите сюда @food_dairy_chat.\nI'm in development. See news here @food_dairy. Text here @food_dairy_chat.`);
+	if(
+		// ctx.update.message.from.id != 1087968824 &&
+		ctx.update.message.from.id != 2147423284) {
+		// ctx.reply(`Я нахожусь в разработке. Посмотрите новости здесь @food_dairy. Напишите сюда @food_dairy_chat.\nI'm in development. See news here @food_dairy. Text here @food_dairy_chat.`);
 		return;
 	}
 
 
-	if(ctx.update.message.from.id != 2147423284) {
-		//ctx.reply(`Я нахожусь в разработке, напишите сюда @food_dairy_chat.\nRight now I'm being developed, write here @food_dairy_chat.`);
-		return;
-	}
+	if(ctx.update.message.from.is_bot 
+		&& ctx.update.message.from.id != 1087968824
+	) {
+		// ctx.reply(`Старина, съеби нахуй.`);
 
-
-	if(ctx.update.message.from.is_bot) {
 		return;
 	}
 
@@ -436,7 +439,7 @@ bot.on(`message`, async ctx => {
 	}
 
 	// console.log(ctx.update)
-	if (ctx.update.message.chat.type == `private`) {
+	// if (ctx.update.message.chat.type == `private`) {
 
 		const userInfo = await HZ.getTelegramUserInfo(DB_CLIENT, ctx.update.message.from.id);
 		const confirmCommand = (await DB_CLIENT.query(`
@@ -452,6 +455,8 @@ bot.on(`message`, async ctx => {
 				confirmCommand
 	);
 		
+
+		const reqDate = ctx.update.message.date * 1000;	
 		let re_result;
 	
 		if(!ctx.update.message.text){
@@ -499,7 +504,7 @@ bot.on(`message`, async ctx => {
 					//telegram_user_sended_commands add otmenu
 					const row = {};
 					row.tg_user_id = userInfo.tg_user_id;
-					row.creation_date = (new Date()).toISOString();
+				row.creation_date = new Date(reqDate).toISOString();
 					row.command = `DELETE_FOOD`;
 					row.can_it_be_canceled = true;
 
@@ -595,7 +600,7 @@ bot.on(`message`, async ctx => {
 					//telegram_user_sended_commands add otmenu
 					const row = {};
 					row.tg_user_id = userInfo.tg_user_id;
-					row.creation_date = (new Date()).toISOString();
+				row.creation_date = new Date(reqDate).toISOString();
 					row.command = `CANCEL__DELETE_FOOD`;
 
 					row.data = {};
@@ -746,9 +751,8 @@ bot.on(`message`, async ctx => {
 					userInfo.limit_count_of_user_created_fidi = 0;
 				}
 
-				const fi_creation_date = (new Date()).toISOString();
 				let row = {};
-				row.creation_date = fi_creation_date; 
+				row.creation_date = new Date(reqDate).toISOString();
 				row.tg_user_id = ctx.update.message.from.id;
 				row.view_json = {};
 				row.name__lang_code_ru = foodName;
@@ -789,7 +793,7 @@ bot.on(`message`, async ctx => {
 
 				row = {};
 				row.tg_user_id = userInfo.tg_user_id;
-				row.creation_date = fi_creation_date;
+				row.creation_date = new Date(reqDate).toISOString();
 				row.command = `CREATE_FOOD`;
 				row.can_it_be_removed = true;
 
@@ -848,22 +852,21 @@ bot.on(`message`, async ctx => {
 					const limitResp =`Вы не можете создавать еду или блюда больше ${limit_count_of_user_created_fidi} раз за 24ч.`;
 					ctx.reply(limitResp);
 					return;
-					/* {
-						result: false,
-						cause: `limit_count_of_user_created_fidi`,
-						message: `Вы не можете создавать еду больше ${limit_count_of_user_created_fidi} раз за 24ч.`
-					}; */
 				}
 
+				const creation_date = new Date(reqDate).toISOString();
 				let askingConfirmationResponse = `<b>__ID Название блюда</b>\n`;
 
-				const foodName = re_result[2].slice(0, 128).trim();//(re_result[2].trim()).slice(0, 128); // poisk odinakovih imen, otpravka i ojidanie podtverjdeniya
-				
-				if (foodName.length < 4) {
+				const dishName = re_result[2].slice(0, 128).trim();//(re_result[2].trim()).slice(0, 128); // poisk odinakovih imen, otpravka i ojidanie podtverjdeniya
+
+				if (dishName.length < 4) {
 					ctx.reply(`Название еды должно иметь хотя бы 4 символа.`)
 				}
-			
-				askingConfirmationResponse += `<code>123</code> ${foodName}\n`;
+				
+				const count_of_user_created_di = Number(userInfo.count_of_user_created_di) + 1;
+				askingConfirmationResponse += `<code>${count_of_user_created_di}</code> ${dishName}\n`;
+
+				let dishSheetHead = `\n<u>|<b>№_|Б:____.__|Ж:____.__|У:____.__|К:_____.__|Вес:_._ (г)</b>  <i>Ингредиент</i></u>`;
 
 				const makeDishNumForSheetLine = num => {
 					const maxLength = 2;
@@ -889,7 +892,94 @@ bot.on(`message`, async ctx => {
 
 					return result;
 				};
+				let dishSheetFooter = `\n<u>|<b>И__|Б:${
+					addCharBeforeValue(0, 6, '_')}|Ж:${
+					addCharBeforeValue(0, 6, '_')}|У:${
+					addCharBeforeValue(0, 6, '_')}|К:${
+					addCharBeforeValue(0, 7, '_')}|В:_100.0</b></u> Итоговый БЖУК на 100 грамм.`;
 
+				let dishReminder = `\n\n—Перед добавлением ингредиента его нужно создать.\n—Если в блюде больше 20 ингредиентов, то блюдо придется разделить на два блюда. Создать одно и добавить его как ингредиент в создоваемое второе.\n\nНужна помощь? Отправь <code>п</code>\nОтменить? Отправь <code>о</code>`;
+
+				askingConfirmationResponse += dishSheetHead;
+				askingConfirmationResponse += dishSheetFooter;
+				askingConfirmationResponse += dishReminder;
+
+ 				const response = await bot.telegram.sendMessage(
+					ctx.update.message.chat.id,
+					askingConfirmationResponse,
+					{parse_mode:'HTML'}
+				);
+console.log(response);
+
+			
+				//update count_of_user_created_di
+				let setFUCFIDITime;
+				let setLimitCOfFIDI;
+
+				if (!userInfo.privilege_type) {
+					if (!userInfo.first_user_created_fidi_time) {
+						setFUCFIDITime = `first_user_created_fidi_time = '${creation_date}'`;
+						userInfo.limit_count_of_user_created_fidi = 0;
+					}
+					setLimitCOfFIDI = `limit_count_of_user_created_fidi= ${Number(userInfo.limit_count_of_user_created_fidi) + 1}`;
+				}
+
+				await DB_CLIENT.query(`
+					UPDATE registered_users
+					SET count_of_user_created_di = ${count_of_user_created_di}
+					${setLimitCOfFIDI ? ', ' + setLimitCOfFIDI : ``}
+					${setFUCFIDITime ? ', ' + setFUCFIDITime : ``}
+					WHERE id = ${userInfo.r_user_id};
+				`);
+				//create dish dish_items
+				let row = {};
+				row.creation_date = creation_date;
+				row.name__lang_code_ru = dishName;
+				row.di_id_for_user = count_of_user_created_di;
+
+				let paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO dish_items
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+					RETURNING	id
+				;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				const res = await DB_CLIENT.query(paramQuery);
+
+				//add to telegram_user_sended_commands
+				row = {};
+				row.creation_date = creation_date;
+				row.command = `CREATE_DISH`;
+				row.tg_user_id = userInfo.tg_user_id;
+				row.confirmation = true;
+				row.can_it_be_canceled = true;
+
+				row.data = {};
+				row.data.dish_items_ids = [res.rows[0].id];
+				row.data.message_id = response.message_id;
+				row.data.chat = {
+					id: response.chat.id,
+					type: response.chat.type
+				};
+				row.data = JSON.stringify(row.data);
+
+				paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO telegram_user_sended_commands
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+				;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				await DB_CLIENT.query(paramQuery);
+
+
+
+				return;
+
+				/* 
 				let dishSheetHead = `\n<u>|<b>№_|Б:____.__|Ж:____.__|У:____.__|К:_____.__|Вес:_._ (г)</b>  <i>Ингредиент</i></u>`;
 
 				askingConfirmationResponse += dishSheetHead;
@@ -919,21 +1009,8 @@ bot.on(`message`, async ctx => {
 
 				let dishSheet = rofl();
 				
-				askingConfirmationResponse += dishSheet;
+				askingConfirmationResponse += dishSheet; */
 
-				let dishSheetFooter = `\n<u>|<b>И__|Б:_364.8|Ж:__75.9|У:__88.2|К:__213.0|В:_100.0</b></u> Итоговый БЖУК на 100 грамм.`;
-				askingConfirmationResponse += dishSheetFooter;
-
-				askingConfirmationResponse += `\n\n—Перед добавлением ингридиента его нужно создать.\n—Если в блюде больше 20 ингредиентов, то блюдо придется разделить на два блюда. Создать одно и добавить его как ингредиент в создоваемое второе.\n\nОтменить? Отправь <code>о</code>`;
-
-
-
- 				const response = await bot.telegram.sendMessage(
-					ctx.update.message.chat.id,
-					askingConfirmationResponse,
-					{parse_mode:'HTML'}
-				);
-console.log(response);
 				
 
 
@@ -1083,7 +1160,7 @@ console.log(response);
 
 				let row = {};
 				row = {};
-				row.creation_date = new Date();
+				row.creation_date = new Date(reqDate).toISOString();
 				row.tg_user_id = ctx.update.message.from.id;
 				row.command = `SHOW_CREATED_FOOD`;
 				
@@ -1173,7 +1250,7 @@ console.log(response);
 					
 					// add to telegram_user_commands
 					row = {};
-					row.creation_date = new Date();
+				row.creation_date = new Date(reqDate).toISOString();
 					row.tg_user_id = ctx.update.message.from.id;
 					row.command = `DELETE_FOOD`;
 					row.can_it_be_canceled = true;
@@ -1272,6 +1349,14 @@ console.log(response);
 			}
 		} else {
 			console.log(`user has last command`);
+			if (confirmCommand.command == `CREATE_DISH` || confirmCommand.command == `EDIT_DISH`){
+				if (Array.isArray(re_result = text.toLowerCase().match())) {
+
+				}
+
+
+			}
+
 			if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_YES))) {
 				console.log(re_result);
 
@@ -1297,14 +1382,13 @@ console.log(response);
 					default:
 						break;
 				}
-			} else if (confirmCommand.command == `CREATE_DISH` && Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__CREATE_DISH_END))) {
 				console.log(re_result);			
 			} else {
 				ctx.reply(`Завершите операцию.`);	
 			}
 		}
 
-	}
+	//}
 
 
 });
