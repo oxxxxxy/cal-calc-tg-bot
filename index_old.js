@@ -1,13 +1,9 @@
-/* 
-
-
-
-
-
-*/
-
 const telegraf = require(`telegraf`);
 const pg = require(`pg`);
+
+const { MeiliSearch } = require(`meilisearch`);
+//console.log(meiliS)
+
 
 require('dotenv').config()
 
@@ -43,10 +39,10 @@ const RE_RU_NUTRIENTS = [];
 	(у|угли|углевод|углеводы)(\\s+|)(\\d+(\\s+|)(,|\\.)(\\s+|)\\d+|\\d+)(\\s+|)(/u  //г|мкг|мг|ккал|)/u, 
 	*/
 
-const RE_RU_YES = /^(д|да)$/u;
-const RE_RU_NO = /^(н|нет)$/u;
-const RE_RU_COMMAND__DELETE_LAST_ACTION = /^(у|удалить)$/u;
-const RE_RU_COMMAND__CANCEL_LAST_ACTION = /^(о|отмена)$/u;
+const RE_RU_YES = /^д$/u;
+const RE_RU_NO = /^н$/u;
+const RE_RU_COMMAND__DELETE_LAST_ACTION = /^у$/u;
+const RE_RU_COMMAND__CANCEL_LAST_ACTION = /^о$/u;
 
 const RE_RU_COMMAND__CREATE_FOOD = /^(се\s+)((([а-яА-Яa-zA-Z0-9]+)(\s+|))+)\./u;
 // /^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\((\s+|)((([а-яА-Яa-zA-Z0-9]+)(\s+|):(\s+|)(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)(\s+|)(г|мкг|мг|ккал)(\s+|))+)\)$/u;
@@ -56,12 +52,13 @@ const RE_RU_COMMAND__SHOW_CREATED_FOOD = /^псе$/u;
 const RE_RU_COMMAND__DELETE_CREATED_FOOD_IDs = /^уе/u;//(([0-9]+(\s+|)|[0-9]+)+)$/u;
 
 const RE_RU_COMMAND__CREATE_DISH = /^(сб\s+)((([а-яА-Яa-zA-Z0-9]+)(\s+|))+)$/u;
-const RE_RU_COMMAND__EDIT_DISH = /^рб(\s+|)([0-9]+)$/u;
-	const RE_RU_COMMAND__DELETE_INGREDIENT_FROM_DISH = /^у/u;
-	const RE_RU_COMMAND__EDIT_INGREDIENT_WEIGHT_IN_DISH = /^ви/u;
-const RE_RU_COMMAND__SAVE_DISH_FINAL_WEIGHT = /^и/u;
-const RE_RU_COMMAND__SAVE_DISH = /^с$/u;
-const RE_RU_COMMAND__DELETE_CREATED_DISH_IDs = /^уб/u; 
+const RE_RU_COMMAND__EDIT_DISH = /^рб\s+([0-9]+)$/u;
+	const RE_RU_COMMAND__DELETE_INGREDIENTs_FROM_DISH = /^у\s+/u;
+	const RE_RU_COMMAND__EDIT_INGREDIENT_WEIGHT_IN_DISH = /^ви\s+([0-9]+)/u;
+	const RE_RU_COMMAND__SAVE_DISH_FINAL_WEIGHT = /^и\s+/u;
+	const RE_RU_COMMAND__SAVE_DISH = /^с$/u;
+	const RE_RU_COMMAND__CANCEL_CREATEEDIT_DISH = /^о$/u;
+const RE_RU_COMMAND__DELETE_CREATED_DISH_IDs = /^уб\s+/u; 
 const RE_RU_COMMAND__SHOW_CREATED_DISHES = /^псб$/u;
 
 const RE_RU_COMMAND__SHOW_EATEN_TODAY = /^пс$/u;
@@ -122,6 +119,12 @@ const DB_CLIENT = new pg.Client({
   password: process.env.PGPASSWORD,
   port: process.env.PGPORT
 });
+
+const meiliSClient = new MeiliSearch({
+	host:process.env.MEILISEARCH_HOST,
+	apiKey: process.env.MEILISEARCH_API_KEY
+})
+
 
 const APP_STATE = {};
 
@@ -490,6 +493,7 @@ bot.on(`message`, async ctx => {
 						SET deleted = true
 						WHERE	id IN (${userLastCommand.data.food_items_ids.join()})
 					;`);
+
 
 					//registered_users available_count_of_user_created_fi - 1 //add check for all users
 					
@@ -936,6 +940,8 @@ console.log(response);
 				row.creation_date = creation_date;
 				row.name__lang_code_ru = dishName;
 				row.di_id_for_user = count_of_user_created_di;
+				row.tg_user_id = userInfo.tg_user_id;
+
 
 				let paramQuery = {};
 				paramQuery.text = `
@@ -1013,9 +1019,8 @@ console.log(response);
 
 				
 
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__EDIT_DISH))) {
 
-			/* } else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__EDIT_CREATED_FOOD_OR_DISH))) {
-				console.log(re_result);			 */
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SHOW_CREATED_DISHES))) {
 
 				console.log(re_result);
@@ -1350,13 +1355,18 @@ console.log(response);
 		} else {
 			console.log(`user has last command`);
 			if (confirmCommand.command == `CREATE_DISH` || confirmCommand.command == `EDIT_DISH`){
-				if (Array.isArray(re_result = text.toLowerCase().match())) {
-
+				if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_INGREDIENTs_FROM_DISH))) {
+					//row.data.action = {delete ingredient, ingredients}
+				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__EDIT_INGREDIENT_WEIGHT_IN_DISH))) {
+				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SAVE_DISH_FINAL_WEIGHT))) {
+				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SAVE_DISH))) {
+				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__CANCEL_CREATEEDIT_DISH))) {
+				} else {
+					ctx.reply(`не понимаю команду`)
 				}
-
-
 			}
 
+			/*
 			if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_YES))) {
 				console.log(re_result);
 
@@ -1385,7 +1395,11 @@ console.log(response);
 				console.log(re_result);			
 			} else {
 				ctx.reply(`Завершите операцию.`);	
-			}
+			} 
+
+		*/
+
+
 		}
 
 	//}
@@ -1393,19 +1407,6 @@ console.log(response);
 
 });
 
-/*
- *{"update_id":517932729,"message":{"message_id":9,"from":{"id":2147423284,"is_bot":false,"first_name":"АРЧㅤ","language_code":"en"},"chat":{"id":2147423284,"first_name":"АРЧㅤ","type":"private"},"date":1657435311,"text":"gtybc"}} Context {
- {"update_id":517932732,"message":{"message_id":10,"from":{"id":2147423284,"is_bot":false,"first_name":"АРЧㅤ","language_code":"en"},"chat":{"id":2147423284,"first_name":"АРЧㅤ","type":"private"},"date":1657435343,"text":"message text","via_bot":{"id":5467847506,"is_bot":true,"first_name":"Тест","username":"edac_bot"}}}
- {"update_id":517932734,"message":{"message_id":11,"from":{"id":2147423284,"is_bot":false,"first_name":"АРЧㅤ","language_code":"en"},"chat":{"id":2147423284,"first_name":"АРЧㅤ","type":"private"},"date":1657436156,"forward_from":{"id":2147423284,"is_bot":false,"first_name":"АРЧㅤ","language_code":"en"},"forward_date":1657436149,"text":"message text","via_bot":{"id":5467847506,"is_bot":true,"first_name":"Тест","username":"edac_bot"}}}
- {"update_id":517932737,"message":{"message_id":13,"from":{"id":2147423284,"is_bot":false,"first_name":"АРЧㅤ","language_code":"en"},"chat":{"id":-792733748,"title":"ботовая","type":"group","all_members_are_administrators":true},"date":1657442887,"text":"a"}}
- {"update_id":517932738,"my_chat_member":{"chat":{"id":-1001579743247,"title":"ботовая","type":"channel"},"from":{"id":2147423284,"is_bot":false,"first_name":"АРЧㅤ","language_code":"en"},"date":1657446953,"old_chat_member":{"user":{"id":5467847506,"is_bot":true,"first_name":"Тест","username":"edac_bot"},"status":"left"},"new_chat_member":{"user":{"id":5467847506,"is_bot":true,"first_name":"Тест","username":"edac_bot"},"status":"administrator","can_be_edited":false,"can_manage_chat":true,"can_change_info":true,"can_post_messages":true,"can_edit_messages":true,"can_delete_messages":true,"can_invite_users":true,"can_restrict_members":true,"can_promote_members":false,"can_manage_video_chats":true,"is_anonymous":false,"can_manage_voice_chats":true}}}
-{"update_id":517932833,"inline_query":{"id":"9223112777671489909","from":{"id":2147423284,"is_bot":false,"first_name":". _","last_name":".","username":"zov_hohol","language_code":"en"},"chat_type":"sender","query":"435 г фаыв","offset":""}} 
-{"update_id":517932826,"my_chat_member":{"chat":{"id":2147423284,"first_name":". _","last_name":".","username":"zov_hohol","type":"private"},"from":{"id":2147423284,"is_bot":false,"first_name":". _","last_name":".","username":"zov_hohol","language_code":"en"},"date":1658606052,"old_chat_member":{"user":{"id":5467847506,"is_bot":true,"first_name":"Тест","username":"edac_bot"},"status":"member"},"new_chat_member":{"user":{"id":5467847506,"is_bot":true,"first_name":"Тест","username":"edac_bot"},"status":"kicked","until_date":0}}} Context 
-"update_id":517932827,"my_chat_member":{"chat":{"id":2147423284,"first_name":". _","last_name":".","username":"zov_hohol","type":"private"},"from":{"id":2147423284,"is_bot":false,"first_name":". _","last_name":".","username":"zov_hohol","language_code":"en"},"date":1658607560,"old_chat_member":{"user":{"id":5467847506,"is_bot":true,"first_name":"Тест","username":"edac_bot"},"status":"kicked","until_date":0},"new_chat_member":{"user":{"id":5467847506,"is_bot":true,"first_name":"Тест","username":"edac_bot"},"status":"member"}}} Context {
-{"update_id":517932828,"message":{"message_id":36,"from":{"id":2147423284,"is_bot":false,"first_name":". _","last_name":".","username":"zov_hohol","language_code":"en"},"chat":{"id":2147423284,"first_name":". _","last_name":".","username":"zov_hohol","type":"private"},"date":1658607561,"text":"/start","entities":[{"offset":0,"length":6,"type":"bot_command"}]}} Context {
-
- *
- * */
 bot.on(`callback_query`, async ctx => {
 	console.log(
 		`____________callback_____________`,
@@ -1607,14 +1608,30 @@ bot.on(`inline_query`, async ctx => {
 	if (ctx.update.inline_query.from.is_bot) {
 		return;
 	}
-	
-	const results = [];
+
+	const confirmCommand = (await DB_CLIENT.query(`
+			SELECT *
+			FROM telegram_user_sended_commands
+			WHERE tg_user_id = ${userInfo.tg_user_id}
+			AND confirmation 
+			limit 1;
+		`)).rows[0];
 
 	let re_result;
 		
 	const text = ctx.update.inline_query.query;
 	text.replaceAll(/\s+/g, ` `);
-	
+
+	console.log( ctx);
+
+	if (!confirmCommand) {
+
+	} else {
+
+	}
+
+	return;	
+
 	if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_BOT_AND_INLINE_COMMAND__GET_STATS))) {	
 		console.log(re_result);
 	} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH))) {
