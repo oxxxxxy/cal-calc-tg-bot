@@ -124,6 +124,7 @@ const meiliSClient = new MeiliSearch({
 	host:process.env.MEILISEARCH_HOST,
 	apiKey: process.env.MEILISEARCH_API_KEY
 })
+const MSDB = meiliSClient.index('foodDishNames');
 
 
 const APP_STATE = {};
@@ -445,17 +446,17 @@ bot.on(`message`, async ctx => {
 	// if (ctx.update.message.chat.type == `private`) {
 
 		const userInfo = await HZ.getTelegramUserInfo(DB_CLIENT, ctx.update.message.from.id);
-		const confirmCommand = (await DB_CLIENT.query(`
+		const userLastCommand = (await DB_CLIENT.query(`
 			SELECT *
 			FROM telegram_user_sended_commands
 			WHERE tg_user_id = ${userInfo.tg_user_id}
-			AND confirmation 
+			ORDER BY id DESC
 			limit 1;
 		`)).rows[0];
 
 			console.log(
 		userInfo,
-				confirmCommand
+			userLastCommand
 	);
 		
 
@@ -468,18 +469,9 @@ bot.on(`message`, async ctx => {
 
 		let text = ctx.update.message.text.replaceAll(/\s+/g, ` `).trim();
 	
-		if(!confirmCommand){
+		if(!userLastCommand.confirmation){
 	
 			if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_LAST_ACTION))) {
-				const userLastCommand = (await DB_CLIENT.query(`
-						SELECT *
-						FROM telegram_user_sended_commands
-						WHERE	tg_user_id = ${userInfo.tg_user_id}
-						ORDER BY id DESC
-						LIMIT 1;
-				`)).rows[0];
-
-				console.log(userLastCommand);
 
 				if (!userLastCommand.can_it_be_removed){
 					ctx.reply(`Прости, не знаю, что удалить... Т_Т`);
@@ -494,11 +486,14 @@ bot.on(`message`, async ctx => {
 						WHERE	id IN (${userLastCommand.data.food_items_ids.join()})
 					;`);
 
+					// delete doc with the same food_items_id from meilisearch
+					await MSDB.deleteDocuments({
+						filter:`food_items_id IN [${userLastCommand.data.food_items_ids.join()}]`
+					});
 
+					//perepisat' na telegram_users
 					//registered_users available_count_of_user_created_fi - 1 //add check for all users
-					
 					userInfo.available_count_of_user_created_fi = Number(userInfo.available_count_of_user_created_fi) - 1;
-
 					await DB_CLIENT.query(`
 						UPDATE registered_users
 						SET available_count_of_user_created_fi = ${userInfo.available_count_of_user_created_fi}
@@ -508,7 +503,7 @@ bot.on(`message`, async ctx => {
 					//telegram_user_sended_commands add otmenu
 					const row = {};
 					row.tg_user_id = userInfo.tg_user_id;
-				row.creation_date = new Date(reqDate).toISOString();
+					row.creation_date = new Date(reqDate).toISOString();
 					row.command = `DELETE_FOOD`;
 					row.can_it_be_canceled = true;
 
@@ -568,15 +563,6 @@ bot.on(`message`, async ctx => {
 
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__CANCEL_LAST_ACTION))) {
 				console.log(re_result);		
-				const userLastCommand = (await DB_CLIENT.query(`
-						SELECT *
-						FROM telegram_user_sended_commands
-						WHERE	tg_user_id = ${userInfo.tg_user_id}
-						ORDER BY id DESC
-						LIMIT 1;
-				`)).rows[0];
-
-				console.log(userLastCommand);
 
 				if (!userLastCommand.can_it_be_canceled){
 					ctx.reply(`Прости, не знаю, что отменить... Т_Т`);
@@ -585,14 +571,27 @@ bot.on(`message`, async ctx => {
 				
 				if (userLastCommand.command == `DELETE_FOOD`) {
 					//cancel deleted true food_items
-					await DB_CLIENT.query(`
-						UPDATE food_items
-						SET deleted = false
-						WHERE	id IN (${userLastCommand.data.food_items_ids.join()})
+					const res = await DB_CLIENT.query(`
+						WITH updated AS (
+						  UPDATE food_items
+						  SET deleted = false
+						  WHERE id IN (${userLastCommand.data.food_items_ids.join()})
+						  RETURNING id, name__lang_code_ru, tg_user_id, protein, carbohydrate, fat, caloric_content)
+						SELECT fdifm.id, fdifm.food_items_id, upd.name__lang_code_ru, upd.tg_user_id, upd.protein, upd.carbohydrate, upd.fat, upd.caloric_content
+						FROM (
+							SELECT id, food_items_id, dish_items_id
+							FROM fooddish_ids_for_meilisearch
+							WHERE food_items_id IN (SELECT id FROM updated)
+							GROUP BY id, food_items_id, dish_items_id) fdifm
+						full outer join
+							(select id, name__lang_code_ru, tg_user_id, protein, carbohydrate, fat, caloric_content
+							from updated
+							group by id, name__lang_code_ru, tg_user_id, protein, carbohydrate, fat, caloric_content) upd
+						ON (fdifm.food_items_id = upd.id)
 					;`);
+					//add doc to MSDB
 
-					//registered_users available_count_of_user_created_fi - 1 //add check for all users
-					
+					//registered_users available_count_of_user_created_fi - 1 //add check for all users					
 					userInfo.available_count_of_user_created_fi = Number(userInfo.available_count_of_user_created_fi) + 1;
 
 					await DB_CLIENT.query(`
@@ -604,7 +603,7 @@ bot.on(`message`, async ctx => {
 					//telegram_user_sended_commands add otmenu
 					const row = {};
 					row.tg_user_id = userInfo.tg_user_id;
-				row.creation_date = new Date(reqDate).toISOString();
+					row.creation_date = new Date(reqDate).toISOString();
 					row.command = `CANCEL__DELETE_FOOD`;
 
 					row.data = {};
@@ -1354,7 +1353,7 @@ console.log(response);
 			}
 		} else {
 			console.log(`user has last command`);
-			if (confirmCommand.command == `CREATE_DISH` || confirmCommand.command == `EDIT_DISH`){
+			if (userLastCommand.command == `CREATE_DISH` || userLastCommand.command == `EDIT_DISH`){
 				if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_INGREDIENTs_FROM_DISH))) {
 					//row.data.action = {delete ingredient, ingredients}
 				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__EDIT_INGREDIENT_WEIGHT_IN_DISH))) {
@@ -1609,11 +1608,12 @@ bot.on(`inline_query`, async ctx => {
 		return;
 	}
 
-	const confirmCommand = (await DB_CLIENT.query(`
+	const userLastCommand = (await DB_CLIENT.query(`
 			SELECT *
 			FROM telegram_user_sended_commands
 			WHERE tg_user_id = ${userInfo.tg_user_id}
 			AND confirmation 
+			ORDER BY id DESC
 			limit 1;
 		`)).rows[0];
 
@@ -1624,7 +1624,7 @@ bot.on(`inline_query`, async ctx => {
 
 	console.log( ctx);
 
-	if (!confirmCommand) {
+	if (!userLastCommand.confirmation) {
 
 	} else {
 
