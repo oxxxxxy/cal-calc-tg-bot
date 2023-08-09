@@ -9,7 +9,7 @@ const meiliSClient = new MeiliSearch({
 meiliSClient.index('foodDishNames').search(
 	'',
 	{
-		filter:'food_items_id IN [23, 45, 55]'
+		filter:'caloric_content IS NULL OR fat IS NULL OR carbohydrate IS NULL'
 	}
 ).then(function () {
 	console.log(JSON.stringify(arguments));

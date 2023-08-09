@@ -41,6 +41,11 @@ food_items_id
 dish_items_id
 tg_user_id
 created_by_project
+protein
+carbohydrate
+fat
+caloric_content
+
 //deleted //kamon, ya prosto budu ih iz MS udalyat'
 */
 let end = false;
@@ -52,19 +57,21 @@ while(!end){
 select fdifm.id, fdifm.food_items_id, fdifm.dish_items_id,
 	fi.name__lang_code_ru as finame, di.name__lang_code_ru as diname, 
 	fi.tg_user_id as fitg, fi.created_by_project as ficreated,
-	di.tg_user_id as ditg, di.created_by_project as dicreated
+	di.tg_user_id as ditg, di.created_by_project as dicreated,
+	di.protein as diprotein, di.fat as difat, di.carbohydrate as dicarb, di.caloric_content as dical,
+	fi.protein as fiprotein, fi.fat as fifat, fi.carbohydrate as ficarb, fi.caloric_content as fical
 from 
 	(select id, food_items_id, dish_items_id
 	from fooddish_ids_for_meilisearch
 	group by id, food_items_id, dish_items_id) fdifm
 full outer join 
-	(select id, name__lang_code_ru, tg_user_id, created_by_project
+	(select id, name__lang_code_ru, tg_user_id, created_by_project, protein, fat, carbohydrate, caloric_content
 	from food_items
 	where deleted is false
 	group by id, name__lang_code_ru, tg_user_id, created_by_project) fi
 on (fdifm.food_items_id = fi.id)
 full outer join (
-	select id, name__lang_code_ru, tg_user_id, created_by_project
+	select id, name__lang_code_ru, tg_user_id, created_by_project, protein, fat, carbohydrate, caloric_content
 	from dish_items
 	where deleted is false
 	group by id, name__lang_code_ru, tg_user_id, created_by_project) di
@@ -86,6 +93,10 @@ order by fdifm.id
 		doc.name__lang_code_ru = el.finame?el.finame:el.diname;
 		doc.tg_user_id = el.fitg?Number(el.fitg):(el.ditg?Number(el.ditg):null);
 		doc.created_by_project = el.ficreated?el.ficreated:el.dicreated;
+		doc.protein = el.fiprotein?Number(el.fiprotein):(el.diprotein?Number(el.diprotein):0);
+		doc.fat = el.fifat?Number(el.fifat):(el.difat?Number(el.difat):0);
+		doc.carbohydrate = el.ficarb?Number(el.ficarb):(el.dicarb?Number(el.dicarb):0);
+		doc.caloric_content = el.fical?Number(el.fical):(el.dical?Number(el.dical):0);
 		documents.push(doc);
 	});
 	console.log(res.rows[0], documents[0]);
