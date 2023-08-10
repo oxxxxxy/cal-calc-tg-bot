@@ -55,7 +55,7 @@ const RE_RU_COMMAND__CREATE_DISH = /^(сб\s+)((([а-яА-Яa-zA-Z0-9]+)(\s+|))+
 const RE_RU_COMMAND__EDIT_DISH = /^рб\s+([0-9]+)$/u;
 	const RE__RESOLVE_FD_ID_WEIGHT_FROM_InlQuery = /(food|dish)([0-9]+)w(.*)/;
 	const RE_RU_COMMAND__DELETE_INGREDIENTs_FROM_DISH = /^у\s+[0-9]+/u;
-	const RE_RU_COMMAND__EDIT_INGREDIENT_WEIGHT_IN_DISH = /^ви\s+([0-9]+)/u;
+	const RE_RU_COMMAND__EDIT_INGREDIENT_WEIGHT_IN_DISH = /^ви\s+([0-9]+)\s+(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)$/u;
 	const RE_RU_COMMAND__SAVE_DISH_FINAL_WEIGHT = /^и\s+/u;
 	const RE_RU_COMMAND__SAVE_DISH = /^с$/u;
 	const RE_RU_COMMAND__CANCEL_CREATEEDIT_DISH = /^о$/u;
@@ -1434,6 +1434,16 @@ try{
 						obj.caloric_content = obj.caloric_content.toFixed(1);
 						return obj;
 					}
+					
+					const calcConcentration = (c1, w1, c2, w2) => {
+						return (c1 * w1 + c2 * w2)/(w1 + w2);
+					}
+
+					const calcDecreiseConcentration = (c1, w1, c2, w2) => {
+						return (c1 * w1 - c2 * w2)/(w1 - w2);
+					}
+
+
 				
 const makeDishNumForSheetLine = num => {
 					const maxLength = 2;
@@ -1546,10 +1556,6 @@ const makeDishNumForSheetLine = num => {
 					creDish.total_g_weight = Number(creDish.total_g_weight);
 					
 					//calc bjuk add f|d id & weight in creDish
-					const calcConcentration = (c1, w1, c2, w2) => {
-						return (c1 * w1 + c2 * w2)/(w1 + w2);
-					}
-
 					creDish.protein = calcConcentration(creDish.protein, creDish.total_g_weight, addedItem.protein, weight);
 					creDish.fat = calcConcentration(creDish.fat, creDish.total_g_weight, addedItem.fat, weight);
 					creDish.carbohydrate = calcConcentration(creDish.carbohydrate, creDish.total_g_weight, addedItem.carbohydrate, weight);
@@ -1586,8 +1592,7 @@ const makeDishNumForSheetLine = num => {
 					addCharBeforeValue(creDish.protein, 6, '_')}|Ж:${
 					addCharBeforeValue(creDish.fat, 6, '_')}|У:${
 					addCharBeforeValue(creDish.carbohydrate, 6, '_')}|К:${
-					addCharBeforeValue(creDish.caloric_content, 7, '_')}|В:_${
-					creDish.total_g_weight < 100? addCharBeforeValue(creDish.total_g_weight, 5, '_'):'100.0'}</b></u> Итого.`;
+					addCharBeforeValue(creDish.caloric_content, 7, '_')}|В:_100.0</b></u> Итого на 100 грамм.`;
 
 				askingConfirmationResponse += dishSheetHead;
 				askingConfirmationResponse += dishSheetAddedIngredientList;
@@ -1596,11 +1601,21 @@ const makeDishNumForSheetLine = num => {
 					let response;
 				try {
 					
+					if(userLastCommand.data.message_id){
  				await bot.telegram.deleteMessage(
 					ctx.update.message.chat.id,
 					userLastCommand.data.message_id
-				);
- 					response = await bot.telegram.sendMessage(
+					
+					);
+					}
+				}catch(e){
+					console.log(e)
+
+				}
+
+					try{
+
+					response = await bot.telegram.sendMessage(
 						ctx.update.message.chat.id,
 						askingConfirmationResponse,
 						{parse_mode:'HTML'}
@@ -1609,6 +1624,7 @@ const makeDishNumForSheetLine = num => {
 					console.log(e)
 
 				}
+
 
 console.log(response);
 
@@ -1673,10 +1689,127 @@ console.log(response);
 					} else if (biggerThanLength = listNums.find(el => el > creDish.fooddish_gweight_items_json.length)) {
 						ctx.reply(`ingredienta s takim nomerom "${biggerThanLength}" net`);
 						return;
+					} else if (creDish.fooddish_gweight_items_json.length == 1){
+
+				let askingConfirmationResponse = `<b>__ID Название блюда</b>\n`;
+				askingConfirmationResponse += `<code>${userInfo.count_of_user_created_di}</code> ${creDish.name__lang_code_ru}\n`;
+
+				let dishSheetHead = `\n<u>|<b>№_|Б:____.__|Ж:____.__|У:____.__|К:_____.__|Вес:_._ (г)</b>  <i>Ингредиент</i></u>`;
+
+				let dishSheetFooter = `\n<u>|<b>И__|Б:${
+					addCharBeforeValue(0, 6, '_')}|Ж:${
+					addCharBeforeValue(0, 6, '_')}|У:${
+					addCharBeforeValue(0, 6, '_')}|К:${
+					addCharBeforeValue(0, 7, '_')}|В:_100.0</b></u> Итоговый БЖУК на 100 грамм.`;
+						
+				askingConfirmationResponse += dishSheetHead;
+				askingConfirmationResponse += dishSheetFooter;
+
+					let response;
+				try {
+					if(userLastCommand.data.message_id){
+ 				await bot.telegram.deleteMessage(
+					ctx.update.message.chat.id,
+					userLastCommand.data.message_id
+					
+					);
+					}
+				}catch(e){
+					console.log(e)
+				}
+
+
+					try{
+ 					response = await bot.telegram.sendMessage(
+						ctx.update.message.chat.id,
+						askingConfirmationResponse,
+						{parse_mode:'HTML'}
+					);
+
+					}catch(e){
+						console.log(e)
 					}
 
+console.log(response);
+
+				let row = {};
+				row.creation_date = creation_date;
+				row.command = userLastCommand.command;
+				row.tg_user_id = userInfo.tg_user_id;
+				row.confirmation = true;
+				row.can_it_be_canceled = true;
+
+				row.data = {};
+				row.data.action = `delete ingredients`
+				row.data.ingredients = creDish.fooddish_gweight_items_json;
+				row.data.dish_items_ids = [userLastCommand.data.dish_items_ids[0]];
+				row.data.message_id = response.message_id;
+				row.data = JSON.stringify(row.data);
+
+				let paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO telegram_user_sended_commands
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+				;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				await DB_CLIENT.query(paramQuery);
+
+						creDish.protein = 0;
+						creDish.fat = 0;
+						creDish.carbohydrate = 0;
+						creDish.caloric_content = 0;
+						creDish.total_g_weight = 0;
+						console.log(creDish)
+
+					creDish.fooddish_gweight_items_json = JSON.stringify([]);
+					
+					await DB_CLIENT.query(`
+						UPDATE dish_items
+						SET ${getStrOfColumnNamesAndTheirSettedValues(creDish)}
+						WHERE id = ${userLastCommand.data.dish_items_ids[0]}
+					;`);
+						return;
+					}
+					//get ingredients
+
+					let fooddishItems = creDish.fooddish_gweight_items_json.slice();
+					let foodIds = [];
+					let dishIds = [];
+
+					fooddishItems.forEach(el => {
+						if(el.type == 'f'){
+							foodIds.push(el.id);
+						} else {
+							dishIds.push(el.id);
+						}
+					})
+					
+					if(foodIds.length){
+						let resFoodIds = await DB_CLIENT.query(`
+							SELECT id, name__lang_code_ru, protein, fat, carbohydrate, caloric_content
+							FROM food_items
+							WHERE id IN (${foodIds.join()})
+						;`);
+						fooddishItems.forEach((el, i) => {
+							fooddishItems[i] = {...el, ...resFoodIds.rows.find(rEl => rEl.id == el.id)};
+						});
+					}
+
+					if(dishIds.length){
+						let resDishIds = await DB_CLIENT.query(`
+							SELECT id, name__lang_code_ru, protein, fat, carbohydrate, caloric_content
+							FROM dish_items
+							WHERE id IN (${dishIds.join()})
+						;`);
+						fooddishItems.forEach((el, i) => {
+							fooddishItems[i] = {...el, ...resDishIds.rows.find(rEl => rEl.id == el.id)};
+						});
+					}
+					//calc bjuk of dish
 					listNums.forEach((el, i) => {
-						listNums[i] = creDish.fooddish_gweight_items_json[el-1];
+						listNums[i] = bjukToNum(fooddishItems[el-1]);
 					});
 console.log(listNums, creDish);
 
@@ -1686,6 +1819,7 @@ console.log(listNums, creDish);
 								matches++;
 								k = 0;
 								creDish.fooddish_gweight_items_json.splice(i, 1);
+								fooddishItems.splice(i, 1);
 								if (i >= creDish.fooddish_gweight_items_json.length) {
 									break;
 								}
@@ -1696,10 +1830,288 @@ console.log(listNums, creDish);
 						}
 					}
 
+						creDish.protein = 0;
+						creDish.fat = 0;
+						creDish.carbohydrate = 0;
+						creDish.caloric_content = 0;
+						creDish.total_g_weight = 0;
+					
+					fooddishItems.forEach(el => {
+						let addedItem = el;
+						creDish.protein = calcConcentration(creDish.protein, creDish.total_g_weight, addedItem.protein, el.w);
+						creDish.fat = calcConcentration(creDish.fat, creDish.total_g_weight, addedItem.fat, el.w);
+						creDish.carbohydrate = calcConcentration(creDish.carbohydrate, creDish.total_g_weight, addedItem.carbohydrate, el.w);
+						creDish.caloric_content = calcConcentration(creDish.caloric_content, creDish.total_g_weight, addedItem.caloric_content, el.w);
+						creDish.total_g_weight += el.w;
+						console.log(creDish)
+					});
+
+					creDish = bjukToFixedNum(creDish);
+					creDish = bjukToNum(creDish);
+
+					console.log(creDish);
+					creDish.fooddish_gweight_items_json = JSON.stringify(creDish.fooddish_gweight_items_json);
+					
+					await DB_CLIENT.query(`
+						UPDATE dish_items
+						SET ${getStrOfColumnNamesAndTheirSettedValues(creDish)}
+						WHERE id = ${userLastCommand.data.dish_items_ids[0]}
+					;`);
+
 console.log(listNums, creDish);
+					//list of dish ingredients
+
+				let askingConfirmationResponse = `<b>__ID Название блюда</b>\n`;
+				askingConfirmationResponse += `<code>${userInfo.count_of_user_created_di}</code> ${creDish.name__lang_code_ru}\n`;
+
+				let dishSheetHead = `\n<u>|<b>№_|Б:____.__|Ж:____.__|У:____.__|К:_____.__|Вес:_._ (г)</b>  <i>Ингредиент</i></u>`;
+
+				let dishSheetAddedIngredientList = ``;
+
+				fooddishItems.forEach((el, i)=>{
+					el = bjukValueToWC(el, el.w);
+					dishSheetAddedIngredientList += makeDishSheetLine(i+1, el.protein, el.fat, el.carbohydrate, el.caloric_content, el.w, el.name__lang_code_ru);
+				});
+
+				let dishSheetFooter = `\n<u>|<b>И__|Б:${
+					addCharBeforeValue(creDish.protein, 6, '_')}|Ж:${
+					addCharBeforeValue(creDish.fat, 6, '_')}|У:${
+					addCharBeforeValue(creDish.carbohydrate, 6, '_')}|К:${
+					addCharBeforeValue(creDish.caloric_content, 7, '_')}|В:_100.0</b></u> Итого на 100 грамм.`;
+
+				askingConfirmationResponse += dishSheetHead;
+				askingConfirmationResponse += dishSheetAddedIngredientList;
+				askingConfirmationResponse += dishSheetFooter;
+
+					let response;
+				try {
+					if(userLastCommand.data.message_id){
+ 				await bot.telegram.deleteMessage(
+					ctx.update.message.chat.id,
+					userLastCommand.data.message_id
+					
+					);
+					}
+				}catch(e){
+					console.log(e)
+
+				}
+
+					try{
+ 					response = await bot.telegram.sendMessage(
+						ctx.update.message.chat.id,
+						askingConfirmationResponse,
+						{parse_mode:'HTML'}
+					);
+
+					}catch(e){
+						console.log(e)
+					}
+
+console.log(response);
+
+				let row = {};
+				row.creation_date = creation_date;
+				row.command = userLastCommand.command;
+				row.tg_user_id = userInfo.tg_user_id;
+				row.confirmation = true;
+				row.can_it_be_canceled = true;
+
+				row.data = {};
+				row.data.action = `delete ingredients`
+				row.data.ingredients = [];
+				listNums.forEach(el => {
+					row.data.ingredients.push({
+						type:el.type,
+						id: el.id,
+						w: el.w
+					});
+				});
+				row.data.dish_items_ids = [userLastCommand.data.dish_items_ids[0]];
+				row.data.message_id = response.message_id;
+				row.data = JSON.stringify(row.data);
+
+				let paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO telegram_user_sended_commands
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+				;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				await DB_CLIENT.query(paramQuery);
+					//telegram_user_sended_commands 
 
 										 
 				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__EDIT_INGREDIENT_WEIGHT_IN_DISH))) {
+					const ingredientNum = Number(re_result[1]);
+					const newWeight = Number(re_result[2].replace(/\,/, '.'));
+					
+					if(ingredientNum > 20 || ingredientNum == 0){
+						ctx.reply(`igredienta s takim nomerom net`);
+						return;
+					}
+
+					console.log(ingredientNum, newWeight);
+					
+					let res = await DB_CLIENT.query(`
+							SELECT name__lang_code_ru, protein, fat, caloric_content, carbohydrate, fooddish_gweight_items_json, total_g_weight
+							FROM dish_items
+							WHERE id = ${userLastCommand.data.dish_items_ids[0]}
+						;`);
+					let creDish = res.rows[0];
+					console.log(creDish);
+					
+					if(!creDish.fooddish_gweight_items_json){
+						ctx.reply(`nechego izmenyat'`);
+						return;
+					} else if (ingredientNum > creDish.fooddish_gweight_items_json.length){
+						ctx.reply(`igredienta s takim nomerom net`);
+						return;
+					}
+					creDish.fooddish_gweight_items_json[ingredientNum - 1].w = newWeight;
+
+					let fooddishItems = creDish.fooddish_gweight_items_json.slice();
+					let foodIds = [];
+					let dishIds = [];
+
+					fooddishItems.forEach(el => {
+						if(el.type == 'f'){
+							foodIds.push(el.id);
+						} else {
+							dishIds.push(el.id);
+						}
+					})
+					
+					if(foodIds.length){
+						let resFoodIds = await DB_CLIENT.query(`
+							SELECT id, name__lang_code_ru, protein, fat, carbohydrate, caloric_content
+							FROM food_items
+							WHERE id IN (${foodIds.join()})
+						;`);
+						fooddishItems.forEach((el, i) => {
+							fooddishItems[i] = {...el, ...resFoodIds.rows.find(rEl => rEl.id == el.id)};
+						});
+					}
+
+					if(dishIds.length){
+						let resDishIds = await DB_CLIENT.query(`
+							SELECT id, name__lang_code_ru, protein, fat, carbohydrate, caloric_content
+							FROM dish_items
+							WHERE id IN (${dishIds.join()})
+						;`);
+						fooddishItems.forEach((el, i) => {
+							fooddishItems[i] = {...el, ...resDishIds.rows.find(rEl => rEl.id == el.id)};
+						});
+					}
+
+					creDish.protein = 0;
+						creDish.fat = 0;
+						creDish.carbohydrate = 0;
+						creDish.caloric_content = 0;
+						creDish.total_g_weight = 0;
+					
+					fooddishItems.forEach(el => {
+						let addedItem = el;
+						creDish.protein = calcConcentration(creDish.protein, creDish.total_g_weight, addedItem.protein, el.w);
+						creDish.fat = calcConcentration(creDish.fat, creDish.total_g_weight, addedItem.fat, el.w);
+						creDish.carbohydrate = calcConcentration(creDish.carbohydrate, creDish.total_g_weight, addedItem.carbohydrate, el.w);
+						creDish.caloric_content = calcConcentration(creDish.caloric_content, creDish.total_g_weight, addedItem.caloric_content, el.w);
+						creDish.total_g_weight += el.w;
+					});
+
+					creDish = bjukToFixedNum(creDish);
+					creDish = bjukToNum(creDish);
+
+					console.log(creDish);
+
+				let askingConfirmationResponse = `<b>__ID Название блюда</b>\n`;
+				askingConfirmationResponse += `<code>${userInfo.count_of_user_created_di}</code> ${creDish.name__lang_code_ru}\n`;
+
+				let dishSheetHead = `\n<u>|<b>№_|Б:____.__|Ж:____.__|У:____.__|К:_____.__|Вес:_._ (г)</b>  <i>Ингредиент</i></u>`;
+
+				let dishSheetAddedIngredientList = ``;
+
+				fooddishItems.forEach((el, i)=>{
+					el = bjukValueToWC(el, el.w);
+					dishSheetAddedIngredientList += makeDishSheetLine(i+1, el.protein, el.fat, el.carbohydrate, el.caloric_content, el.w, el.name__lang_code_ru);
+				});
+
+				let dishSheetFooter = `\n<u>|<b>И__|Б:${
+					addCharBeforeValue(creDish.protein, 6, '_')}|Ж:${
+					addCharBeforeValue(creDish.fat, 6, '_')}|У:${
+					addCharBeforeValue(creDish.carbohydrate, 6, '_')}|К:${
+					addCharBeforeValue(creDish.caloric_content, 7, '_')}|В:_100.0</b></u> Итого на 100 грамм.`;
+
+				askingConfirmationResponse += dishSheetHead;
+				askingConfirmationResponse += dishSheetAddedIngredientList;
+				askingConfirmationResponse += dishSheetFooter;
+
+					let response;
+				try {
+					
+					if(userLastCommand.data.message_id){
+ 				await bot.telegram.deleteMessage(
+					ctx.update.message.chat.id,
+					userLastCommand.data.message_id
+					
+					);
+					}
+				}catch(e){
+					console.log(e)
+
+				}
+
+					try{
+
+					response = await bot.telegram.sendMessage(
+						ctx.update.message.chat.id,
+						askingConfirmationResponse,
+						{parse_mode:'HTML'}
+					);
+				}catch(e){
+					console.log(e)
+
+				}
+
+
+console.log(response);
+
+					creDish.fooddish_gweight_items_json = JSON.stringify(creDish.fooddish_gweight_items_json);
+					
+					await DB_CLIENT.query(`
+						UPDATE dish_items
+						SET ${getStrOfColumnNamesAndTheirSettedValues(creDish)}
+						WHERE id = ${userLastCommand.data.dish_items_ids[0]}
+					;`);
+
+				let row = {};
+				row.creation_date = creation_date;
+				row.command = userLastCommand.command;
+				row.tg_user_id = userInfo.tg_user_id;
+				row.confirmation = true;
+				row.can_it_be_canceled = true;
+
+				row.data = {};
+				row.data.action = `change ingredient weight`
+				row.data.ingredients = [creDish.fooddish_gweight_items_json[ingredientNum-1]];
+				row.data.dish_items_ids = [userLastCommand.data.dish_items_ids[0]];
+				row.data.message_id = response?.message_id;
+				row.data = JSON.stringify(row.data);
+
+				let paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO telegram_user_sended_commands
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+				;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				await DB_CLIENT.query(paramQuery);
+					//telegram_user_sended_commands 
+
+
+
 				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SAVE_DISH_FINAL_WEIGHT))) {
 				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SAVE_DISH))) {
 				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__CANCEL_CREATEEDIT_DISH))) {
