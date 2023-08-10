@@ -53,6 +53,7 @@ const RE_RU_COMMAND__DELETE_CREATED_FOOD_IDs = /^уе/u;//(([0-9]+(\s+|)|[0-9]+)
 
 const RE_RU_COMMAND__CREATE_DISH = /^(сб\s+)((([а-яА-Яa-zA-Z0-9]+)(\s+|))+)$/u;
 const RE_RU_COMMAND__EDIT_DISH = /^рб\s+([0-9]+)$/u;
+	const RE__RESOLVE_FD_ID_WEIGHT_FROM_InlQuery = /(food|dish)([0-9]+)w(.*)/;
 	const RE_RU_COMMAND__DELETE_INGREDIENTs_FROM_DISH = /^у\s+/u;
 	const RE_RU_COMMAND__EDIT_INGREDIENT_WEIGHT_IN_DISH = /^ви\s+([0-9]+)/u;
 	const RE_RU_COMMAND__SAVE_DISH_FINAL_WEIGHT = /^и\s+/u;
@@ -314,17 +315,31 @@ bot.use(async (ctx, next) => {
 		from = ctx.update.message.from;
 		date = ctx.update.message.date;
 		console.log(`message`);
+		/*
+			{"update_id":517934972,"message":{"message_id":2363,"from":{"id":2147423284,"is_bot":false,"first_name":"АРЧ","language_code":"en"},"chat":{"id":2147423284,"first_name":"АРЧ","type":"private"},"date":1691587952,"text":"df","via_bot":{"id":5467847506,"is_bot":true,"first_name":"Калькулятор Калорий","username":"edac_bot"}}}
+			{"update_id":517934973,"message":{"message_id":110,"from":{"id":1087968824,"is_bot":true,"first_name":"Group","username":"GroupAnonymousBot"},"sender_chat":{"id":-1001317760469,"title":"food dairy chat","username":"food_dairy_chat","type":"supergroup"},"chat":{"id":-1001317760469,"title":"food dairy chat","username":"food_dairy_chat","type":"supergroup"},"date":1691588103,"text":"df"}}
+			{"update_id":517935006,"message":{"message_id":2366,"from":{"id":2147423284,"is_bot":false,"first_name":"АРЧ","language_code":"en"},"chat":{"id":2147423284,"first_name":"АРЧ","type":"private"},"date":1691597251,"forward_from_chat":{"id":-1001317760469,"title":"food dairy chat","username":"food_dairy_chat","type":"supergroup"},"forward_date":1691588103,"text":"df"}}
+			{"update_id":517935007,"message":{"message_id":2367,"from":{"id":2147423284,"is_bot":false,"first_name":"АРЧ","language_code":"en"},"chat":{"id":2147423284,"first_name":"АРЧ","type":"private"},"date":1691597251,"forward_from_chat":{"id":-1001317760469,"title":"food dairy chat","username":"food_dairy_chat","type":"supergroup"},"forward_date":1691591952,"text":"Вы в процессе создания блюда.","via_bot":{"id":5467847506,"is_bot":true,"first_name":"Калькулятор Калорий","username":"edac_bot"}}} 
+
+		 */
 	} else if (!!ctx.update.edited_message) {// ??? check them or not?
 		from = ctx.update.edited_message.from;
 		date = ctx.update.edited_message.date;
 		console.log(`edited_message`);
 		/* 
- {"update_id":517934966,"edited_message":{"message_id":109,"from":{"id":1087968824,"is_bot":true,"first_name":"Group","username":"GroupAnonymousBot"},"sender_chat":{"id":-1001317760469,"title":"food dairy chat","username":"food_dairy_chat","type":"supergroup"},"chat":{"id":-1001317760469,"title":"food dairy chat","username":"food_dairy_chat","type":"supergroup"},"date":1691586250,"edit_date":1691586432,"text":"fdfsdaf"}}
+			 {"update_id":517934966,"edited_message":{"message_id":109,"from":{"id":1087968824,"is_bot":true,"first_name":"Group","username":"GroupAnonymousBot"},"sender_chat":{"id":-1001317760469,"title":"food dairy chat","username":"food_dairy_chat","type":"supergroup"},"chat":{"id":-1001317760469,"title":"food dairy chat","username":"food_dairy_chat","type":"supergroup"},"date":1691586250,"edit_date":1691586432,"text":"fdfsdaf"}}
+		 {"update_id":517935004,"message":{"message_id":111,"from":{"id":1087968824,"is_bot":true,"first_name":"Group","username":"GroupAnonymousBot"},"sender_chat":{"id":-1001317760469,"title":"food dairy chat","username":"food_dairy_chat","type":"supergroup"},"chat":{"id":-1001317760469,"title":"food dairy chat","username":"food_dairy_chat","type":"supergroup"},"date":1691591952,"text":"Вы в процессе создания блюда.","via_bot":{"id":5467847506,"is_bot":true,"first_name":"Калькулятор Калорий","username":"edac_bot"}}}
+
 		 */
 	} else if (!!ctx.update.inline_query) {
 		from = ctx.update.inline_query.from;
 		// date = ctx.update.inline_query.date; // empty update
 		console.log(`inline_query`);
+		/*
+		 {"update_id":517935003,"inline_query":{"id":"9223112777810632953","from":{"id":2147423284,"is_bot":false,"first_name":"АРЧ","language_code":"en"},"chat_type":"supergroup","query":"","offset":""}}
+		 {"update_id":517934998,"inline_query":{"id":"9223112778541942686","from":{"id":2147423284,"is_bot":false,"first_name":"АРЧ","language_code":"en"},"chat_type":"sender","query":"","offset":""}}
+
+		 */
 	} else if (!!ctx.update.chosen_inline_result) {
 		from = ctx.update.chosen_inline_result.from;
 		date = ctx.update.chosen_inline_result.date;
@@ -388,10 +403,12 @@ bot.use(async (ctx, next) => {
 	//antispam validaciya
 	if (!TG_USERS_LAST_ACTION_TIME[`${from.id}`] || date - TG_USERS_LAST_ACTION_TIME[`${from.id}`][0] > 1000) {
 		TG_USERS_LAST_ACTION_TIME[`${from.id}`] = [date];
-	} else if (date - TG_USERS_LAST_ACTION_TIME[`${from.id}`][0] == 1000 && TG_USERS_LAST_ACTION_TIME[`${from.id}`].length < 3) {
+	} else if (date - TG_USERS_LAST_ACTION_TIME[`${from.id}`][0] >= 1000 && TG_USERS_LAST_ACTION_TIME[`${from.id}`].length < 3) {
 		TG_USERS_LAST_ACTION_TIME[`${from.id}`].push(date);
 	} else {
-		return;
+		if (!(ctx.update?.message?.via_bot?.id == 5467847506 && ctx.update.message.chat.id == ctx.update.message.from.id)) { // if not adding ingredient in dish
+			return;
+		}
 	}
 
 
@@ -425,13 +442,13 @@ bot.use(async (ctx, next) => {
 });
 
 bot.on(`message`, async ctx => {
-	/* console.log(
+	 console.log(
 		`________MESSAGE________start`,
-		Object.keys( ctx),
-		ctx.update,
-		ctx,
+		//Object.keys( ctx),
+		JSON.stringify(ctx.update),
+		//ctx,
 		`________MESSAGE________end`
-	) */
+	) 
 
 	if(
 		// ctx.update.message.from.id != 1087968824 &&
@@ -1385,7 +1402,29 @@ console.log(response);
 		} else {
 			console.log(`user has last command`);
 			if (userLastCommand.command == `CREATE_DISH` || userLastCommand.command == `EDIT_DISH`){
-				if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_INGREDIENTs_FROM_DISH))) {
+				if (Array.isArray(re_result = text.toLowerCase().match(RE__RESOLVE_FD_ID_WEIGHT_FROM_InlQuery))){
+					//get food|dish id, weight
+					const foodDishType = re_result[1];
+					const id = Number(re_result[2]);
+					const weight = Number(re_result[3]);
+					//find food|dish by id and creDish in pgdb
+					let res = await DB_CLIENT.query(`
+							SELECT protein, fat, caloric_content, carbohydrate
+							FROM ${foodDishType == 'food'?'food_items':'dish_items'}
+							WHERE id == ${id}
+						;`);
+					let res2 = await DB_CLIENT.query(`
+							SELECT 
+							FROM dish_items
+							WHERE id == ${userLastCommand.data.dish_items_ids[0]}
+						;`);
+					//calc bjuk add f|d id & weight in creDish
+
+
+					//update creDish and return list of added ingredients 
+					//update list message in chat
+					//add telegram_user_sended_commands
+				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_INGREDIENTs_FROM_DISH))) {
 					//row.data.action = {delete ingredient, ingredients}
 				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__EDIT_INGREDIENT_WEIGHT_IN_DISH))) {
 				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SAVE_DISH_FINAL_WEIGHT))) {
@@ -1395,6 +1434,7 @@ console.log(response);
 					ctx.reply(`не понимаю команду`)
 				}
 			}
+			console.log(text, re_result)
 
 			/*
 			if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_YES))) {
@@ -1651,42 +1691,201 @@ bot.on(`inline_query`, async ctx => {
 
 	let re_result;
 		
-	const text = ctx.update.inline_query.query;
-	text.replaceAll(/\s+/g, ` `);
+	let text = ctx.update.inline_query.query;
+	text = text.replaceAll(/\s+/g, ` `);
 
 	console.log(userLastCommand);
+
+	const makeInputMessageContent = text => {
+		return {
+			message_text : text
+		}
+	}
+
+	const makeInlineQueryResultArticle = (id, title, inputMessageContent, description) => {
+		return {
+			type: `article`,
+			id: id,
+			title: title,
+			input_message_content: inputMessageContent,
+			description: description,
+		};
+	}
+
+	console.log(userInfo);
 
 	if (!userLastCommand.confirmation) {
 
 	} else {
 		if (userLastCommand.command == 'CREATE_DISH'){
 			if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_INLINE_COMMAND__ADD_INGREDIENT_TO_DISH))) {
+				console.log(re_result);
+
+				const userInputWeight = Number(re_result[1].replaceAll(/,/g, '.'));
+				const userInputIngredientName = text.slice(re_result[0].length).trim().replaceAll(/\:\{\}\[\]\;/g, ``).slice(0, 128);
+				console.log(userInputIngredientName);
 				
-			} else {
-				if (!ctx.update.inline_query.query) {
-					console.log(`emp`)
-					let message = `Sozdanie blyuda ne zaversheno`;
+				let articleIdPart = Date.now().toString();
+				articleIdPart = articleIdPart.slice(articleIdPart.length-6);
 
-					const results = [];
-					const InputTextMessageContent = {
-						message_text: `message text`,
+				let filter_NutrientName, filter_lessMore;
+				let noRes_BJUK, noRes_lessMore;
+				if (re_result[7] == `б`) {
+					filter_NutrientName = `protein`;
+					noRes_BJUK = `БЕЛКОВ`;
+				} else if (re_result[7] == `ж`) {
+					filter_NutrientName = `fat`;
+					noRes_BJUK = `ЖИРОВ`;
+				} else if (re_result[7] == `у`) {
+					filter_NutrientName = `carbohydrate`;
+					noRes_BJUK = `УГЛЕВОДОВ`;
+				} else if (re_result[7] == `к`) {
+					filter_NutrientName = `caloric_content`;
+					noRes_BJUK = `КАЛОРИЙ`;
+				}
+				if (re_result[9] == `<`) {
+					filter_lessMore = '<=';
+					noRes_lessMore = `МЕНЕЕ`;
+				} else if (re_result[9] == `>`) {
+					filter_lessMore = '>=';
+					noRes_lessMore = `БОЛЕЕ`;
+				}
+
+				let userAdditionFilter = ``;
+				if (filter_NutrientName) {
+					userAdditionFilter += ` AND ${filter_NutrientName} ${filter_lessMore} ${re_result[11]}`;
+				}
+
+				//search in MSDB
+				const res = await meiliSClient.multiSearch({
+					queries:[
+						{
+							indexUid: 'foodDishNames',
+							q: userInputIngredientName,
+							filter: `tg_user_id = ${userInfo.tg_user_id} OR created_by_project = true AND dish_items_id IS NULL${userAdditionFilter}`,
+							limit: 25
+						},
+						{
+							indexUid: `foodDishNames`,
+							q: userInputIngredientName,
+							filter:	`tg_user_id = ${userInfo.tg_user_id} OR created_by_project = true AND food_items_id IS NULL${userAdditionFilter}`,
+							limit: 25
+						}
+					]
+				});
+
+				console.log(JSON.stringify(res));
+				
+				const addCharBeforeValue = (value, maxLength, charS) => {
+					let str = Number(value).toFixed(1);
+					
+					let result = ``;
+
+					for (let i = 0, diff = maxLength - str.length; i < diff; i++) {
+						result += charS;
 					}
-					const article = {
-						type: `article`,
-						id: `sasiher`,
-						title: `Title`,
-						input_message_content: InputTextMessageContent,
-						description: `description 1t23f3 gg5e desc .`,
+					result += str;
+
+					return result;
+				};
+
+				if(res.results[0].hits.length || res.results[1].hits.length) {
+					let inlineQueryResultArticles = [];
+
+					res.results.forEach(r => {
+						r.hits.forEach(el => {
+							let inputMessageContent;
+							if (el.food_items_id){
+								inputMessageContent = makeInputMessageContent(`food${el.food_items_id}w${userInputWeight}`)
+							} else {
+								inputMessageContent = makeInputMessageContent(`dish${el.dish_items_id}w${userInputWeight}`)
+							}
+							let description = `Б:${
+								addCharBeforeValue(el.protein, 6, '_')} Ж:${
+								addCharBeforeValue(el.fat, 6, '_')} У:${
+								addCharBeforeValue(el.carbohydrate, 6, '_')} К:${
+								addCharBeforeValue(el.caloric_content, 7, '_')} на 100 грамм\nБ:${
+								addCharBeforeValue(el.protein * userInputWeight / 100, 6, '_')} Ж:${
+								addCharBeforeValue(el.fat * userInputWeight / 100, 6, '_')} У:${
+								addCharBeforeValue(el.carbohydrate * userInputWeight / 100, 6, '_')} К:${
+								addCharBeforeValue(el.caloric_content * userInputWeight / 100, 7, '_')} на ${userInputWeight} грамм`;
+
+							inlineQueryResultArticles.push(
+								makeInlineQueryResultArticle(
+										`cDishItem${userInfo.tg_user_id}${articleIdPart}${el.id}`,
+										el.name__lang_code_ru,
+										inputMessageContent,
+										description	
+									)
+							);
+						});
+					});
+
+					for (let i = 0; i < inlineQueryResultArticles.length; i++) {
+						for (let k = i + 1; k < inlineQueryResultArticles.length; k++) {
+							if (inlineQueryResultArticles[i].id == inlineQueryResultArticles[k].id) {
+								inlineQueryResultArticles.splice(k, 1);
+								k--;
+								i--;
+							}
+						}
 					}
 
-					results.push(Object.assign({}, article));
-					article.id = `8heog`;
-					results.push(article);
-
-					ctx.answerInlineQuery(results);
+					ctx.answerInlineQuery(
+						inlineQueryResultArticles,
+						{
+							is_personal:true,
+							cache_time:60
+						}
+					);
 					return;
 				}
 
+				let description = `с `;
+				
+				if (noRes_BJUK){
+					description += `количеством   ${noRes_BJUK} ${noRes_lessMore} ${re_result[11]}   на 100 грамм\nи `;
+				}
+
+				description += `именем "${userInputIngredientName}"`;
+
+				ctx.answerInlineQuery([
+					makeInlineQueryResultArticle(
+							`cDishNoItem${userInfo.tg_user_id}${articleIdPart}`,
+							`Ингредиент не найден`,
+							makeInputMessageContent(`Вы в процессе создания блюда.`),
+							description
+						)
+					],
+					{
+						is_personal:true,
+						cache_time:60
+					}
+				);
+			} else {
+				if (!ctx.update.inline_query.query) {
+					ctx.answerInlineQuery([
+						makeInlineQueryResultArticle(
+								`cDishEmptyQ${userInfo.tg_user_id}`,
+								`Вы в процессе создания блюда.`,
+								makeInputMessageContent(`Вы в процессе создания блюда.`),
+								`Поиск и добавление ингредиента:\n@edac_bot 123 ж>10 филе\n@edac_bot 321.4 арбуз`
+							)
+						],
+						{is_personal:true}
+					);
+					return;
+				}
+				ctx.answerInlineQuery([
+					makeInlineQueryResultArticle(
+							`cDishNoMatch${userInfo.tg_user_id}`,
+							`Не понимаю команду.`,
+							makeInputMessageContent(`Вы в процессе создания блюда.`),
+							`Поиск и добавление ингредиента:\n@edac_bot 123 ж>10 филе\n@edac_bot 321.4 арбуз`
+					)
+					],
+					{is_personal:true}
+				);
 			}			
 		} else if (userLastCommand.command == 'CREATE_DAY') {
 
