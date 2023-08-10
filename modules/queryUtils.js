@@ -45,7 +45,7 @@ const getStrOfColumnNamesAndTheirSettedValues = obj => {
 		if (typeof obj[k] == 'number') {
 			str += obj[k];
 		} else if (typeof obj[k] == 'string') {
-			str  += obj[k];
+			str  += `'${obj[k]}'`;
 		} else if (typeof obj[k] == 'boolean') {
 			str  += obj[k];
 		} else {
