@@ -931,7 +931,7 @@ bot.on(`message`, async ctx => {
 				const count_of_user_created_di = Number(userInfo.count_of_user_created_di) + 1;
 				askingConfirmationResponse += `<code>${count_of_user_created_di}</code> ${dishName}\n`;
 
-				let dishSheetHead = `\n<u>|<b>№_|Б:____.__|Ж:____.__|У:____.__|К:_____.__|Вес:_._ (г)</b>  <i>Ингредиент</i></u>`;
+				let dishSheetHead = `\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм) <i>Ингредиент и его название</i></b></u>`;
 
 				const makeDishNumForSheetLine = num => {
 					const maxLength = 2;
@@ -958,10 +958,10 @@ bot.on(`message`, async ctx => {
 					return result;
 				};
 				let dishSheetFooter = `\n<u>|<b>И__|Б:${
-					addCharBeforeValue(0, 6, '_')}|Ж:${
-					addCharBeforeValue(0, 6, '_')}|У:${
-					addCharBeforeValue(0, 6, '_')}|К:${
-					addCharBeforeValue(0, 7, '_')}|В:_100.0</b></u> Итоговый БЖУК на 100 грамм.`;
+					addCharBeforeValue(0, 6, '_')} |Ж:${
+					addCharBeforeValue(0, 6, '_')} |У:${
+					addCharBeforeValue(0, 6, '_')} |К:${
+					addCharBeforeValue(0, 7, '_')} |В:_100.0</b></u> Итоговый БЖУК на 100 грамм.`;
 
 				let dishReminder = `\n\n—Перед добавлением ингредиента его нужно создать.\n—Если в блюде больше 20 ингредиентов, то блюдо придется разделить на два блюда. Создать одно и добавить его как ингредиент в создоваемое второе.\n\nНужна помощь? Отправь <code>п</code>\nОтменить? Отправь <code>о</code>`;
 
@@ -1584,7 +1584,7 @@ const makeDishNumForSheetLine = num => {
 				let askingConfirmationResponse = `<b>__ID Название блюда</b>\n`;
 				askingConfirmationResponse += `<code>${userInfo.count_of_user_created_di}</code> ${creDish.name__lang_code_ru}\n`;
 
-				let dishSheetHead = `\n<u>|<b>№_|Б:____.__|Ж:____.__|У:____.__|К:_____.__|Вес:_._ (г)</b>  <i>Ингредиент</i></u>`;
+				let dishSheetHead = `\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм) <i>Ингредиент и его название</i></b></u>`;
 
 				let dishSheetAddedIngredientList = ``;
 
@@ -1594,10 +1594,13 @@ const makeDishNumForSheetLine = num => {
 				});
 
 				let dishSheetFooter = `\n<u>|<b>И__|Б:${
-					addCharBeforeValue(creDish.protein, 6, '_')}|Ж:${
-					addCharBeforeValue(creDish.fat, 6, '_')}|У:${
-					addCharBeforeValue(creDish.carbohydrate, 6, '_')}|К:${
-					addCharBeforeValue(creDish.caloric_content, 7, '_')}|В:_100.0</b></u> Итого на 100 грамм.`;
+					addCharBeforeValue(creDish.protein, 6, '_')} |Ж:${
+					addCharBeforeValue(creDish.fat, 6, '_')} |У:${
+					addCharBeforeValue(creDish.carbohydrate, 6, '_')} |К:${
+					addCharBeforeValue(creDish.caloric_content, 7, '_')} |В:_100.0</b></u> Итого на 100 грамм.\n<b><u>|Вес:${
+					addCharBeforeValue(creDish.g_weight, 6, '_')} |Итоговый вес:${
+					creDish.total_g_weight?addCharBeforeValue(creDish.total_g_weight, 6, '_'):'__н/д_'} |Разница:${
+					creDish.total_g_weight?addCharBeforeValue(creDish.g_weight - creDish.total_g_weight, 6, '_'): '__н/д_' }|</u></b>`;
 
 				askingConfirmationResponse += dishSheetHead;
 				askingConfirmationResponse += dishSheetAddedIngredientList;
@@ -1699,13 +1702,13 @@ console.log(response);
 				let askingConfirmationResponse = `<b>__ID Название блюда</b>\n`;
 				askingConfirmationResponse += `<code>${userInfo.count_of_user_created_di}</code> ${creDish.name__lang_code_ru}\n`;
 
-				let dishSheetHead = `\n<u>|<b>№_|Б:____.__|Ж:____.__|У:____.__|К:_____.__|Вес:_._ (г)</b>  <i>Ингредиент</i></u>`;
+				let dishSheetHead = `\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм) <i>Ингредиент и его название</i></b></u>`;
 
 				let dishSheetFooter = `\n<u>|<b>И__|Б:${
-					addCharBeforeValue(0, 6, '_')}|Ж:${
-					addCharBeforeValue(0, 6, '_')}|У:${
-					addCharBeforeValue(0, 6, '_')}|К:${
-					addCharBeforeValue(0, 7, '_')}|В:_100.0</b></u> Итоговый БЖУК на 100 грамм.`;
+					addCharBeforeValue(0, 6, '_')} |Ж:${
+					addCharBeforeValue(0, 6, '_')} |У:${
+					addCharBeforeValue(0, 6, '_')} |К:${
+					addCharBeforeValue(0, 7, '_')} |В:_100.0</b></u> Итоговый БЖУК на 100 грамм.`;
 						
 				askingConfirmationResponse += dishSheetHead;
 				askingConfirmationResponse += dishSheetFooter;
@@ -1871,7 +1874,7 @@ console.log(listNums, creDish);
 				let askingConfirmationResponse = `<b>__ID Название блюда</b>\n`;
 				askingConfirmationResponse += `<code>${userInfo.count_of_user_created_di}</code> ${creDish.name__lang_code_ru}\n`;
 
-				let dishSheetHead = `\n<u>|<b>№_|Б:____.__|Ж:____.__|У:____.__|К:_____.__|Вес:_._ (г)</b>  <i>Ингредиент</i></u>`;
+				let dishSheetHead = `\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм) <i>Ингредиент и его название</i></b></u>`;
 
 				let dishSheetAddedIngredientList = ``;
 
@@ -1881,10 +1884,13 @@ console.log(listNums, creDish);
 				});
 
 				let dishSheetFooter = `\n<u>|<b>И__|Б:${
-					addCharBeforeValue(creDish.protein, 6, '_')}|Ж:${
-					addCharBeforeValue(creDish.fat, 6, '_')}|У:${
-					addCharBeforeValue(creDish.carbohydrate, 6, '_')}|К:${
-					addCharBeforeValue(creDish.caloric_content, 7, '_')}|В:_100.0</b></u> Итого на 100 грамм.`;
+					addCharBeforeValue(creDish.protein, 6, '_')} |Ж:${
+					addCharBeforeValue(creDish.fat, 6, '_')} |У:${
+					addCharBeforeValue(creDish.carbohydrate, 6, '_')} |К:${
+					addCharBeforeValue(creDish.caloric_content, 7, '_')} |В:_100.0</b></u> Итого на 100 грамм.\n<b><u>|Вес:${
+					addCharBeforeValue(creDish.g_weight, 6, '_')} |Итоговый вес:${
+					creDish.total_g_weight?addCharBeforeValue(creDish.total_g_weight, 6, '_'):'__н/д_'} |Разница:${
+					creDish.total_g_weight?addCharBeforeValue(creDish.g_weight - creDish.total_g_weight, 6, '_'): '__н/д_' }|</u></b>`;
 
 				askingConfirmationResponse += dishSheetHead;
 				askingConfirmationResponse += dishSheetAddedIngredientList;
@@ -2036,7 +2042,7 @@ console.log(response);
 				let askingConfirmationResponse = `<b>__ID Название блюда</b>\n`;
 				askingConfirmationResponse += `<code>${userInfo.count_of_user_created_di}</code> ${creDish.name__lang_code_ru}\n`;
 
-				let dishSheetHead = `\n<u>|<b>№_|Б:____.__|Ж:____.__|У:____.__|К:_____.__|Вес:_._ (г)</b>  <i>Ингредиент</i></u>`;
+				let dishSheetHead = `\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм) <i>Ингредиент и его название</i></b></u>`;
 
 				let dishSheetAddedIngredientList = ``;
 
@@ -2046,10 +2052,13 @@ console.log(response);
 				});
 
 				let dishSheetFooter = `\n<u>|<b>И__|Б:${
-					addCharBeforeValue(creDish.protein, 6, '_')}|Ж:${
-					addCharBeforeValue(creDish.fat, 6, '_')}|У:${
-					addCharBeforeValue(creDish.carbohydrate, 6, '_')}|К:${
-					addCharBeforeValue(creDish.caloric_content, 7, '_')}|В:_100.0</b></u> Итого на 100 грамм.`;
+					addCharBeforeValue(creDish.protein, 6, '_')} |Ж:${
+					addCharBeforeValue(creDish.fat, 6, '_')} |У:${
+					addCharBeforeValue(creDish.carbohydrate, 6, '_')} |К:${
+					addCharBeforeValue(creDish.caloric_content, 7, '_')} |В:_100.0</b></u> Итого на 100 грамм.\n<b><u>|Вес:${
+					addCharBeforeValue(creDish.g_weight, 6, '_')} |Итоговый вес:${
+					creDish.total_g_weight?addCharBeforeValue(creDish.total_g_weight, 6, '_'):'__н/д_'} |Разница:${
+					creDish.total_g_weight?addCharBeforeValue(creDish.g_weight - creDish.total_g_weight, 6, '_'): '__н/д_' }|</u></b>`;
 
 				askingConfirmationResponse += dishSheetHead;
 				askingConfirmationResponse += dishSheetAddedIngredientList;
@@ -2135,7 +2144,55 @@ console.log(response);
 						ctx.reply(`Каким образом итоговый вес может быть больше веса всех ингредиентов??? Добавлена вода? Занеси воду тогда в блюдо, ебаный даун!!!`);
 						return;
 					}
+					let fooddishItems = creDish.fooddish_gweight_items_json.slice();
+					let foodIds = [];
+					let dishIds = [];
+
+					fooddishItems.forEach(el => {
+						if(el.type == 'f'){
+							foodIds.push(el.id);
+						} else {
+							dishIds.push(el.id);
+						}
+					})
+					
+					if(foodIds.length){
+						let resFoodIds = await DB_CLIENT.query(`
+							SELECT id, name__lang_code_ru, protein, fat, carbohydrate, caloric_content
+							FROM food_items
+							WHERE id IN (${foodIds.join()})
+						;`);
+						fooddishItems.forEach((el, i) => {
+							fooddishItems[i] = {...el, ...resFoodIds.rows.find(rEl => rEl.id == el.id)};
+						});
+					}
+
+					if(dishIds.length){
+						let resDishIds = await DB_CLIENT.query(`
+							SELECT id, name__lang_code_ru, protein, fat, carbohydrate, caloric_content
+							FROM dish_items
+							WHERE id IN (${dishIds.join()})
+						;`);
+						fooddishItems.forEach((el, i) => {
+							fooddishItems[i] = {...el, ...resDishIds.rows.find(rEl => rEl.id == el.id)};
+						});
+					}
 					// calc dish, update dish
+					creDish.protein = 0;
+						creDish.fat = 0;
+						creDish.carbohydrate = 0;
+						creDish.caloric_content = 0;
+						creDish.g_weight = 0;
+						creDish.total_g_weight = 0;
+					
+					fooddishItems.forEach(el => {
+						let addedItem = el;
+						creDish.protein = calcConcentration(creDish.protein, creDish.g_weight, addedItem.protein, el.w);
+						creDish.fat = calcConcentration(creDish.fat, creDish.g_weight, addedItem.fat, el.w);
+						creDish.carbohydrate = calcConcentration(creDish.carbohydrate, creDish.g_weight, addedItem.carbohydrate, el.w);
+						creDish.caloric_content = calcConcentration(creDish.caloric_content, creDish.g_weight, addedItem.caloric_content, el.w);
+						creDish.g_weight += el.w;
+					});
 					
 						creDish.total_g_weight = totalWeight;
 						weightDiff = creDish.g_weight - totalWeight;
@@ -2145,8 +2202,95 @@ console.log(response);
 						creDish.carbohydrate = calcDecreiseConcentration(creDish.carbohydrate, creDish.g_weight, 0, weightDiff)
 						creDish.caloric_content = calcDecreiseConcentration(creDish.caloric_content, creDish.g_weight, 0, weightDiff)
 
+					creDish = bjukToFixedNum(creDish);
+					creDish = bjukToNum(creDish);
 					// get ingredients
 					// list ingredients and weights
+				let askingConfirmationResponse = `<b>__ID Название блюда</b>\n`;
+				askingConfirmationResponse += `<code>${userInfo.count_of_user_created_di}</code> ${creDish.name__lang_code_ru}\n`;
+
+				let dishSheetHead = `\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм) <i>Ингредиент и его название</i></b></u>`;
+
+				let dishSheetAddedIngredientList = ``;
+
+				fooddishItems.forEach((el, i)=>{
+					el = bjukValueToWC(el, el.w);
+					dishSheetAddedIngredientList += makeDishSheetLine(i+1, el.protein, el.fat, el.carbohydrate, el.caloric_content, el.w, el.name__lang_code_ru);
+				});
+
+				let dishSheetFooter = `\n<u>|<b>И__|Б:${
+					addCharBeforeValue(creDish.protein, 6, '_')} |Ж:${
+					addCharBeforeValue(creDish.fat, 6, '_')} |У:${
+					addCharBeforeValue(creDish.carbohydrate, 6, '_')} |К:${
+					addCharBeforeValue(creDish.caloric_content, 7, '_')} |В:_100.0</b></u> Итого на 100 грамм.\n<b><u>|Вес:${
+					addCharBeforeValue(creDish.g_weight, 6, '_')} |Итоговый вес:${
+					creDish.total_g_weight?addCharBeforeValue(creDish.total_g_weight, 6, '_'):'__н/д_'} |Разница:${
+					creDish.total_g_weight?addCharBeforeValue(creDish.g_weight - creDish.total_g_weight, 6, '_'): '__н/д_' }|</u></b>`;
+
+				askingConfirmationResponse += dishSheetHead;
+				askingConfirmationResponse += dishSheetAddedIngredientList;
+				askingConfirmationResponse += dishSheetFooter;
+
+					let response;
+				try {
+					
+					if(userLastCommand.data.message_id){
+ 				await bot.telegram.deleteMessage(
+					ctx.update.message.chat.id,
+					userLastCommand.data.message_id
+					
+					);
+					}
+				}catch(e){
+					console.log(e)
+
+				}
+
+					try{
+
+					response = await bot.telegram.sendMessage(
+						ctx.update.message.chat.id,
+						askingConfirmationResponse,
+						{parse_mode:'HTML'}
+					);
+				}catch(e){
+					console.log(e)
+
+				}
+
+
+console.log(response);
+
+					creDish.fooddish_gweight_items_json = JSON.stringify(creDish.fooddish_gweight_items_json);
+					
+					await DB_CLIENT.query(`
+						UPDATE dish_items
+						SET ${getStrOfColumnNamesAndTheirSettedValues(creDish)}
+						WHERE id = ${userLastCommand.data.dish_items_ids[0]}
+					;`);
+
+				let row = {};
+				row.creation_date = creation_date;
+				row.command = userLastCommand.command;
+				row.tg_user_id = userInfo.tg_user_id;
+				row.confirmation = true;
+				row.can_it_be_canceled = true;
+
+				row.data = {};
+				row.data.action = `change total weight`
+				row.data.dish_items_ids = [userLastCommand.data.dish_items_ids[0]];
+				row.data.message_id = response?.message_id;
+				row.data = JSON.stringify(row.data);
+
+				let paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO telegram_user_sended_commands
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+				;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				await DB_CLIENT.query(paramQuery);
 					// telegram_user_sended_commands
 
 				} else {
