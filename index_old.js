@@ -56,9 +56,10 @@ const RE_RU_COMMAND__EDIT_DISH = /^рб\s+([0-9]+)$/u;
 	const RE__RESOLVE_FD_ID_WEIGHT_FROM_InlQuery = /(food|dish)([0-9]+)w(.*)/;
 	const RE_RU_COMMAND__DELETE_INGREDIENTs_FROM_DISH = /^у\s+[0-9]+/u;
 	const RE_RU_COMMAND__EDIT_INGREDIENT_WEIGHT_IN_DISH = /^ви\s+([0-9]+)\s+(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)$/u;
-	const RE_RU_COMMAND__SAVE_DISH_FINAL_WEIGHT = /^и\s+/u;
-	const RE_RU_COMMAND__SAVE_DISH = /^с$/u;
-	const RE_RU_COMMAND__CANCEL_CREATEEDIT_DISH = /^о$/u;
+	const RE_RU_COMMAND__DISH_TOTAL_WEIGHT = /^и\s+(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)$/u;
+/*  кнопками будут епта
+	const RE_RU_COMMAND__SAVE_DISH = /^с$/u; 
+	const RE_RU_COMMAND__CANCEL_CREATEEDIT_DISH = /^о$/u; */
 const RE_RU_COMMAND__DELETE_CREATED_DISH_IDs = /^уб\s+/u; 
 const RE_RU_COMMAND__SHOW_CREATED_DISHES = /^псб$/u;
 
@@ -1461,9 +1462,13 @@ const makeDishNumForSheetLine = num => {
 					let str = Number(value).toFixed(1);
 					
 					let result = ``;
-
-					for (let i = 0, diff = maxLength - str.length; i < diff; i++) {
-						result += charS;
+					const diff = maxLength - str.length;
+					if ( diff >= 0) {
+						for (let i = 0; i < diff; i++) {
+							result += charS;
+						}
+					} else {
+						str = str.slice(Math.abs(diff));
 					}
 					result += str;
 
@@ -1492,7 +1497,7 @@ const makeDishNumForSheetLine = num => {
 																				 ;
 					//find food|dish by id and creDish in pgdb
 					let res = await DB_CLIENT.query(`
-							SELECT name__lang_code_ru, protein, fat, caloric_content, carbohydrate, fooddish_gweight_items_json, total_g_weight
+							SELECT name__lang_code_ru, protein, fat, caloric_content, carbohydrate, fooddish_gweight_items_json, g_weight
 							FROM dish_items
 							WHERE id = ${userLastCommand.data.dish_items_ids[0]}
 						;`);
@@ -1553,14 +1558,14 @@ const makeDishNumForSheetLine = num => {
 					addedItem = bjukToNum(addedItem);
 
 					creDish = bjukToNum(creDish);
-					creDish.total_g_weight = Number(creDish.total_g_weight);
+					creDish.g_weight = Number(creDish.g_weight);
 					
 					//calc bjuk add f|d id & weight in creDish
-					creDish.protein = calcConcentration(creDish.protein, creDish.total_g_weight, addedItem.protein, weight);
-					creDish.fat = calcConcentration(creDish.fat, creDish.total_g_weight, addedItem.fat, weight);
-					creDish.carbohydrate = calcConcentration(creDish.carbohydrate, creDish.total_g_weight, addedItem.carbohydrate, weight);
-					creDish.caloric_content = calcConcentration(creDish.caloric_content, creDish.total_g_weight, addedItem.caloric_content, weight);
-					creDish.total_g_weight += weight;
+					creDish.protein = calcConcentration(creDish.protein, creDish.g_weight, addedItem.protein, weight);
+					creDish.fat = calcConcentration(creDish.fat, creDish.g_weight, addedItem.fat, weight);
+					creDish.carbohydrate = calcConcentration(creDish.carbohydrate, creDish.g_weight, addedItem.carbohydrate, weight);
+					creDish.caloric_content = calcConcentration(creDish.caloric_content, creDish.g_weight, addedItem.caloric_content, weight);
+					creDish.g_weight += weight;
 
 					creDish = bjukToFixedNum(creDish);
 					creDish = bjukToNum(creDish);
@@ -1675,7 +1680,7 @@ console.log(response);
 					}
 				
 					let res = await DB_CLIENT.query(`
-							SELECT name__lang_code_ru, protein, fat, caloric_content, carbohydrate, fooddish_gweight_items_json, total_g_weight
+							SELECT name__lang_code_ru, protein, fat, caloric_content, carbohydrate, fooddish_gweight_items_json, g_weight
 							FROM dish_items
 							WHERE id = ${userLastCommand.data.dish_items_ids[0]}
 						;`);
@@ -1760,6 +1765,7 @@ console.log(response);
 						creDish.fat = 0;
 						creDish.carbohydrate = 0;
 						creDish.caloric_content = 0;
+						creDish.g_weight = 0;
 						creDish.total_g_weight = 0;
 						console.log(creDish)
 
@@ -1834,15 +1840,16 @@ console.log(listNums, creDish);
 						creDish.fat = 0;
 						creDish.carbohydrate = 0;
 						creDish.caloric_content = 0;
-						creDish.total_g_weight = 0;
+						creDish.g_weight = 0;
+					creDish.total_g_weight = 0;
 					
 					fooddishItems.forEach(el => {
 						let addedItem = el;
-						creDish.protein = calcConcentration(creDish.protein, creDish.total_g_weight, addedItem.protein, el.w);
-						creDish.fat = calcConcentration(creDish.fat, creDish.total_g_weight, addedItem.fat, el.w);
-						creDish.carbohydrate = calcConcentration(creDish.carbohydrate, creDish.total_g_weight, addedItem.carbohydrate, el.w);
-						creDish.caloric_content = calcConcentration(creDish.caloric_content, creDish.total_g_weight, addedItem.caloric_content, el.w);
-						creDish.total_g_weight += el.w;
+						creDish.protein = calcConcentration(creDish.protein, creDish.g_weight, addedItem.protein, el.w);
+						creDish.fat = calcConcentration(creDish.fat, creDish.g_weight, addedItem.fat, el.w);
+						creDish.carbohydrate = calcConcentration(creDish.carbohydrate, creDish.g_weight, addedItem.carbohydrate, el.w);
+						creDish.caloric_content = calcConcentration(creDish.caloric_content, creDish.g_weight, addedItem.caloric_content, el.w);
+						creDish.g_weight += el.w;
 						console.log(creDish)
 					});
 
@@ -1955,7 +1962,7 @@ console.log(response);
 					console.log(ingredientNum, newWeight);
 					
 					let res = await DB_CLIENT.query(`
-							SELECT name__lang_code_ru, protein, fat, caloric_content, carbohydrate, fooddish_gweight_items_json, total_g_weight
+							SELECT name__lang_code_ru, protein, fat, caloric_content, carbohydrate, fooddish_gweight_items_json, g_weight
 							FROM dish_items
 							WHERE id = ${userLastCommand.data.dish_items_ids[0]}
 						;`);
@@ -2009,15 +2016,16 @@ console.log(response);
 						creDish.fat = 0;
 						creDish.carbohydrate = 0;
 						creDish.caloric_content = 0;
+						creDish.g_weight = 0;
 						creDish.total_g_weight = 0;
 					
 					fooddishItems.forEach(el => {
 						let addedItem = el;
-						creDish.protein = calcConcentration(creDish.protein, creDish.total_g_weight, addedItem.protein, el.w);
-						creDish.fat = calcConcentration(creDish.fat, creDish.total_g_weight, addedItem.fat, el.w);
-						creDish.carbohydrate = calcConcentration(creDish.carbohydrate, creDish.total_g_weight, addedItem.carbohydrate, el.w);
-						creDish.caloric_content = calcConcentration(creDish.caloric_content, creDish.total_g_weight, addedItem.caloric_content, el.w);
-						creDish.total_g_weight += el.w;
+						creDish.protein = calcConcentration(creDish.protein, creDish.g_weight, addedItem.protein, el.w);
+						creDish.fat = calcConcentration(creDish.fat, creDish.g_weight, addedItem.fat, el.w);
+						creDish.carbohydrate = calcConcentration(creDish.carbohydrate, creDish.g_weight, addedItem.carbohydrate, el.w);
+						creDish.caloric_content = calcConcentration(creDish.caloric_content, creDish.g_weight, addedItem.caloric_content, el.w);
+						creDish.g_weight += el.w;
 					});
 
 					creDish = bjukToFixedNum(creDish);
@@ -2109,52 +2117,43 @@ console.log(response);
 				paramQuery.values = getArrOfValuesFromObj(row);
 				await DB_CLIENT.query(paramQuery);
 					//telegram_user_sended_commands 
+				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DISH_TOTAL_WEIGHT))) {
+					const totalWeight = Number(re_result[1].replace(/\,/, '.'));
 
+					let res = await DB_CLIENT.query(`
+							SELECT name__lang_code_ru, protein, fat, caloric_content, carbohydrate, fooddish_gweight_items_json, g_weight
+							FROM dish_items
+							WHERE id = ${userLastCommand.data.dish_items_ids[0]}
+						;`);
+					let creDish = res.rows[0];
+					console.log(creDish);
 
-
-				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SAVE_DISH_FINAL_WEIGHT))) {
-				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SAVE_DISH))) {
-				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__CANCEL_CREATEEDIT_DISH))) {
+					if(!creDish.fooddish_gweight_items_json){
+						ctx.reply(`Нечему присваивать итоговый вес.`);
+						return;
+					} else if(creDish.g_weight < totalWeight) {
+						ctx.reply(`Каким образом итоговый вес может быть больше веса всех ингредиентов??? Добавлена вода? Занеси воду тогда в блюдо, ебаный даун!!!`);
+						return;
+					}
+					// calc dish, update dish
 					
+						creDish.total_g_weight = totalWeight;
+						weightDiff = creDish.g_weight - totalWeight;
+
+						creDish.protein = calcDecreiseConcentration(creDish.protein, creDish.g_weight, 0, weightDiff);
+						creDish.fat = calcDecreiseConcentration(creDish.fat, creDish.g_weight, 0, weightDiff)
+						creDish.carbohydrate = calcDecreiseConcentration(creDish.carbohydrate, creDish.g_weight, 0, weightDiff)
+						creDish.caloric_content = calcDecreiseConcentration(creDish.caloric_content, creDish.g_weight, 0, weightDiff)
+
+					// get ingredients
+					// list ingredients and weights
+					// telegram_user_sended_commands
+
 				} else {
 					ctx.reply(`не понимаю команду`)
 				}
 			}
 			console.log(text, re_result)
-
-			/*
-			if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_YES))) {
-				console.log(re_result);
-
-				switch (confirmCommand.command) {
-					case `CREATE_FOOD`:						
-						await COMMAND__CREATE_FOOD__YES(confirmCommand, userInfo, DB_CLIENT);
-						ctx.reply(`Еда создана успешно.`);
-						break;
-		
-					default:
-						break;
-				}
-				
-			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_NO))) {
-				console.log(re_result);
-				
-				switch (confirmCommand.command) {
-					case `CREATE_FOOD`:
-						await COMMAND__CREATE_FOOD__NO(DB_CLIENT, confirmCommand.id);
-						ctx.reply(`Создание еды отменено.`);
-						break;
-		
-					default:
-						break;
-				}
-				console.log(re_result);			
-			} else {
-				ctx.reply(`Завершите операцию.`);	
-			} 
-
-		*/
-
 
 		}
 
