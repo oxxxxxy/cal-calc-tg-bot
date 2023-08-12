@@ -2302,8 +2302,65 @@ console.log(response);
 				await DB_CLIENT.query(paramQuery);
 					// telegram_user_sended_commands
 				} else if (Array.isArray(re_result = text.toLowerCase().match(/^с$/u))) {
-console.log(`hi`);
+					//add to fooddish ids
+					const documents = [];
+					const doc = {};
 
+				let row = {};
+				row.dish_items_id = userLastCommand.data.dish_items_ids[0];
+					
+				let paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO fooddish_ids_for_meilisearch
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+					RETURNING	id
+				;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				let res = await DB_CLIENT.query(paramQuery);
+
+				doc.id = Number(res.rows[0].id);
+
+				res = await DB_CLIENT.query(`
+							SELECT name__lang_code_ru, protein, fat, caloric_content, carbohydrate, tg_user_id
+							FROM dish_items
+							WHERE id = ${userLastCommand.data.dish_items_ids[0]}
+						;`);
+				let el = res.rows[0];
+		
+		doc.dish_items_id = Number(userLastCommand.data.dish_items_ids[0]);
+		doc.name__lang_code_ru = el.name__lang_code_ru;
+		doc.tg_user_id = Number(el.tg_user_id);
+		doc.created_by_project = false;
+		doc.protein = el.protein?Number(el.protein):0;
+		doc.fat = el.fat?Number(el.fat):0;
+		doc.carbohydrate = el.carbohydrate ?Number(el.carbohydrate):0;
+		doc.caloric_content = el.caloric_content ? Number( el.caloric_content ) : 0;
+		documents.push(doc);
+					//add to meilisearch
+	await MSDB.addDocuments(documents);
+
+
+
+				row = {};
+				row.creation_date = creation_date;
+				row.command = 'SAVE_DISH';
+				row.tg_user_id = userInfo.tg_user_id;
+
+				row.data = {};
+				row.data.dish_items_ids = [userLastCommand.data.dish_items_ids[0]];
+				row.data = JSON.stringify(row.data);
+
+				paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO telegram_user_sended_commands
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+				;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				await DB_CLIENT.query(paramQuery);
 
 
 				} else {

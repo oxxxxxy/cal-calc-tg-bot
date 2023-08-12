@@ -6,6 +6,6 @@ const meiliSClient = new MeiliSearch({
 	apiKey: process.env.MEILISEARCH_API_KEY
 })
 
-meiliSClient.index('foodDishNames')..then(function () {
+meiliSClient.index('foodDishNames').deleteDocument(1).then(function () {
 	console.log(arguments);
 });
