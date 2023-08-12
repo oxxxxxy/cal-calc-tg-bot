@@ -110,6 +110,14 @@ const RE_RU_INLINE_COMMAND__OFFER_RANDOM_FOOD = /^/u; //????? //validate users t
 const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|поделиться)\s+((е|едой)|(б|блюдом))\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){2,})$/u;
 
 
+
+
+
+
+
+	const tableNames = {};
+	tableNames.food_items = `fi`;
+
 /*
 */
 
@@ -213,12 +221,12 @@ const cleanTGUsersLastActionTime = async () => {
 		const keys = Object.keys(TG_USERS_LAST_ACTION_TIME);
 
 		keys.forEach(k => {
-			if (date - TG_USERS_LAST_ACTION_TIME[k] > 5555) {
+			if (date - TG_USERS_LAST_ACTION_TIME[k] > 3000) {
 				delete TG_USERS_LAST_ACTION_TIME[k];
 			}
 		});
 
-		await delay(5555);
+		await delay(3000);
 	}
 };
 
@@ -340,6 +348,9 @@ bot.use(async (ctx, next) => {
 		/*
 		 {"update_id":517935003,"inline_query":{"id":"9223112777810632953","from":{"id":2147423284,"is_bot":false,"first_name":"АРЧ","language_code":"en"},"chat_type":"supergroup","query":"","offset":""}}
 		 {"update_id":517934998,"inline_query":{"id":"9223112778541942686","from":{"id":2147423284,"is_bot":false,"first_name":"АРЧ","language_code":"en"},"chat_type":"sender","query":"","offset":""}}
+{"update_id":517935622,"message":{"message_id":7,"from":{"id":2147423284,"is_bot":false,"first_name":"АРЧ","language_code":"en"},"chat":{"id":-1001600888181,"title":"ботовая группа","type":"supergroup"},"date":1691863495,"new_chat_title":"ботовая группа"}}
+
+	{"update_id":517935621,"message":{"message_id":6,"from":{"id":2147423284,"is_bot":false,"first_name":"АРЧ","language_code":"en"},"chat":{"id":-1001600888181,"title":"ботовая","type":"supergroup"},"date":1691863414,"animation":{"mime_type":"video/mp4","duration":35,"width":720,"height":400,"thumbnail":{"file_id":"AAMCAgADHQJfa511AAMGZNfJdgdKwNNm-AH96F1UswfwluYAAwwAAhzcGEpgVWciwqCPKwEAB20AAzAE","file_unique_id":"AQAEDAACHNwYSnI","file_size":15110,"width":320,"height":178},"thumb":{"file_id":"AAMCAgADHQJfa511AAMGZNfJdgdKwNNm-AH96F1UswfwluYAAwwAAhzcGEpgVWciwqCPKwEAB20AAzAE","file_unique_id":"AQAEDAACHNwYSnI","file_size":15110,"width":320,"height":178},"file_id":"CgACAgIAAx0CX2uddQADBmTXyXYHSsDTZvgB_ehdVLMH8JbmAAMMAAIc3BhKYFVnIsKgjyswBA","file_unique_id":"AgAEDAACHNwYSg","file_size":3624075},"document":{"mime_type":"video/mp4","thumbnail":{"file_id":"AAMCAgADHQJfa511AAMGZNfJdgdKwNNm-AH96F1UswfwluYAAwwAAhzcGEpgVWciwqCPKwEAB20AAzAE","file_unique_id":"AQAEDAACHNwYSnI","file_size":15110,"width":320,"height":178},"thumb":{"file_id":"AAMCAgADHQJfa511AAMGZNfJdgdKwNNm-AH96F1UswfwluYAAwwAAhzcGEpgVWciwqCPKwEAB20AAzAE","file_unique_id":"AQAEDAACHNwYSnI","file_size":15110,"width":320,"height":178},"file_id":"CgACAgIAAx0CX2uddQADBmTXyXYHSsDTZvgB_ehdVLMH8JbmAAMMAAIc3BhKYFVnIsKgjyswBA","file_unique_id":"AgAEDAACHNwYSg","file_size":3624075}}}
 
 		 */
 	} else if (!!ctx.update.chosen_inline_result) {
@@ -373,6 +384,8 @@ bot.use(async (ctx, next) => {
 		console.log(`my_chat_member`);
 		/*
 		 {"update_id":517934962,"my_chat_member":{"chat":{"id":-1001317760469,"title":"food dairy chat","username":"food_dairy_chat","type":"supergroup"},"from":{"id":2147423284,"is_bot":false,"first_name":"АРЧ","language_code":"en"},"date":1691586237,"old_chat_member":{"user":{"id":5467847506,"is_bot":true,"first_name":"Калькулятор Калорий","username":"edac_bot"},"status":"member"},"new_chat_member":{"user":{"id":5467847506,"is_bot":true,"first_name":"Калькулятор Калорий","username":"edac_bot"},"status":"administrator","can_be_edited":false,"can_manage_chat":true,"can_change_info":true,"can_delete_messages":true,"can_invite_users":true,"can_restrict_members":true,"can_pin_messages":true,"can_manage_topics":false,"can_promote_members":false,"can_manage_video_chats":true,"is_anonymous":false,"can_manage_voice_chats":true}}}
+
+
 		 */
 		//create table
 	} else if (!!ctx.update.chat_member) {
@@ -389,6 +402,13 @@ bot.use(async (ctx, next) => {
 		date = ctx.update.channel_post.date;
 		console.log(`channel_post`);
 		return; //create table???
+		/*
+	{"update_id":517935623,"channel_post":{"message_id":3,"sender_chat":{"id":-1001579743247,"title":"ботовой канал","type":"channel"},"chat":{"id":-1001579743247,"title":"ботовой канал","type":"channel"},"date":1691863506,"new_chat_title":"ботовой канал"}} 
+	{"update_id":517935620,"channel_post":{"message_id":2,"sender_chat":{"id":-1001579743247,"title":"ботовая","type":"channel"},"chat":{"id":-1001579743247,"title":"ботовая","type":"channel"},"date":1691863405,"animation":{"mime_type":"video/mp4","duration":35,"width":720,"height":400,"thumbnail":{"file_id":"AAMCAgADHQJeKPgPAAMCZNfJbZPz2i9c7PkekZW75iJCdPMAAwwAAhzcGEpgVWciwqCPKwEAB20AAzAE","file_unique_id":"AQAEDAACHNwYSnI","file_size":15110,"width":320,"height":178},"thumb":{"file_id":"AAMCAgADHQJeKPgPAAMCZNfJbZPz2i9c7PkekZW75iJCdPMAAwwAAhzcGEpgVWciwqCPKwEAB20AAzAE","file_unique_id":"AQAEDAACHNwYSnI","file_size":15110,"width":320,"height":178},"file_id":"CgACAgIAAx0CXij4DwADAmTXyW2T89ovXOz5HpGVu-YiQnTzAAMMAAIc3BhKYFVnIsKgjyswBA","file_unique_id":"AgAEDAACHNwYSg","file_size":3624075},"document":{"mime_type":"video/mp4","thumbnail":{"file_id":"AAMCAgADHQJeKPgPAAMCZNfJbZPz2i9c7PkekZW75iJCdPMAAwwAAhzcGEpgVWciwqCPKwEAB20AAzAE","file_unique_id":"AQAEDAACHNwYSnI","file_size":15110,"width":320,"height":178},"thumb":{"file_id":"AAMCAgADHQJeKPgPAAMCZNfJbZPz2i9c7PkekZW75iJCdPMAAwwAAhzcGEpgVWciwqCPKwEAB20AAzAE","file_unique_id":"AQAEDAACHNwYSnI","file_size":15110,"width":320,"height":178},"file_id":"CgACAgIAAx0CXij4DwADAmTXyW2T89ovXOz5HpGVu-YiQnTzAAMMAAIc3BhKYFVnIsKgjyswBA","file_unique_id":"AgAEDAACHNwYSg","file_size":3624075}}}
+
+
+
+*/
 	} else if (!!ctx.update.edited_channel_post) {
 		from = ctx.update.edited_channel_post.from;
 		date = ctx.update.edited_channel_post.date;
@@ -405,7 +425,7 @@ bot.use(async (ctx, next) => {
 	//antispam validaciya
 	if (!TG_USERS_LAST_ACTION_TIME[`${from.id}`] || date - TG_USERS_LAST_ACTION_TIME[`${from.id}`][0] > 1000) {
 		TG_USERS_LAST_ACTION_TIME[`${from.id}`] = [date];
-	} else if (date - TG_USERS_LAST_ACTION_TIME[`${from.id}`][0] >= 1000 && TG_USERS_LAST_ACTION_TIME[`${from.id}`].length < 3) {
+	} else if (date - TG_USERS_LAST_ACTION_TIME[`${from.id}`][0] >= 1000 && TG_USERS_LAST_ACTION_TIME[`${from.id}`].length < 6) {
 		TG_USERS_LAST_ACTION_TIME[`${from.id}`].push(date);
 	} else {
 		if (!(ctx.update?.message?.via_bot?.id == 5467847506 && ctx.update.message.chat.id == ctx.update.message.from.id)) { // if not adding ingredient in dish
@@ -698,14 +718,14 @@ bot.on(`message`, async ctx => {
 					}; */
 				}
 
-				let askingConfirmationResponse = `*Чпок, и готооова...*`;
+				let messageText = `*Чпок, и готооова...*`;
 				
 				const foodName = text.slice(re_result[1].length-1, re_result[2].length + re_result[1].length).slice(0, 128).trim();//(re_result[2].trim()).slice(0, 128); // poisk odinakovih imen, otpravka i ojidanie podtverjdeniya
 				// console.log( foodName, re_result);return;
 				if (foodName.length < 4) {
 					ctx.reply(`Название еды должно иметь хотя бы 4 символа.`)
 				}
-				askingConfirmationResponse += `\n\n\`\`\` ${foodName}. `;
+				messageText += `\n\n\`\`\` ${foodName}. `;
 
 				const foodNutrientMatches = [];
 
@@ -785,11 +805,11 @@ bot.on(`message`, async ctx => {
 				});
 				
 				foodNutrientMatches.forEach(el => {
-					askingConfirmationResponse += `\n${el.lang_code_ru} ${el[el.nutrientName]}`;
+					messageText += `\n${el.lang_code_ru} ${el[el.nutrientName]}`;
 					if (el.caloric_content){
-						askingConfirmationResponse += ` ккал`;
+						messageText += ` ккал`;
 					} else {
-						askingConfirmationResponse += ` г`;
+						messageText += ` г`;
 					}
 				});
 
@@ -818,7 +838,7 @@ bot.on(`message`, async ctx => {
 				userInfo.count_of_user_created_fi = userInfo.count_of_user_created_fi ? Number(userInfo.count_of_user_created_fi) + 1 : 1;
 				row.fi_id_for_user = userInfo.count_of_user_created_fi;
 
-				askingConfirmationResponse += `\n\`\`\`\nЕда ID:\`\`\`${userInfo.count_of_user_created_fi}\`\`\`\n\nОшибка? Отправьте *"у/удалить"*.`;
+				messageText += `\n\`\`\`\nЕда ID:\`\`\`${userInfo.count_of_user_created_fi}\`\`\`\n\nОшибка? Отправьте *"у/удалить"*.`;
 
 				let paramQuery = {};
 				paramQuery.text = `
@@ -908,7 +928,7 @@ bot.on(`message`, async ctx => {
 	
 
 
-				ctx.reply(askingConfirmationResponse, { parse_mode: 'Markdown', allow_sending_without_reply: true });
+				ctx.reply(messageText, { parse_mode: 'Markdown', allow_sending_without_reply: true });
 
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__CREATE_DISH))) {
 				console.log(re_result);			
@@ -921,7 +941,7 @@ bot.on(`message`, async ctx => {
 				}
 
 				const creation_date = new Date(reqDate).toISOString();
-				let askingConfirmationResponse = `<b>__ID Название блюда</b>\n`;
+				let messageText = `<b>__ID Название блюда</b>\n`;
 
 				const dishName = re_result[2].slice(0, 128).trim();//(re_result[2].trim()).slice(0, 128); // poisk odinakovih imen, otpravka i ojidanie podtverjdeniya
 
@@ -930,7 +950,7 @@ bot.on(`message`, async ctx => {
 				}
 				
 				const count_of_user_created_di = Number(userInfo.count_of_user_created_di) + 1;
-				askingConfirmationResponse += `<code>${count_of_user_created_di}</code> ${dishName}\n`;
+				messageText += `<code>${count_of_user_created_di}</code> ${dishName}\n`;
 
 				let dishSheetHead = `\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм) <i>Ингредиент и его название</i></b></u>`;
 
@@ -962,20 +982,41 @@ bot.on(`message`, async ctx => {
 					addCharBeforeValue(0, 6, '_')} |Ж:${
 					addCharBeforeValue(0, 6, '_')} |У:${
 					addCharBeforeValue(0, 6, '_')} |К:${
-					addCharBeforeValue(0, 7, '_')} |В:_100.0</b></u> Итоговый БЖУК на 100 грамм.`;
+					addCharBeforeValue(0, 7, '_')} |В:_100.0</b></u> Итого на 100 грамм.\n<b><u>|Вес:${
+					addCharBeforeValue(0, 6, '_')} |Итоговый вес:${
+					creDish.total_g_weight?addCharBeforeValue(creDish.total_g_weight, 6, '_'):'__н/д_'} |Разница:${
+					creDish.total_g_weight?addCharBeforeValue(creDish.g_weight - creDish.total_g_weight, 6, '_'): '__н/д_' }|</u></b>`;
 
 				let dishReminder = `\n\n—Перед добавлением ингредиента его нужно создать.\n—Если в блюде больше 20 ингредиентов, то блюдо придется разделить на два блюда. Создать одно и добавить его как ингредиент в создоваемое второе.\n\nНужна помощь? Отправь <code>п</code>\nОтменить? Отправь <code>о</code>`;
 
-				askingConfirmationResponse += dishSheetHead;
-				askingConfirmationResponse += dishSheetFooter;
-				askingConfirmationResponse += dishReminder;
+				messageText += dishSheetHead;
+				messageText += dishSheetFooter;
+				messageText += dishReminder;
 
- 				const response = await bot.telegram.sendMessage(
-					ctx.update.message.chat.id,
-					askingConfirmationResponse,
-					{parse_mode:'HTML'}
-				);
-console.log(response);
+				const id = userInfo.tg_user_id;
+				const inlineKeyboard = telegraf.Markup.inlineKeyboard([[
+						telegraf.Markup.button.callback(`Сохранить`, `id${id}save`)
+					]]);
+
+				inlineKeyboard.parse_mode = 'HTML';
+
+				let response;
+
+				try {
+ 					response = await bot.telegram.sendMessage(
+						ctx.update.message.chat.id,
+						messageText,
+						inlineKeyboard
+					);
+				} catch(e) {
+					console.log(e);
+				}
+
+				if(!response){
+					return;
+				}
+
+				console.log(response);
 
 			
 				//update count_of_user_created_di
@@ -1043,45 +1084,8 @@ console.log(response);
 				paramQuery.values = getArrOfValuesFromObj(row);
 				await DB_CLIENT.query(paramQuery);
 
-
-
-				return;
-
-				/* 
-				let dishSheetHead = `\n<u>|<b>№_|Б:____.__|Ж:____.__|У:____.__|К:_____.__|Вес:_._ (г)</b>  <i>Ингредиент</i></u>`;
-
-				askingConfirmationResponse += dishSheetHead;
-
-				const makeDishSheetLine = (ingreNum, protein, fat, carb, cal, weight, name) => {
-					return `\n|${
-						makeDishNumForSheetLine(ingreNum)} <u>|Б:${
-						addCharBeforeValue(protein, 6, '_')}|Ж:${
-						addCharBeforeValue(fat, 6, '_')}|У:${
-						addCharBeforeValue(carb, 6, '_')}|К:${
-						addCharBeforeValue(cal, 7, '_')}|В:${
-						addCharBeforeValue(weight, 6, '_')}</u> <i>${
-						name}</i>`
-				}
-
-				const rofl = () => {
-					let i = 10
-					let str = ``;
-					while(i){
-						str += makeDishSheetLine(3, 345.1, 33.3, 800.4, 8882.4, 799, `тестовый ингредиент оч оч много слов и букав опять таки привет`);
-						str += makeDishSheetLine(14, 1115.1, 991.3, 153.4, 4442.4, 3999, `тестовый ингредиент второй раз сюда записываю чтобы потестить вид посмотреть да ага`);
-						i--;
-					}
-
-					return str;
-				}
-
-				let dishSheet = rofl();
-				
-				askingConfirmationResponse += dishSheet; */
-
-				
-
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__EDIT_DISH))) {
+					ctx.reply(`code me, bitch`);
 
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SHOW_CREATED_DISHES))) {
 
@@ -1200,15 +1204,15 @@ console.log(response);
 						e.name__lang_code_ru}</i> `
 				});
 
-				const makeInlineKeyboard = (pages, tableName, uid) => {
+				const makeInlineKeyboard = (pages, tableName, id) => {
 					return telegraf.Markup.inlineKeyboard([[
-							telegraf.Markup.button.callback(`${pages.first}`, `${tableName + pages.first}uid${uid}`),
-							telegraf.Markup.button.callback(`${pages.movePreviousMinusFive}<<`, `${tableName + pages.movePreviousMinusFive}uid${uid}`),
-							telegraf.Markup.button.callback(`${pages.movePrevious}<`, `${tableName + pages.movePrevious}uid${uid}`),
-							telegraf.Markup.button.callback(`${pages.selected}`, `${tableName + pages.selected}uid${uid}`),
-							telegraf.Markup.button.callback(`>${pages.moveNext}`, `${tableName + pages.moveNext}uid${uid}`),
-							telegraf.Markup.button.callback(`>>${pages.moveNextPlusFive}`, `${tableName + pages.moveNextPlusFive}uid${uid}`),
-							telegraf.Markup.button.callback(`${pages.last}`, `${tableName + pages.last}uid${uid}`)
+							telegraf.Markup.button.callback(`${pages.first}`, `${tableName + pages.first}id${id}`),
+							telegraf.Markup.button.callback(`${pages.movePreviousMinusFive}<<`, `${tableName + pages.movePreviousMinusFive}id${id}`),
+							telegraf.Markup.button.callback(`${pages.movePrevious}<`, `${tableName + pages.movePrevious}id${id}`),
+							telegraf.Markup.button.callback(`${pages.selected}`, `${tableName + pages.selected}id${id}`),
+							telegraf.Markup.button.callback(`>${pages.moveNext}`, `${tableName + pages.moveNext}id${id}`),
+							telegraf.Markup.button.callback(`>>${pages.moveNextPlusFive}`, `${tableName + pages.moveNextPlusFive}id${id}`),
+							telegraf.Markup.button.callback(`${pages.last}`, `${tableName + pages.last}id${id}`)
 					]]);
 				}
 
@@ -1230,6 +1234,9 @@ console.log(response);
 				row.creation_date = new Date(reqDate).toISOString();
 				row.tg_user_id = ctx.update.message.from.id;
 				row.command = `SHOW_CREATED_FOOD`;
+				row.data = {};
+				row.data.message_id = response.message_id;
+				row.data = JSON.stringify(row.data);
 				
 				let paramQuery = {};
 				paramQuery.text = `
@@ -1490,7 +1497,7 @@ const makeDishNumForSheetLine = (num, maxLength) => {
 
 			const creation_date = new Date(reqDate).toISOString();
 
-			if (userLastCommand.command == `CREATE_DISH` || userLastCommand.command == `EDIT_DISH`){
+			if (userLastCommand.command == `CREATE_DISH` || userLastCommand.command == `EDIT_DISH`){ // only in private chat!!!
 				if (Array.isArray(re_result = text.toLowerCase().match(RE__RESOLVE_FD_ID_WEIGHT_FROM_InlQuery))){
 					//get food|dish id, weight
 					const foodDishType = re_result[1];
@@ -1576,15 +1583,10 @@ const makeDishNumForSheetLine = (num, maxLength) => {
 					//update creDish and return list of added ingredients 
 					creDish.fooddish_gweight_items_json = JSON.stringify(creDish.fooddish_gweight_items_json);
 					
-					await DB_CLIENT.query(`
-						UPDATE dish_items
-						SET ${getStrOfColumnNamesAndTheirSettedValues(creDish)}
-						WHERE id = ${userLastCommand.data.dish_items_ids[0]}
-					;`);
 					//update list message in chat
 					
-				let askingConfirmationResponse = `<b>__ID Название блюда</b>\n`;
-				askingConfirmationResponse += `${makeDishNumForSheetLine(userInfo.count_of_user_created_di, 4)} ${creDish.name__lang_code_ru}\n`;
+				let messageText = `<b>__ID Название блюда</b>\n`;
+				messageText += `${makeDishNumForSheetLine(userInfo.count_of_user_created_di, 4)} ${creDish.name__lang_code_ru}\n`;
 
 				let dishSheetHead = `\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм) <i>Ингредиент и его название</i></b></u>`;
 
@@ -1604,39 +1606,55 @@ const makeDishNumForSheetLine = (num, maxLength) => {
 					creDish.total_g_weight?addCharBeforeValue(creDish.total_g_weight, 6, '_'):'__н/д_'} |Разница:${
 					creDish.total_g_weight?addCharBeforeValue(creDish.g_weight - creDish.total_g_weight, 6, '_'): '__н/д_' }|</u></b>`;
 
-				askingConfirmationResponse += dishSheetHead;
-				askingConfirmationResponse += dishSheetAddedIngredientList;
-				askingConfirmationResponse += dishSheetFooter;
+				messageText += dishSheetHead;
+				messageText += dishSheetAddedIngredientList;
+				messageText += dishSheetFooter;
+				
 
-					let response;
-				try {
-					
-					if(userLastCommand.data.message_id){
- 				await bot.telegram.deleteMessage(
-					ctx.update.message.chat.id,
-					userLastCommand.data.message_id
-					
-					);
-					}
-				}catch(e){
-					console.log(e)
+				const uid = userInfo.tg_user_id;
+				const inlineKeyboard = telegraf.Markup.inlineKeyboard([[
+					telegraf.Markup.button.callback(`Сохранить`, `id${uid}save`)
+				]]);
 
-				}
+				inlineKeyboard.parse_mode = 'HTML';
 
-					try{
+				let response;
 
-					response = await bot.telegram.sendMessage(
+				try{
+					response = await bot.telegram.editMessageText(
 						ctx.update.message.chat.id,
-						askingConfirmationResponse,
-						{parse_mode:'HTML'}
+						userLastCommand.data.message_id,
+						``,
+						messageText,
+						inlineKeyboard
 					);
+
 				}catch(e){
 					console.log(e)
+						
+					try{
+						response = await bot.telegram.sendMessage(
+							ctx.update.message.chat.id,
+							messageText,
+						inlineKeyboard
+						);
+
+					}catch(e){
+						console.log(e)
+
+					}
 
 				}
-
-
 console.log(response);
+
+
+				await DB_CLIENT.query(`
+					UPDATE dish_items
+					SET ${getStrOfColumnNamesAndTheirSettedValues(creDish)}
+					WHERE id = ${userLastCommand.data.dish_items_ids[0]}
+				;`);
+
+
 
 				let row = {};
 				row.creation_date = creation_date;
@@ -1701,8 +1719,8 @@ console.log(response);
 						return;
 					} else if (creDish.fooddish_gweight_items_json.length == 1){
 
-				let askingConfirmationResponse = `<b>__ID Название блюда</b>\n`;
-				askingConfirmationResponse += `${makeDishNumForSheetLine(userInfo.count_of_user_created_di, 4)} ${creDish.name__lang_code_ru}\n`;
+				let messageText = `<b>__ID Название блюда</b>\n`;
+				messageText += `${makeDishNumForSheetLine(userInfo.count_of_user_created_di, 4)} ${creDish.name__lang_code_ru}\n`;
 
 				let dishSheetHead = `\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм) <i>Ингредиент и его название</i></b></u>`;
 
@@ -1712,34 +1730,43 @@ console.log(response);
 					addCharBeforeValue(0, 6, '_')} |К:${
 					addCharBeforeValue(0, 7, '_')} |В:_100.0</b></u> Итоговый БЖУК на 100 грамм.`;
 						
-				askingConfirmationResponse += dishSheetHead;
-				askingConfirmationResponse += dishSheetFooter;
+				messageText += dishSheetHead;
+				messageText += dishSheetFooter;
 
-					let response;
-				try {
-					if(userLastCommand.data.message_id){
- 				await bot.telegram.deleteMessage(
-					ctx.update.message.chat.id,
-					userLastCommand.data.message_id
-					
+				const id = userInfo.tg_user_id;
+				const inlineKeyboard = telegraf.Markup.inlineKeyboard([[
+					telegraf.Markup.button.callback(`Сохранить`, `id${id}save`)
+				]]);
+
+				inlineKeyboard.parse_mode = 'HTML';
+
+				let response;
+
+				try{
+					response = await bot.telegram.editMessageText(
+						ctx.update.message.chat.id,
+						userLastCommand.data.message_id,
+						``,
+						messageText,
+						inlineKeyboard
 					);
-					}
+
 				}catch(e){
 					console.log(e)
-				}
-
-
+						
 					try{
- 					response = await bot.telegram.sendMessage(
-						ctx.update.message.chat.id,
-						askingConfirmationResponse,
-						{parse_mode:'HTML'}
-					);
+						response = await bot.telegram.sendMessage(
+							ctx.update.message.chat.id,
+							messageText,
+						inlineKeyboard
+						);
 
 					}catch(e){
 						console.log(e)
+
 					}
 
+				}
 console.log(response);
 
 				let row = {};
@@ -1873,8 +1900,8 @@ console.log(listNums, creDish);
 console.log(listNums, creDish);
 					//list of dish ingredients
 
-				let askingConfirmationResponse = `<b>__ID Название блюда</b>\n`;
-				askingConfirmationResponse += `${makeDishNumForSheetLine(userInfo.count_of_user_created_di, 4)} ${creDish.name__lang_code_ru}\n`;
+				let messageText = `<b>__ID Название блюда</b>\n`;
+				messageText += `${makeDishNumForSheetLine(userInfo.count_of_user_created_di, 4)} ${creDish.name__lang_code_ru}\n`;
 
 				let dishSheetHead = `\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм) <i>Ингредиент и его название</i></b></u>`;
 
@@ -1894,35 +1921,31 @@ console.log(listNums, creDish);
 					creDish.total_g_weight?addCharBeforeValue(creDish.total_g_weight, 6, '_'):'__н/д_'} |Разница:${
 					creDish.total_g_weight?addCharBeforeValue(creDish.g_weight - creDish.total_g_weight, 6, '_'): '__н/д_' }|</u></b>`;
 
-				askingConfirmationResponse += dishSheetHead;
-				askingConfirmationResponse += dishSheetAddedIngredientList;
-				askingConfirmationResponse += dishSheetFooter;
+				messageText += dishSheetHead;
+				messageText += dishSheetAddedIngredientList;
+				messageText += dishSheetFooter;
 
-					let response;
-				try {
-					if(userLastCommand.data.message_id){
- 				await bot.telegram.deleteMessage(
-					ctx.update.message.chat.id,
-					userLastCommand.data.message_id
-					
+				const id = userInfo.tg_user_id;
+				const inlineKeyboard = telegraf.Markup.inlineKeyboard([[
+					telegraf.Markup.button.callback(`Сохранить`, `id${id}save`)
+				]]);
+
+				inlineKeyboard.parse_mode = 'HTML';
+
+				let response;
+
+				try{
+					response = await bot.telegram.editMessageText(
+						ctx.update.message.chat.id,
+						userLastCommand.data.message_id,
+						``,
+						messageText,
+						inlineKeyboard
 					);
-					}
+
 				}catch(e){
 					console.log(e)
-
 				}
-
-					try{
- 					response = await bot.telegram.sendMessage(
-						ctx.update.message.chat.id,
-						askingConfirmationResponse,
-						{parse_mode:'HTML'}
-					);
-
-					}catch(e){
-						console.log(e)
-					}
-
 console.log(response);
 
 				let row = {};
@@ -2041,8 +2064,8 @@ console.log(response);
 
 					console.log(creDish);
 
-				let askingConfirmationResponse = `<b>__ID Название блюда</b>\n`;
-				askingConfirmationResponse += `${makeDishNumForSheetLine(userInfo.count_of_user_created_di, 4)} ${creDish.name__lang_code_ru}\n`;
+				let messageText = `<b>__ID Название блюда</b>\n`;
+				messageText += `${makeDishNumForSheetLine(userInfo.count_of_user_created_di, 4)} ${creDish.name__lang_code_ru}\n`;
 
 				let dishSheetHead = `\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм) <i>Ингредиент и его название</i></b></u>`;
 
@@ -2062,38 +2085,44 @@ console.log(response);
 					creDish.total_g_weight?addCharBeforeValue(creDish.total_g_weight, 6, '_'):'__н/д_'} |Разница:${
 					creDish.total_g_weight?addCharBeforeValue(creDish.g_weight - creDish.total_g_weight, 6, '_'): '__н/д_' }|</u></b>`;
 
-				askingConfirmationResponse += dishSheetHead;
-				askingConfirmationResponse += dishSheetAddedIngredientList;
-				askingConfirmationResponse += dishSheetFooter;
+				messageText += dishSheetHead;
+				messageText += dishSheetAddedIngredientList;
+				messageText += dishSheetFooter;
 
-					let response;
-				try {
-					
-					if(userLastCommand.data.message_id){
- 				await bot.telegram.deleteMessage(
-					ctx.update.message.chat.id,
-					userLastCommand.data.message_id
-					
-					);
-					}
-				}catch(e){
-					console.log(e)
+				const id = userInfo.tg_user_id;
+				const inlineKeyboard = telegraf.Markup.inlineKeyboard([[
+					telegraf.Markup.button.callback(`Сохранить`, `id${id}save`)
+				]]);
 
-				}
+				inlineKeyboard.parse_mode = 'HTML';
 
-					try{
+				let response;
 
-					response = await bot.telegram.sendMessage(
+				try{
+					response = await bot.telegram.editMessageText(
 						ctx.update.message.chat.id,
-						askingConfirmationResponse,
-						{parse_mode:'HTML'}
+						userLastCommand.data.message_id,
+						``,
+						messageText,
+						inlineKeyboard
 					);
+
 				}catch(e){
 					console.log(e)
+						
+					try{
+						response = await bot.telegram.sendMessage(
+							ctx.update.message.chat.id,
+							messageText,
+						inlineKeyboard
+						);
+
+					}catch(e){
+						console.log(e)
+
+					}
 
 				}
-
-
 console.log(response);
 
 					creDish.fooddish_gweight_items_json = JSON.stringify(creDish.fooddish_gweight_items_json);
@@ -2208,8 +2237,8 @@ console.log(response);
 					creDish = bjukToNum(creDish);
 					// get ingredients
 					// list ingredients and weights
-				let askingConfirmationResponse = `<b>__ID Название блюда</b>\n`;
-				askingConfirmationResponse += `${makeDishNumForSheetLine(userInfo.count_of_user_created_di, 4)} ${creDish.name__lang_code_ru}\n`;
+				let messageText = `<b>__ID Название блюда</b>\n`;
+				messageText += `${makeDishNumForSheetLine(userInfo.count_of_user_created_di, 4)} ${creDish.name__lang_code_ru}\n`;
 
 				let dishSheetHead = `\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм) <i>Ингредиент и его название</i></b></u>`;
 
@@ -2229,45 +2258,45 @@ console.log(response);
 					creDish.total_g_weight?addCharBeforeValue(creDish.total_g_weight, 6, '_'):'__н/д_'} |Разница:${
 					creDish.total_g_weight?addCharBeforeValue(creDish.g_weight - creDish.total_g_weight, 6, '_'): '__н/д_' }|</u></b>`;
 
-				askingConfirmationResponse += dishSheetHead;
-				askingConfirmationResponse += dishSheetAddedIngredientList;
-				askingConfirmationResponse += dishSheetFooter;
+				messageText += dishSheetHead;
+				messageText += dishSheetAddedIngredientList;
+				messageText += dishSheetFooter;
 
 
-					let inliKeyb = telegraf.Markup.inlineKeyboard([[
-							telegraf.Markup.button.callback(`Сохранить`, `tgid${userInfo.tg_user_id}save`),
-							telegraf.Markup.button.callback(`Отмена`, `tgid${userInfo.tg_user_id}cancel`),
-					]]);
+				const id = userInfo.tg_user_id;
+				const inlineKeyboard = telegraf.Markup.inlineKeyboard([[
+					telegraf.Markup.button.callback(`Сохранить`, `id${id}save`)
+				]]);
 
-					let response;
+				inlineKeyboard.parse_mode = 'HTML';
 
-				try {
-					
-					if(userLastCommand.data.message_id){
- 				await bot.telegram.deleteMessage(
-					ctx.update.message.chat.id,
-					userLastCommand.data.message_id
-					
-					);
-					}
-				}catch(e){
-					console.log(e)
+				let response;
 
-				}
-
-					try{
-
-					response = await bot.telegram.sendMessage(
+				try{
+					response = await bot.telegram.editMessageText(
 						ctx.update.message.chat.id,
-						askingConfirmationResponse,
-						{parse_mode:'HTML'}
+						userLastCommand.data.message_id,
+						``,
+						messageText,
+						inlineKeyboard
 					);
+
 				}catch(e){
 					console.log(e)
+						
+					try{
+						response = await bot.telegram.sendMessage(
+							ctx.update.message.chat.id,
+							messageText,
+						inlineKeyboard
+						);
+
+					}catch(e){
+						console.log(e)
+
+					}
 
 				}
-
-
 console.log(response);
 
 					creDish.fooddish_gweight_items_json = JSON.stringify(creDish.fooddish_gweight_items_json);
@@ -2302,65 +2331,6 @@ console.log(response);
 				await DB_CLIENT.query(paramQuery);
 					// telegram_user_sended_commands
 				} else if (Array.isArray(re_result = text.toLowerCase().match(/^с$/u))) {
-					//add to fooddish ids
-					const documents = [];
-					const doc = {};
-
-				let row = {};
-				row.dish_items_id = userLastCommand.data.dish_items_ids[0];
-					
-				let paramQuery = {};
-				paramQuery.text = `
-					INSERT INTO fooddish_ids_for_meilisearch
-					(${objKeysToColumnStr(row)})
-					VALUES
-					(${objKeysToColumn$IndexesStr(row)})
-					RETURNING	id
-				;`;
-				paramQuery.values = getArrOfValuesFromObj(row);
-				let res = await DB_CLIENT.query(paramQuery);
-
-				doc.id = Number(res.rows[0].id);
-
-				res = await DB_CLIENT.query(`
-							SELECT name__lang_code_ru, protein, fat, caloric_content, carbohydrate, tg_user_id
-							FROM dish_items
-							WHERE id = ${userLastCommand.data.dish_items_ids[0]}
-						;`);
-				let el = res.rows[0];
-		
-		doc.dish_items_id = Number(userLastCommand.data.dish_items_ids[0]);
-		doc.name__lang_code_ru = el.name__lang_code_ru;
-		doc.tg_user_id = Number(el.tg_user_id);
-		doc.created_by_project = false;
-		doc.protein = el.protein?Number(el.protein):0;
-		doc.fat = el.fat?Number(el.fat):0;
-		doc.carbohydrate = el.carbohydrate ?Number(el.carbohydrate):0;
-		doc.caloric_content = el.caloric_content ? Number( el.caloric_content ) : 0;
-		documents.push(doc);
-					//add to meilisearch
-	await MSDB.addDocuments(documents);
-
-
-
-				row = {};
-				row.creation_date = creation_date;
-				row.command = 'SAVE_DISH';
-				row.tg_user_id = userInfo.tg_user_id;
-
-				row.data = {};
-				row.data.dish_items_ids = [userLastCommand.data.dish_items_ids[0]];
-				row.data = JSON.stringify(row.data);
-
-				paramQuery = {};
-				paramQuery.text = `
-					INSERT INTO telegram_user_sended_commands
-					(${objKeysToColumnStr(row)})
-					VALUES
-					(${objKeysToColumn$IndexesStr(row)})
-				;`;
-				paramQuery.values = getArrOfValuesFromObj(row);
-				await DB_CLIENT.query(paramQuery);
 
 
 				} else {
@@ -2385,29 +2355,41 @@ bot.on(`callback_query`, async ctx => {
 		`____________callbavk_____________`
 	);
 
-	const tableNames = {};
-	tableNames.food_items = `fi`;
-	
-
-
 	const callbackQuery = ctx.update.callback_query;
 	
 	if(callbackQuery.from.id != 2147423284) {
 		return;
 	}
-
-	// const userLastCommand ;
 	
-	const userInfo = await HZ.getTelegramUserInfo(DB_CLIENT, callbackQuery.from.id);
-	
-	const reFoodItems = new RegExp(`${tableNames.food_items}(\\d+)uid(\\d+)`,)
 	let re_result;
 	
-	if (re_result = callbackQuery.data.match(reFoodItems)) {
-		
-		if (re_result[2] != userInfo.tg_user_id) {
-			return;
+	const reTGUserId = /id(\d+)/;
+
+	if (Array.isArray(re_result = callbackQuery.data.match(reTGUserId)) && re_result[1] != callbackQuery.from.id) {
+		try{
+			await bot.telegram.answerCbQuery(callbackQuery.id);
+		} catch(e) {
+			console.log(e)
 		}
+		return;
+	}
+
+	
+	const userInfo = await HZ.getTelegramUserInfo(DB_CLIENT, callbackQuery.from.id);
+	const userLastCommand = (await DB_CLIENT.query(`
+			SELECT *
+			FROM telegram_user_sended_commands
+			WHERE tg_user_id = ${userInfo.tg_user_id}
+			ORDER BY id DESC
+			limit 1;
+		`)).rows[0];
+	
+	const reFoodItems = new RegExp(`${tableNames.food_items}(\\d+)id(\\d+)`);
+	const reSave = /id([0-9]+)save/;
+	const reCancel = /id([0-9]+)cancel/;
+
+	
+	if (Array.isArray(re_result = callbackQuery.data.match(reFoodItems))) {
 
 		const maxNumberOfLines = 10;//25
 
@@ -2518,22 +2500,22 @@ bot.on(`callback_query`, async ctx => {
 				});
 
 
-				const makeInlineKeyboard = (pages, tableName, uid) => {
+				const makeInlineKeyboard = (pages, tableName, id) => {
 					return telegraf.Markup.inlineKeyboard([[
-							telegraf.Markup.button.callback(`${pages.first}`, `${tableName + pages.first}uid${uid}`),
-							telegraf.Markup.button.callback(`${pages.movePreviousMinusFive}<<`, `${tableName + pages.movePreviousMinusFive}uid${uid}`),
-							telegraf.Markup.button.callback(`${pages.movePrevious}<`, `${tableName + pages.movePrevious}uid${uid}`),
-							telegraf.Markup.button.callback(`${pages.selected}`, `${tableName + pages.selected}uid${uid}`),
-							telegraf.Markup.button.callback(`>${pages.moveNext}`, `${tableName + pages.moveNext}uid${uid}`),
-							telegraf.Markup.button.callback(`>>${pages.moveNextPlusFive}`, `${tableName + pages.moveNextPlusFive}uid${uid}`),
-							telegraf.Markup.button.callback(`${pages.last}`, `${tableName + pages.last}uid${uid}`)
+							telegraf.Markup.button.callback(`${pages.first}`, `${tableName + pages.first}id${id}`),
+							telegraf.Markup.button.callback(`${pages.movePreviousMinusFive}<<`, `${tableName + pages.movePreviousMinusFive}id${id}`),
+							telegraf.Markup.button.callback(`${pages.movePrevious}<`, `${tableName + pages.movePrevious}id${id}`),
+							telegraf.Markup.button.callback(`${pages.selected}`, `${tableName + pages.selected}id${id}`),
+							telegraf.Markup.button.callback(`>${pages.moveNext}`, `${tableName + pages.moveNext}id${id}`),
+							telegraf.Markup.button.callback(`>>${pages.moveNextPlusFive}`, `${tableName + pages.moveNextPlusFive}id${id}`),
+							telegraf.Markup.button.callback(`${pages.last}`, `${tableName + pages.last}id${id}`)
 					]]);
 				}
 
 				const inlineKeyboard = makeInlineKeyboard(pages, `fi`, userInfo.tg_user_id);
 					
 					
-let response;
+				let response;
 					if ( message.replaceAll(/<\w+>|<\/\w+>|\s+/g, ``) == callbackQuery.message.text.replaceAll(/\s+/g, ``)) {
 						try{
 							response =	await bot.telegram.answerCbQuery(callbackQuery.id);
@@ -2550,7 +2532,6 @@ let response;
 					inlineKeyboard.parse_mode = 'HTML';
 					inlineKeyboard.protect_content = true;
 
-
 		try {		
 				 response = await bot.telegram.editMessageText(
 					callbackQuery.message.chat.id,
@@ -2563,10 +2544,110 @@ let response;
 			console.error(e);
 		}		
 
-		console.log(
+		/* console.log(
 			response
-		);
+		); */
 
+	} else if(Array.isArray(re_result = callbackQuery.data.match(reSave))){
+		console.log(re_result, callbackQuery);
+		//get dish
+		//check dish ingredients if no return
+		//insert fooddish_ids_for_meilisearch  get id
+		//insert meilisearch
+		//insert telegram_user_sended_commands 
+		//make message and send
+
+		let messageText = `<b>Сохранено.</b>\n\nПосмотреть созданные блюда  <code>псб</code>`;
+
+				let response;
+
+				try{
+					response = await bot.telegram.editMessageText(
+						callbackQuery.message.chat.id,
+						userLastCommand.data.message_id,
+						``,
+						messageText,
+						{parse_mode:'HTML'}
+					);
+
+				}catch(e){
+					console.log(e)
+
+				}
+					console.log(response)
+		/*
+		 					// add code to remove inlineKeyboard
+		 //check existance of ingredient list
+
+					//add to fooddish ids
+					const documents = [];
+					const doc = {};
+
+				let row = {};
+				row.dish_items_id = userLastCommand.data.dish_items_ids[0];
+					
+				let paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO fooddish_ids_for_meilisearch
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+					RETURNING	id
+				;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				let res = await DB_CLIENT.query(paramQuery);
+
+				doc.id = Number(res.rows[0].id);
+
+				res = await DB_CLIENT.query(`
+							SELECT name__lang_code_ru, protein, fat, caloric_content, carbohydrate, tg_user_id
+							FROM dish_items
+							WHERE id = ${userLastCommand.data.dish_items_ids[0]}
+						;`);
+				let el = res.rows[0];
+		
+		doc.dish_items_id = Number(userLastCommand.data.dish_items_ids[0]);
+		doc.name__lang_code_ru = el.name__lang_code_ru;
+		doc.tg_user_id = Number(el.tg_user_id);
+		doc.created_by_project = false;
+		doc.protein = el.protein?Number(el.protein):0;
+		doc.fat = el.fat?Number(el.fat):0;
+		doc.carbohydrate = el.carbohydrate ?Number(el.carbohydrate):0;
+		doc.caloric_content = el.caloric_content ? Number( el.caloric_content ) : 0;
+		documents.push(doc);
+					//add to meilisearch
+	await MSDB.addDocuments(documents);
+
+
+
+				row = {};
+				row.creation_date = creation_date;
+				row.command = 'SAVE_DISH';
+				row.tg_user_id = userInfo.tg_user_id;
+
+				row.data = {};
+				row.data.dish_items_ids = [userLastCommand.data.dish_items_ids[0]];
+				row.data = JSON.stringify(row.data);
+
+				paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO telegram_user_sended_commands
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+				;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				await DB_CLIENT.query(paramQuery);
+
+
+		 */
+
+	} else {
+		try{
+			await bot.telegram.answerCbQuery(callbackQuery.id);
+		} catch(e) {
+			console.log(e)
+		}
 	}
 
 
