@@ -1446,8 +1446,9 @@ try{
 
 
 				
-const makeDishNumForSheetLine = num => {
-					const maxLength = 2;
+const makeDishNumForSheetLine = (num, maxLength) => {
+					const defaultMaxLength = 2;
+					maxLength = maxLength ? maxLength : defaultMaxLength;
 					const str = String(num);
 					let result = ``;
 
@@ -1582,7 +1583,7 @@ const makeDishNumForSheetLine = num => {
 					//update list message in chat
 					
 				let askingConfirmationResponse = `<b>__ID Название блюда</b>\n`;
-				askingConfirmationResponse += `<code>${userInfo.count_of_user_created_di}</code> ${creDish.name__lang_code_ru}\n`;
+				askingConfirmationResponse += `${makeDishNumForSheetLine(userInfo.count_of_user_created_di, 4)} ${creDish.name__lang_code_ru}\n`;
 
 				let dishSheetHead = `\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм) <i>Ингредиент и его название</i></b></u>`;
 
@@ -1700,7 +1701,7 @@ console.log(response);
 					} else if (creDish.fooddish_gweight_items_json.length == 1){
 
 				let askingConfirmationResponse = `<b>__ID Название блюда</b>\n`;
-				askingConfirmationResponse += `<code>${userInfo.count_of_user_created_di}</code> ${creDish.name__lang_code_ru}\n`;
+				askingConfirmationResponse += `${makeDishNumForSheetLine(userInfo.count_of_user_created_di, 4)} ${creDish.name__lang_code_ru}\n`;
 
 				let dishSheetHead = `\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм) <i>Ингредиент и его название</i></b></u>`;
 
@@ -1872,7 +1873,7 @@ console.log(listNums, creDish);
 					//list of dish ingredients
 
 				let askingConfirmationResponse = `<b>__ID Название блюда</b>\n`;
-				askingConfirmationResponse += `<code>${userInfo.count_of_user_created_di}</code> ${creDish.name__lang_code_ru}\n`;
+				askingConfirmationResponse += `${makeDishNumForSheetLine(userInfo.count_of_user_created_di, 4)} ${creDish.name__lang_code_ru}\n`;
 
 				let dishSheetHead = `\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм) <i>Ингредиент и его название</i></b></u>`;
 
@@ -2040,7 +2041,7 @@ console.log(response);
 					console.log(creDish);
 
 				let askingConfirmationResponse = `<b>__ID Название блюда</b>\n`;
-				askingConfirmationResponse += `<code>${userInfo.count_of_user_created_di}</code> ${creDish.name__lang_code_ru}\n`;
+				askingConfirmationResponse += `${makeDishNumForSheetLine(userInfo.count_of_user_created_di, 4)} ${creDish.name__lang_code_ru}\n`;
 
 				let dishSheetHead = `\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм) <i>Ингредиент и его название</i></b></u>`;
 
@@ -2207,7 +2208,7 @@ console.log(response);
 					// get ingredients
 					// list ingredients and weights
 				let askingConfirmationResponse = `<b>__ID Название блюда</b>\n`;
-				askingConfirmationResponse += `<code>${userInfo.count_of_user_created_di}</code> ${creDish.name__lang_code_ru}\n`;
+				askingConfirmationResponse += `${makeDishNumForSheetLine(userInfo.count_of_user_created_di, 4)} ${creDish.name__lang_code_ru}\n`;
 
 				let dishSheetHead = `\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм) <i>Ингредиент и его название</i></b></u>`;
 
@@ -2231,7 +2232,14 @@ console.log(response);
 				askingConfirmationResponse += dishSheetAddedIngredientList;
 				askingConfirmationResponse += dishSheetFooter;
 
+
+					let inliKeyb = telegraf.Markup.inlineKeyboard([[
+							telegraf.Markup.button.callback(`Сохранить`, `tgid${userInfo.tg_user_id}save`),
+							telegraf.Markup.button.callback(`Отмена`, `tgid${userInfo.tg_user_id}cancel`),
+					]]);
+
 					let response;
+
 				try {
 					
 					if(userLastCommand.data.message_id){
@@ -2292,7 +2300,8 @@ console.log(response);
 				paramQuery.values = getArrOfValuesFromObj(row);
 				await DB_CLIENT.query(paramQuery);
 					// telegram_user_sended_commands
-
+				} else if (Array.isArray(re_result = text.toLowerCase().match(/^с$/u))) {
+console.log(`hi`);
 				} else {
 					ctx.reply(`не понимаю команду`)
 				}
@@ -2310,8 +2319,8 @@ bot.on(`callback_query`, async ctx => {
 	console.log(
 		`____________callback_____________`,
 		JSON.stringify(ctx.update),
-		ctx.update,
-		ctx,
+		/* ctx.update,
+		ctx, */
 		`____________callbavk_____________`
 	);
 
@@ -2325,6 +2334,8 @@ bot.on(`callback_query`, async ctx => {
 	if(callbackQuery.from.id != 2147423284) {
 		return;
 	}
+
+	// const userLastCommand ;
 	
 	const userInfo = await HZ.getTelegramUserInfo(DB_CLIENT, callbackQuery.from.id);
 	
