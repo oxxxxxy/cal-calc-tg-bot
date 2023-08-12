@@ -22,6 +22,7 @@ const {
 	COMMAND__CREATE_FOOD__YES,
 	COMMAND__CREATE_FOOD__NO
 } = require(`./modules/user_commands/create_food_funcs.js`);
+// const { callback } = require('telegraf/typings/button.js');
 
 
 const TG_USERS_LAST_ACTION_TIME = {};
@@ -2302,6 +2303,9 @@ console.log(response);
 					// telegram_user_sended_commands
 				} else if (Array.isArray(re_result = text.toLowerCase().match(/^с$/u))) {
 console.log(`hi`);
+
+
+
 				} else {
 					ctx.reply(`не понимаю команду`)
 				}
@@ -2471,15 +2475,24 @@ bot.on(`callback_query`, async ctx => {
 
 				const inlineKeyboard = makeInlineKeyboard(pages, `fi`, userInfo.tg_user_id);
 					
-					const isResponseTextValid = message.replaceAll(/<b>|<\/b>|<i>|<\/i>/g, ``);
-					if ( isResponseTextValid == callbackQuery.message.text) {
+					
+let response;
+					if ( message.replaceAll(/<\w+>|<\/\w+>|\s+/g, ``) == callbackQuery.message.text.replaceAll(/\s+/g, ``)) {
+						try{
+							response =	await bot.telegram.answerCbQuery(callbackQuery.id);
+						} catch(e) {
+							console.log(e)
+						}
+
+		console.log(
+			response
+		);
 						return;
 					}
 
 					inlineKeyboard.parse_mode = 'HTML';
 					inlineKeyboard.protect_content = true;
 
-let response;
 
 		try {		
 				 response = await bot.telegram.editMessageText(
