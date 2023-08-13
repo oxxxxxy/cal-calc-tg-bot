@@ -2374,6 +2374,8 @@ bot.on(`callback_query`, async ctx => {
 		return;
 	}
 
+	const reqDate = callbackQuery.message.date * 1000;	
+	const creation_date = new Date(reqDate).toISOString();
 	
 	const userInfo = await HZ.getTelegramUserInfo(DB_CLIENT, callbackQuery.from.id);
 	const userLastCommand = (await DB_CLIENT.query(`
@@ -2386,8 +2388,33 @@ bot.on(`callback_query`, async ctx => {
 	
 	const reFoodItems = new RegExp(`${tableNames.food_items}(\\d+)id(\\d+)`);
 	const reSave = /id([0-9]+)save/;
-	const reCancel = /id([0-9]+)cancel/;
 
+				const addCharBeforeValue = (value, maxLength, charS) => {
+					let str = Number(value).toFixed(1);
+					
+					let result = ``;
+
+					for (let i = 0, diff = maxLength - str.length; i < diff; i++) {
+						result += charS;
+					}
+					result += str;
+
+					return result;
+				};
+
+	const makeDishNumForSheetLine = (num, maxLength) => {
+					const defaultMaxLength = 2;
+					maxLength = maxLength ? maxLength : defaultMaxLength;
+					const str = String(num);
+					let result = ``;
+
+					for (let i = 0, diff = maxLength - str.length; i < diff; i++) {
+						result += `_`;
+					}
+					result += `<code>${str}</code>`;
+
+					return result;
+				};
 	
 	if (Array.isArray(re_result = callbackQuery.data.match(reFoodItems))) {
 
@@ -2551,13 +2578,91 @@ bot.on(`callback_query`, async ctx => {
 	} else if(Array.isArray(re_result = callbackQuery.data.match(reSave))){
 		console.log(re_result, callbackQuery);
 		//get dish
-		//check dish ingredients if no return
-		//insert fooddish_ids_for_meilisearch  get id
-		//insert meilisearch
-		//insert telegram_user_sended_commands 
-		//make message and send
+		let res = await DB_CLIENT.query(`
+			SELECT name__lang_code_ru, protein, fat, caloric_content, carbohydrate, fooddish_gweight_items_json
+			FROM dish_items
+			WHERE id = ${userLastCommand.data.dish_items_ids[0]}
+		;`);
 
-		let messageText = `<b>Сохранено.</b>\n\nПосмотреть созданные блюда  <code>псб</code>`;
+		const dish = res.rows[0];
+
+		//check dish ingredients if no return
+		if (!dish.fooddish_gweight_items_json.length){
+			try{
+				await bot.telegram.answerCbQuery(
+					callbackQuery.id,
+					`Нет ни одного ингредиента.\nОтправь    /help`,
+					{show_alert : true}
+				);
+			} catch(e) {
+				console.log(e);
+			}
+			return;
+		}
+		//insert fooddish_ids_for_meilisearch  get id
+		let row = {};
+		row.dish_items_id = userLastCommand.data.dish_items_ids[0];
+			
+		let paramQuery = {};
+		paramQuery.text = `
+			INSERT INTO fooddish_ids_for_meilisearch
+			(${objKeysToColumnStr(row)})
+			VALUES
+			(${objKeysToColumn$IndexesStr(row)})
+			RETURNING	id
+		;`;
+		paramQuery.values = getArrOfValuesFromObj(row);
+		res = await DB_CLIENT.query(paramQuery);
+
+		const dishIdForMeiliSearch = res.rows[0].id;
+		//insert meilisearch
+		const documents = [];
+		const doc = {};
+		doc.id = Number(dishIdForMeiliSearch);
+		doc.dish_items_id = Number(userLastCommand.data.dish_items_ids[0]);
+		doc.name__lang_code_ru = dish.name__lang_code_ru;
+		doc.tg_user_id = Number(userInfo.tg_user_id);
+		doc.created_by_project = false;
+		doc.protein = dish.protein?Number(dish.protein):0;
+		doc.fat = dish.fat?Number(dish.fat):0;
+		doc.carbohydrate = dish.carbohydrate ?Number(dish.carbohydrate):0;
+		doc.caloric_content = dish.caloric_content ? Number(dish.caloric_content ) : 0;
+		documents.push(doc);
+
+		await MSDB.addDocuments(documents);
+
+		//insert telegram_user_sended_commands
+		row = {};
+		row.creation_date = creation_date;
+		row.command = 'SAVE_DISH';
+		row.tg_user_id = userInfo.tg_user_id;
+
+		row.data = {};
+		row.data.dish_items_ids = [userLastCommand.data.dish_items_ids[0]];
+		row.data = JSON.stringify(row.data);
+
+		paramQuery = {};
+		paramQuery.text = `
+			INSERT INTO telegram_user_sended_commands
+			(${objKeysToColumnStr(row)})
+			VALUES
+			(${objKeysToColumn$IndexesStr(row)})
+		;`;
+		paramQuery.values = getArrOfValuesFromObj(row);
+		await DB_CLIENT.query(paramQuery);
+
+		//make message and send
+		let dishSheetHead = `\n<b><u>|__ID|Б_______|Ж_______|У_______|К______|</u> <i>Название блюда</i></b>`;
+
+		let dishSheetFooter = `\n<u>|${
+			makeDishNumForSheetLine(userInfo.count_of_user_created_di, 4)}|Б:${
+			addCharBeforeValue(dish.protein, 5, '_')} |Ж:${
+			addCharBeforeValue(dish.fat, 5, '_')} |У:${
+			addCharBeforeValue(dish.carbohydrate, 5, '_')} |К:${
+			addCharBeforeValue(dish.caloric_content, 5, '_')}|</u> <i>${
+			dish.name__lang_code_ru}</i>\n\n<b>СОХРАНЕНО.</b>`;
+
+		let messageText = dishSheetHead+dishSheetFooter;
 
 				let response;
 
@@ -2575,73 +2680,6 @@ bot.on(`callback_query`, async ctx => {
 
 				}
 					console.log(response)
-		/*
-		 					// add code to remove inlineKeyboard
-		 //check existance of ingredient list
-
-					//add to fooddish ids
-					const documents = [];
-					const doc = {};
-
-				let row = {};
-				row.dish_items_id = userLastCommand.data.dish_items_ids[0];
-					
-				let paramQuery = {};
-				paramQuery.text = `
-					INSERT INTO fooddish_ids_for_meilisearch
-					(${objKeysToColumnStr(row)})
-					VALUES
-					(${objKeysToColumn$IndexesStr(row)})
-					RETURNING	id
-				;`;
-				paramQuery.values = getArrOfValuesFromObj(row);
-				let res = await DB_CLIENT.query(paramQuery);
-
-				doc.id = Number(res.rows[0].id);
-
-				res = await DB_CLIENT.query(`
-							SELECT name__lang_code_ru, protein, fat, caloric_content, carbohydrate, tg_user_id
-							FROM dish_items
-							WHERE id = ${userLastCommand.data.dish_items_ids[0]}
-						;`);
-				let el = res.rows[0];
-		
-		doc.dish_items_id = Number(userLastCommand.data.dish_items_ids[0]);
-		doc.name__lang_code_ru = el.name__lang_code_ru;
-		doc.tg_user_id = Number(el.tg_user_id);
-		doc.created_by_project = false;
-		doc.protein = el.protein?Number(el.protein):0;
-		doc.fat = el.fat?Number(el.fat):0;
-		doc.carbohydrate = el.carbohydrate ?Number(el.carbohydrate):0;
-		doc.caloric_content = el.caloric_content ? Number( el.caloric_content ) : 0;
-		documents.push(doc);
-					//add to meilisearch
-	await MSDB.addDocuments(documents);
-
-
-
-				row = {};
-				row.creation_date = creation_date;
-				row.command = 'SAVE_DISH';
-				row.tg_user_id = userInfo.tg_user_id;
-
-				row.data = {};
-				row.data.dish_items_ids = [userLastCommand.data.dish_items_ids[0]];
-				row.data = JSON.stringify(row.data);
-
-				paramQuery = {};
-				paramQuery.text = `
-					INSERT INTO telegram_user_sended_commands
-					(${objKeysToColumnStr(row)})
-					VALUES
-					(${objKeysToColumn$IndexesStr(row)})
-				;`;
-				paramQuery.values = getArrOfValuesFromObj(row);
-				await DB_CLIENT.query(paramQuery);
-
-
-		 */
-
 	} else {
 		try{
 			await bot.telegram.answerCbQuery(callbackQuery.id);
@@ -2706,6 +2744,8 @@ bot.on(`inline_query`, async ctx => {
 	console.log(userInfo);
 
 	if (!userLastCommand.confirmation) {
+		
+
 
 	} else {
 		if (userLastCommand.command == 'CREATE_DISH'){
