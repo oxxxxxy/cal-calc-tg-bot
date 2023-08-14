@@ -455,18 +455,54 @@ bot.on(`message`, async ctx => {
 		return;
 	}
 
+	if(!ctx.update.message.text){
+		return;
+	}
+
 	const userInfo = await HZ.getTelegramUserInfo(DB_CLIENT, ctx.update.message.from.id);
 
 	if(!userInfo.privilege_type) {
+		try {
+			await ctx.reply(`Сорян, братан, меня не доделали ещё...\n\nСкачай приложение какое или потыкай поисковичок. Рекомендую, кста, https://fitaudit.ru\n\nТакже помни, что самое важное- это выработать привычку вносить съеденное в калькулятор при любых условиях, никаких леней, забылей, писикаков и прочего. Взвесил- внёс- съел, взвесил- внёс- съел и т.д., иначе так результата и не добъешься.\n\nДавай, пупсик, обнял :*\n\nП,С, как секси станешь, скинь нюдсы в лс, спасибо.\n\nП.С.П.С. Если ты совершеннолетний человек, конечно. Обнял ещё раз, успехов!`);
+		} catch(e) {
+			console.log(e);
+		}
 		return;
 	}
-		const userLastCommand = (await DB_CLIENT.query(`
+
+
+	const getUserLastCommand = async (pgClient, tgId) => {
+		const response = await pgClient.query(`
 			SELECT *
 			FROM telegram_user_sended_commands
-			WHERE tg_user_id = ${userInfo.tg_user_id}
+			WHERE tg_user_id = ${tgId}
 			ORDER BY id DESC
 			limit 1;
-		`)).rows[0];
+		`);
+
+		const userLastCommand = response.rows[0];
+
+		return userLastCommand;
+	}
+
+	const getUserProcess = async (pgClient, tgId) => {
+		const response = await pgClient.query(`
+			SELECT *
+			FROM telegram_user_processes
+			WHERE tg_user_id = ${tgId}
+			AND NOT completed
+			ORDER BY id DESC
+			limit 1;
+		`);
+
+		const userProcess = response.rows[0];
+
+		return userProcess;
+	}
+
+	const userProcess = await getUserProcess(DB_CLIENT, userInfo.tg_user_id);
+
+	const userLastCommand = await getUserLastCommand(DB_CLIENT, userInfo.tg_user_id);
 
 			console.log(
 		userInfo,
@@ -474,16 +510,13 @@ bot.on(`message`, async ctx => {
 	);
 		
 
-		const reqDate = ctx.update.message.date * 1000;	
-		let re_result;
-	
-		if(!ctx.update.message.text){
-			return;//
-		}
+	const reqDate = ctx.update.message.date * 1000;	
 
-		let text = ctx.update.message.text.replaceAll(/\s+/g, ` `).trim();
+	let re_result;
+
+	let text = ctx.update.message.text.replaceAll(/\s+/g, ` `).trim();
 	
-		if(!userLastCommand.confirmation){
+	if(!userLastCommand.confirmation){
 	
 			if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_LAST_ACTION))) {
 
