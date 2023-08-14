@@ -82,28 +82,28 @@ const trackTelegramUserAccountDataChanges = async (db, ctxUpdateMessageFrom) => 
 			FROM telegram_user_account_data_changes
 			WHERE tg_user_id = ${ctxUpdateMessageFrom.id}
 			AND is_not_firstname_null
-			ORDER BY creation_date DESC
+			ORDER BY id DESC
 			LIMIT 1)
 		AS fn, (
 			SELECT *
 			FROM telegram_user_account_data_changes
 			WHERE tg_user_id = ${ctxUpdateMessageFrom.id}
 			AND is_not_lastname_null
-			ORDER BY creation_date DESC
+			ORDER BY id DESC
 			LIMIT 1)
 		AS ln, (
 			SELECT *
 			FROM telegram_user_account_data_changes
 			WHERE tg_user_id = ${ctxUpdateMessageFrom.id}
 			AND is_not_username_null
-			ORDER BY creation_date DESC
+			ORDER BY id DESC
 			LIMIT 1)
 		AS un, (
 			SELECT *
 			FROM telegram_user_account_data_changes
 			WHERE tg_user_id = ${ctxUpdateMessageFrom.id}
 			AND is_not_lang_code_null
-			ORDER BY creation_date DESC
+			ORDER BY id DESC
 			LIMIT 1)
 		AS lc;
 		`);

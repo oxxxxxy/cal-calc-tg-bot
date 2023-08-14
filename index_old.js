@@ -325,34 +325,14 @@ bot.use(async (ctx, next) => {
 		from = ctx.update.message.from;
 		date = ctx.update.message.date;
 		console.log(`message`);
-		/*
-			{"update_id":517934972,"message":{"message_id":2363,"from":{"id":2147423284,"is_bot":false,"first_name":"АРЧ","language_code":"en"},"chat":{"id":2147423284,"first_name":"АРЧ","type":"private"},"date":1691587952,"text":"df","via_bot":{"id":5467847506,"is_bot":true,"first_name":"Калькулятор Калорий","username":"edac_bot"}}}
-			{"update_id":517934973,"message":{"message_id":110,"from":{"id":1087968824,"is_bot":true,"first_name":"Group","username":"GroupAnonymousBot"},"sender_chat":{"id":-1001317760469,"title":"food dairy chat","username":"food_dairy_chat","type":"supergroup"},"chat":{"id":-1001317760469,"title":"food dairy chat","username":"food_dairy_chat","type":"supergroup"},"date":1691588103,"text":"df"}}
-			{"update_id":517935006,"message":{"message_id":2366,"from":{"id":2147423284,"is_bot":false,"first_name":"АРЧ","language_code":"en"},"chat":{"id":2147423284,"first_name":"АРЧ","type":"private"},"date":1691597251,"forward_from_chat":{"id":-1001317760469,"title":"food dairy chat","username":"food_dairy_chat","type":"supergroup"},"forward_date":1691588103,"text":"df"}}
-			{"update_id":517935007,"message":{"message_id":2367,"from":{"id":2147423284,"is_bot":false,"first_name":"АРЧ","language_code":"en"},"chat":{"id":2147423284,"first_name":"АРЧ","type":"private"},"date":1691597251,"forward_from_chat":{"id":-1001317760469,"title":"food dairy chat","username":"food_dairy_chat","type":"supergroup"},"forward_date":1691591952,"text":"Вы в процессе создания блюда.","via_bot":{"id":5467847506,"is_bot":true,"first_name":"Калькулятор Калорий","username":"edac_bot"}}} 
-
-		 */
 	} else if (!!ctx.update.edited_message) {// ??? check them or not?
 		from = ctx.update.edited_message.from;
 		date = ctx.update.edited_message.date;
 		console.log(`edited_message`);
-		/* 
-			 {"update_id":517934966,"edited_message":{"message_id":109,"from":{"id":1087968824,"is_bot":true,"first_name":"Group","username":"GroupAnonymousBot"},"sender_chat":{"id":-1001317760469,"title":"food dairy chat","username":"food_dairy_chat","type":"supergroup"},"chat":{"id":-1001317760469,"title":"food dairy chat","username":"food_dairy_chat","type":"supergroup"},"date":1691586250,"edit_date":1691586432,"text":"fdfsdaf"}}
-		 {"update_id":517935004,"message":{"message_id":111,"from":{"id":1087968824,"is_bot":true,"first_name":"Group","username":"GroupAnonymousBot"},"sender_chat":{"id":-1001317760469,"title":"food dairy chat","username":"food_dairy_chat","type":"supergroup"},"chat":{"id":-1001317760469,"title":"food dairy chat","username":"food_dairy_chat","type":"supergroup"},"date":1691591952,"text":"Вы в процессе создания блюда.","via_bot":{"id":5467847506,"is_bot":true,"first_name":"Калькулятор Калорий","username":"edac_bot"}}}
-
-		 */
 	} else if (!!ctx.update.inline_query) {
 		from = ctx.update.inline_query.from;
 		// date = ctx.update.inline_query.date; // empty update
 		console.log(`inline_query`);
-		/*
-		 {"update_id":517935003,"inline_query":{"id":"9223112777810632953","from":{"id":2147423284,"is_bot":false,"first_name":"АРЧ","language_code":"en"},"chat_type":"supergroup","query":"","offset":""}}
-		 {"update_id":517934998,"inline_query":{"id":"9223112778541942686","from":{"id":2147423284,"is_bot":false,"first_name":"АРЧ","language_code":"en"},"chat_type":"sender","query":"","offset":""}}
-{"update_id":517935622,"message":{"message_id":7,"from":{"id":2147423284,"is_bot":false,"first_name":"АРЧ","language_code":"en"},"chat":{"id":-1001600888181,"title":"ботовая группа","type":"supergroup"},"date":1691863495,"new_chat_title":"ботовая группа"}}
-
-	{"update_id":517935621,"message":{"message_id":6,"from":{"id":2147423284,"is_bot":false,"first_name":"АРЧ","language_code":"en"},"chat":{"id":-1001600888181,"title":"ботовая","type":"supergroup"},"date":1691863414,"animation":{"mime_type":"video/mp4","duration":35,"width":720,"height":400,"thumbnail":{"file_id":"AAMCAgADHQJfa511AAMGZNfJdgdKwNNm-AH96F1UswfwluYAAwwAAhzcGEpgVWciwqCPKwEAB20AAzAE","file_unique_id":"AQAEDAACHNwYSnI","file_size":15110,"width":320,"height":178},"thumb":{"file_id":"AAMCAgADHQJfa511AAMGZNfJdgdKwNNm-AH96F1UswfwluYAAwwAAhzcGEpgVWciwqCPKwEAB20AAzAE","file_unique_id":"AQAEDAACHNwYSnI","file_size":15110,"width":320,"height":178},"file_id":"CgACAgIAAx0CX2uddQADBmTXyXYHSsDTZvgB_ehdVLMH8JbmAAMMAAIc3BhKYFVnIsKgjyswBA","file_unique_id":"AgAEDAACHNwYSg","file_size":3624075},"document":{"mime_type":"video/mp4","thumbnail":{"file_id":"AAMCAgADHQJfa511AAMGZNfJdgdKwNNm-AH96F1UswfwluYAAwwAAhzcGEpgVWciwqCPKwEAB20AAzAE","file_unique_id":"AQAEDAACHNwYSnI","file_size":15110,"width":320,"height":178},"thumb":{"file_id":"AAMCAgADHQJfa511AAMGZNfJdgdKwNNm-AH96F1UswfwluYAAwwAAhzcGEpgVWciwqCPKwEAB20AAzAE","file_unique_id":"AQAEDAACHNwYSnI","file_size":15110,"width":320,"height":178},"file_id":"CgACAgIAAx0CX2uddQADBmTXyXYHSsDTZvgB_ehdVLMH8JbmAAMMAAIc3BhKYFVnIsKgjyswBA","file_unique_id":"AgAEDAACHNwYSg","file_size":3624075}}}
-
-		 */
 	} else if (!!ctx.update.chosen_inline_result) {
 		from = ctx.update.chosen_inline_result.from;
 		date = ctx.update.chosen_inline_result.date;
@@ -382,11 +362,6 @@ bot.use(async (ctx, next) => {
 		from = ctx.update.my_chat_member.from;
 		date = ctx.update.my_chat_member.date;
 		console.log(`my_chat_member`);
-		/*
-		 {"update_id":517934962,"my_chat_member":{"chat":{"id":-1001317760469,"title":"food dairy chat","username":"food_dairy_chat","type":"supergroup"},"from":{"id":2147423284,"is_bot":false,"first_name":"АРЧ","language_code":"en"},"date":1691586237,"old_chat_member":{"user":{"id":5467847506,"is_bot":true,"first_name":"Калькулятор Калорий","username":"edac_bot"},"status":"member"},"new_chat_member":{"user":{"id":5467847506,"is_bot":true,"first_name":"Калькулятор Калорий","username":"edac_bot"},"status":"administrator","can_be_edited":false,"can_manage_chat":true,"can_change_info":true,"can_delete_messages":true,"can_invite_users":true,"can_restrict_members":true,"can_pin_messages":true,"can_manage_topics":false,"can_promote_members":false,"can_manage_video_chats":true,"is_anonymous":false,"can_manage_voice_chats":true}}}
-
-
-		 */
 		//create table
 	} else if (!!ctx.update.chat_member) {
 		from = ctx.update.chat_member.from;
@@ -402,13 +377,7 @@ bot.use(async (ctx, next) => {
 		date = ctx.update.channel_post.date;
 		console.log(`channel_post`);
 		return; //create table???
-		/*
-	{"update_id":517935623,"channel_post":{"message_id":3,"sender_chat":{"id":-1001579743247,"title":"ботовой канал","type":"channel"},"chat":{"id":-1001579743247,"title":"ботовой канал","type":"channel"},"date":1691863506,"new_chat_title":"ботовой канал"}} 
-	{"update_id":517935620,"channel_post":{"message_id":2,"sender_chat":{"id":-1001579743247,"title":"ботовая","type":"channel"},"chat":{"id":-1001579743247,"title":"ботовая","type":"channel"},"date":1691863405,"animation":{"mime_type":"video/mp4","duration":35,"width":720,"height":400,"thumbnail":{"file_id":"AAMCAgADHQJeKPgPAAMCZNfJbZPz2i9c7PkekZW75iJCdPMAAwwAAhzcGEpgVWciwqCPKwEAB20AAzAE","file_unique_id":"AQAEDAACHNwYSnI","file_size":15110,"width":320,"height":178},"thumb":{"file_id":"AAMCAgADHQJeKPgPAAMCZNfJbZPz2i9c7PkekZW75iJCdPMAAwwAAhzcGEpgVWciwqCPKwEAB20AAzAE","file_unique_id":"AQAEDAACHNwYSnI","file_size":15110,"width":320,"height":178},"file_id":"CgACAgIAAx0CXij4DwADAmTXyW2T89ovXOz5HpGVu-YiQnTzAAMMAAIc3BhKYFVnIsKgjyswBA","file_unique_id":"AgAEDAACHNwYSg","file_size":3624075},"document":{"mime_type":"video/mp4","thumbnail":{"file_id":"AAMCAgADHQJeKPgPAAMCZNfJbZPz2i9c7PkekZW75iJCdPMAAwwAAhzcGEpgVWciwqCPKwEAB20AAzAE","file_unique_id":"AQAEDAACHNwYSnI","file_size":15110,"width":320,"height":178},"thumb":{"file_id":"AAMCAgADHQJeKPgPAAMCZNfJbZPz2i9c7PkekZW75iJCdPMAAwwAAhzcGEpgVWciwqCPKwEAB20AAzAE","file_unique_id":"AQAEDAACHNwYSnI","file_size":15110,"width":320,"height":178},"file_id":"CgACAgIAAx0CXij4DwADAmTXyW2T89ovXOz5HpGVu-YiQnTzAAMMAAIc3BhKYFVnIsKgjyswBA","file_unique_id":"AgAEDAACHNwYSg","file_size":3624075}}}
 
-
-
-*/
 	} else if (!!ctx.update.edited_channel_post) {
 		from = ctx.update.edited_channel_post.from;
 		date = ctx.update.edited_channel_post.date;
@@ -472,30 +441,25 @@ bot.on(`message`, async ctx => {
 		`________MESSAGE________end`
 	) 
 
-	if(
-		// ctx.update.message.from.id != 1087968824 &&
-		ctx.update.message.from.id != 2147423284) {
-		// ctx.reply(`Я нахожусь в разработке. Посмотрите новости здесь @food_dairy. Напишите сюда @food_dairy_chat.\nI'm in development. See news here @food_dairy. Text here @food_dairy_chat.`);
+
+
+	if (!(ctx.update.message.chat.type == `private`)) {
 		return;
 	}
 
-
-	if(ctx.update.message.from.is_bot 
-		&& ctx.update.message.from.id != 1087968824
-	) {
-		// ctx.reply(`Старина, съеби нахуй.`);
-
+	if(ctx.update.message.from.is_bot) {
 		return;
 	}
 
-	if (!!ctx.update.via_bot && ctx.update.via_bot.id == 5467847506) {
-		
+	if (!!ctx.update?.via_bot?.id && ctx.update.via_bot.id != process.env.BOT_ID_edac) {
+		return;
 	}
 
-	// console.log(ctx.update)
-	// if (ctx.update.message.chat.type == `private`) {
+	const userInfo = await HZ.getTelegramUserInfo(DB_CLIENT, ctx.update.message.from.id);
 
-		const userInfo = await HZ.getTelegramUserInfo(DB_CLIENT, ctx.update.message.from.id);
+	if(!userInfo.privilege_type) {
+		return;
+	}
 		const userLastCommand = (await DB_CLIENT.query(`
 			SELECT *
 			FROM telegram_user_sended_commands
@@ -2577,6 +2541,11 @@ bot.on(`callback_query`, async ctx => {
 
 	} else if(Array.isArray(re_result = callbackQuery.data.match(reSave))){
 		console.log(re_result, callbackQuery);
+
+		//update sended_commands, add data with dish id
+		//update processes, delete data and sequences
+		//
+
 		//get dish
 		let res = await DB_CLIENT.query(`
 			SELECT name__lang_code_ru, protein, fat, caloric_content, carbohydrate, fooddish_gweight_items_json
