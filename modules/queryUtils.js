@@ -49,7 +49,7 @@ const getStrOfColumnNamesAndTheirSettedValues = obj => {
 		} else if (typeof obj[k] == 'boolean') {
 			str  += obj[k];
 		} else {
-			throw `unknown data type for adding in database. add code to me, honey`
+			throw `unknown data type for adding in database. add code inside me, honey\n${obj[k]}`
 		}
 		
 		if(keys.length > 1 && i < keys.length - 1){
