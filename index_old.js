@@ -283,8 +283,12 @@ const cleanSubprocessesAfter1H = async () => {
 		await DB_CLIENT.query(`
 			UPDATE telegram_user_subprocesses
 			SET completed = true,
-			canceled_by_service = true
+			canceled_by_service = true,
+			data = '[]',
+			sequence = '[]',
+			state = '[]'
 			WHERE creation_date < '${date}'
+			AND NOT completed
 		;`);
 
 		await delay(300000);
@@ -324,22 +328,22 @@ const cleanTGInlineKeyboards = async () => {
 	}
 };
 
-const checkIsUserSendTooMuchFor1Min = async (tg_user_id, date, pgClient)  => {
+const checkIsUserSendTooMuchFor5Min = async (tg_user_id, date, pgClient)  => {
 
 	//date = new Date(new Date(date) - 60*60*24*1000); //24 hours
-	date = new Date(new Date(date) - 60*1*1000); //1 minute
+	date = new Date(new Date(date) - 60*5*1000); //5 minute
 
 	const res = await pgClient.query(`
 		SELECT count(*)
 		FROM telegram_user_log
 		WHERE tg_user_id = ${tg_user_id}
-		AND creation_date > '${date.toISOString()}';`);
-	//
+		AND creation_date > '${date.toISOString()}'
+	;`);
 
-		if (Number(res.rows[0].count) > 200) {
-			return true;
-		}
-		return false;
+ 	if (Number(res.rows[0].count) > 300) {
+		return true;
+	}
+	return false;
 };
 
 
@@ -455,7 +459,7 @@ bot.use(async (ctx, next) => {
 	if(!date){
 		date = Date.now();
 	} else {
-		date * 1000;
+		date = date * 1000;
 	}
 
 	const reqDate = date;
@@ -472,7 +476,6 @@ bot.use(async (ctx, next) => {
 		}
 	} */
 
-
 	if (!from.is_bot){
 		HZ.checkTelegramUserExistentAndRegistryHimIfNotExists(DB_CLIENT, from.id, from.is_bot);
 
@@ -484,20 +487,27 @@ bot.use(async (ctx, next) => {
 			console.log(userInfo)
 
 		if (userInfo.is_banned) {
+			try{
+				ctx.reply(`u r banned`);
+			} catch(e) {
+				console.log(e);
+			}
+			console.log(`BANNED`, userInfo);
 			return;
 		}
 
-		if (new Date(userInfo.last_check) < new Date(reqDate) - 60*1*1000) {
-			if (checkIsUserSendTooMuchFor1Min(from.id, reqDate, DB_CLIENT)) {
+		if (new Date(userInfo.last_check) < (new Date(reqDate) - 60*5*1000)) {
+			if (await checkIsUserSendTooMuchFor5Min(from.id, reqDate, DB_CLIENT)) {
 				await DB_CLIENT.query(`
 						UPDATE telegram_users
-						SET is_banned = true
+						SET is_banned = true,
+						last_check = '${new Date(reqDate).toISOString()}'
 						WHERE tg_user_id = ${from.id}
 					;`);
 			} else {
 				await DB_CLIENT.query(`
 						UPDATE telegram_users
-						SET last_check = ${new Date(reqDate).toISOString()}
+						SET last_check = '${new Date(reqDate).toISOString()}'
 						WHERE tg_user_id = ${from.id}
 					;`);
 			} 
@@ -3051,11 +3061,7 @@ bot.on(`callback_query`, async ctx => {
 	);
 
 	const callbackQuery = ctx.update.callback_query;
-	
-	if(callbackQuery.from.id != 2147423284) {
-		return;
-	}
-	
+
 	let re_result;
 	
 	const reTGUserId = /id(\d+)/;
@@ -3069,10 +3075,26 @@ bot.on(`callback_query`, async ctx => {
 		return;
 	}
 
+	const userInfo = await HZ.getTelegramUserInfo(DB_CLIENT, callbackQuery.from.id);
+
+	if(!userInfo.privilege_type) {
+		return;
+	}
+
+	if (userInfo.is_banned) {
+		try{
+			await bot.telegram.answerCbQuery(callbackQuery.id);
+		} catch(e) {
+			console.log(e)
+		}
+		return;
+	}
+
 	const reqDate = callbackQuery.message.date * 1000;	
 	const creation_date = new Date(reqDate).toISOString();
-	
-	const userInfo = await HZ.getTelegramUserInfo(DB_CLIENT, callbackQuery.from.id);
+
+	const userSubprocess = await getUserSubProcess(DB_CLIENT, userInfo.tg_user_id);
+
 	const userLastCommand = (await DB_CLIENT.query(`
 			SELECT *
 			FROM telegram_user_sended_commands
@@ -3082,7 +3104,9 @@ bot.on(`callback_query`, async ctx => {
 		`)).rows[0];
 	
 	const reFoodItems = new RegExp(`${tableNames.food_items}(\\d+)id(\\d+)`);
-	const reSave = /id([0-9]+)save/;
+	const reSave = /id(\d+)save/;
+	const reCancel = /id(\d+)cancel/;
+//const reCommands = /id(\d+)commands/;	
 
 				const addCharBeforeValue = (value, maxLength, charS) => {
 					let str = Number(value).toFixed(1);
@@ -3110,7 +3134,71 @@ bot.on(`callback_query`, async ctx => {
 
 					return result;
 				};
-	
+console.log(userSubprocess);	
+	if(!userSubprocess){
+
+	} else {
+		if(userSubprocess.process_name == `DISH_CREATION__RENAMING`){
+			if(Array.isArray(re_result = callbackQuery.data.match(reCancel))){
+				console.log(re_result);
+
+				let messageText = `Отменено.`
+
+				let response;
+
+				try {
+ 					response = await bot.telegram.editMessageText(
+						callbackQuery.message.chat.id,
+						userSubprocess.state.message_id,
+						``,
+						messageText
+					);
+				} catch(e) {
+					console.log(e);
+				}
+
+				if(!response){
+					return;
+				}
+				
+ 				let row = {};
+				row.data = JSON.stringify({});
+				row.sequence = JSON.stringify({});
+				row.state = JSON.stringify({});
+				row.completed = true;
+  
+				let paramQuery = {};
+				paramQuery.text = `
+					UPDATE telegram_user_subprocesses
+					SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
+					WHERE id = ${userSubprocess.id}
+				;`;
+				await DB_CLIENT.query(paramQuery);
+				
+				row = {};
+				row.creation_date = creation_date;
+				row.command = `CANCEL__CREATE_DISH`;
+				row.tg_user_id = userInfo.tg_user_id;
+
+				paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO telegram_user_sended_commands
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+				;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				await DB_CLIENT.query(paramQuery);
+
+			}
+		} else if(userSubprocess.process_name == `DISH_CREATION`){
+			console.log(`code me`);
+			ctx.reply(`code me`);
+			return;
+		}
+	}
+
+	return;
 	if (Array.isArray(re_result = callbackQuery.data.match(reFoodItems))) {
 
 		const maxNumberOfLines = 10;//25
