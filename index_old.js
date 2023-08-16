@@ -278,18 +278,80 @@ const cleanLimitationOfUCFI = async () => {
 
 const cleanSubprocessesAfter1H = async () => {
 	while (true) {
-		const date = (new Date(Date.now() - 1000*60*60)).toISOString();
-	
-		await DB_CLIENT.query(`
-			UPDATE telegram_user_subprocesses
-			SET completed = true,
-			canceled_by_service = true,
-			data = '[]',
-			sequence = '[]',
-			state = '[]'
+		const date = (new Date(Date.now() - 1000*60*120)).toISOString();
+		
+		let response = await DB_CLIENT.query(`
+			SELECT *
+			FROM telegram_user_subprocesses
 			WHERE creation_date < '${date}'
 			AND NOT completed
 		;`);
+
+		if (response?.rows?.length) {
+			for (const userSubprocess of response.rows) {
+
+				const creation_date = new Date().toISOString();
+
+				let messageText;
+
+				if( userSubprocess.process_name == `DISH_CREATION` ){
+					messageText = `Создание блюда отменено.`
+				}	else if ( userSubprocess.process_name == `DISH_CREATION__RENAMING` ){
+					messageText = `Переимнование блюда отменено`;
+				}
+
+				let response;
+
+				try {
+ 					response = await bot.telegram.editMessageText(
+						userSubprocess.tg_user_id,
+						userSubprocess.state.message_id,
+						``,
+						messageText
+					);
+				} catch(e) {
+					console.log(e);
+				}
+
+				if(!response){
+					return;
+				}
+				
+ 				let row = {};
+				row.data = JSON.stringify({});
+				row.sequence = JSON.stringify({});
+				row.state = JSON.stringify({});
+				row.completed = true;
+				row.canceled_by_service = true;
+  
+				let paramQuery = {};
+				paramQuery.text = `
+					UPDATE telegram_user_subprocesses
+					SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
+					WHERE id = ${userSubprocess.id}
+				;`;
+				await DB_CLIENT.query(paramQuery);
+				
+				row = {};
+				row.creation_date = creation_date;
+				row.command = `CANCEL__${userSubprocess.process_name}`.slice(0, 64);
+				row.tg_user_id = userInfo.tg_user_id;
+				row.process_id = userSubprocess.id;
+
+				paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO telegram_user_sended_commands
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+				;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				await DB_CLIENT.query(paramQuery);
+
+				await delay(300);
+			}
+
+		}
 
 		await delay(300000);
 	}
@@ -1277,7 +1339,7 @@ bot.on(`message`, async ctx => {
 				const id = userInfo.tg_user_id;
 				const inlineKeyboard = telegraf.Markup.inlineKeyboard([[
 						telegraf.Markup.button.callback(`Сохранить`, `id${id}save`),
-						telegraf.Markup.button.callback(`Отмена`, `id${id}cancel`),
+						telegraf.Markup.button.callback(`Отменить`, `id${id}cancel`),
 						telegraf.Markup.button.callback(`Команды`, `id${id}commands`)
 					]]);
 
@@ -1301,7 +1363,6 @@ bot.on(`message`, async ctx => {
 				}
 
 				console.log(response);
-return;
 
 				//add to telegram_user_sended_commands
 				let row = {};
@@ -1333,7 +1394,7 @@ return;
 
 				row.data = {};
 				row.data.name__lang_code_ru = dishName;
-				row.dish_items_id = count_of_user_created_di;
+				row.data.dish_items_id = count_of_user_created_di;
 				row.data.ingredients = [];
 
 				row.sequence = [];
@@ -1341,7 +1402,6 @@ return;
 				row.state = {};
 				row.state.message_id = response.message_id;
 				row.state.interface = `main`;
-				
 
 				row.data = JSON.stringify(row.data);
 				row.sequence = JSON.stringify(row.sequence);
@@ -1349,18 +1409,13 @@ return;
 
 				paramQuery = {};
 				paramQuery.text = `
-					INSERT INTO dish_items
+					INSERT INTO telegram_user_subprocesses
 					(${objKeysToColumnStr(row)})
 					VALUES
 					(${objKeysToColumn$IndexesStr(row)})
-					RETURNING	id
 				;`;
 				paramQuery.values = getArrOfValuesFromObj(row);
 				await DB_CLIENT.query(paramQuery);
-
-
-
-
 
 
 return;
@@ -3061,6 +3116,7 @@ bot.on(`callback_query`, async ctx => {
 	);
 
 	const callbackQuery = ctx.update.callback_query;
+	console.log(callbackQuery?.data);
 
 	let re_result;
 	
@@ -3106,7 +3162,7 @@ bot.on(`callback_query`, async ctx => {
 	const reFoodItems = new RegExp(`${tableNames.food_items}(\\d+)id(\\d+)`);
 	const reSave = /id(\d+)save/;
 	const reCancel = /id(\d+)cancel/;
-//const reCommands = /id(\d+)commands/;	
+	const reCommands = /id(\d+)commands/;	
 
 				const addCharBeforeValue = (value, maxLength, charS) => {
 					let str = Number(value).toFixed(1);
@@ -3137,69 +3193,7 @@ bot.on(`callback_query`, async ctx => {
 console.log(userSubprocess);	
 	if(!userSubprocess){
 
-	} else {
-		if(userSubprocess.process_name == `DISH_CREATION__RENAMING`){
-			if(Array.isArray(re_result = callbackQuery.data.match(reCancel))){
-				console.log(re_result);
-
-				let messageText = `Отменено.`
-
-				let response;
-
-				try {
- 					response = await bot.telegram.editMessageText(
-						callbackQuery.message.chat.id,
-						userSubprocess.state.message_id,
-						``,
-						messageText
-					);
-				} catch(e) {
-					console.log(e);
-				}
-
-				if(!response){
-					return;
-				}
-				
- 				let row = {};
-				row.data = JSON.stringify({});
-				row.sequence = JSON.stringify({});
-				row.state = JSON.stringify({});
-				row.completed = true;
-  
-				let paramQuery = {};
-				paramQuery.text = `
-					UPDATE telegram_user_subprocesses
-					SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
-					WHERE id = ${userSubprocess.id}
-				;`;
-				await DB_CLIENT.query(paramQuery);
-				
-				row = {};
-				row.creation_date = creation_date;
-				row.command = `CANCEL__CREATE_DISH`;
-				row.tg_user_id = userInfo.tg_user_id;
-
-				paramQuery = {};
-				paramQuery.text = `
-					INSERT INTO telegram_user_sended_commands
-					(${objKeysToColumnStr(row)})
-					VALUES
-					(${objKeysToColumn$IndexesStr(row)})
-				;`;
-				paramQuery.values = getArrOfValuesFromObj(row);
-				await DB_CLIENT.query(paramQuery);
-
-			}
-		} else if(userSubprocess.process_name == `DISH_CREATION`){
-			console.log(`code me`);
-			ctx.reply(`code me`);
-			return;
-		}
-	}
-
-	return;
-	if (Array.isArray(re_result = callbackQuery.data.match(reFoodItems))) {
+		if (Array.isArray(re_result = callbackQuery.data.match(reFoodItems))) {
 
 		const maxNumberOfLines = 10;//25
 
@@ -3468,14 +3462,136 @@ console.log(userSubprocess);
 
 				}
 					console.log(response)
+
+		}
+		console.log(`!userSubprocess, main tree`);
+
 	} else {
-		try{
-			await bot.telegram.answerCbQuery(callbackQuery.id);
-		} catch(e) {
-			console.log(e)
+		if(userSubprocess.process_name == `DISH_CREATION__RENAMING`){
+			if(Array.isArray(re_result = callbackQuery.data.match(reCancel))){
+				console.log(re_result);
+
+				let messageText = `Переимнование блюда отменено.`
+
+				let response;
+
+				try {
+ 					response = await bot.telegram.editMessageText(
+						callbackQuery.message.chat.id,
+						userSubprocess.state.message_id,
+						``,
+						messageText
+					);
+				} catch(e) {
+					console.log(e);
+				}
+
+				if(!response){
+					return;
+				}
+				
+ 				let row = {};
+				row.data = JSON.stringify({});
+				row.sequence = JSON.stringify({});
+				row.state = JSON.stringify({});
+				row.completed = true;
+				row.canceled = true;
+  
+				let paramQuery = {};
+				paramQuery.text = `
+					UPDATE telegram_user_subprocesses
+					SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
+					WHERE id = ${userSubprocess.id}
+				;`;
+				await DB_CLIENT.query(paramQuery);
+				
+				row = {};
+				row.creation_date = creation_date;
+				row.command = `CANCEL__CREATE_DISH__RENAME`;
+				row.tg_user_id = userInfo.tg_user_id;
+				row.process_id = userSubprocess.id;
+				row.canceled = true;
+
+				paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO telegram_user_sended_commands
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+				;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				await DB_CLIENT.query(paramQuery);
+
+			}
+		} else if(userSubprocess.process_name == `DISH_CREATION`){
+			if(Array.isArray(re_result = callbackQuery.data.match(reCancel))){
+
+				let messageText = `Создание блюда отменено.`
+
+				let response;
+
+				try {
+ 					response = await bot.telegram.editMessageText(
+						callbackQuery.message.chat.id,
+						userSubprocess.state.message_id,
+						``,
+						messageText
+					);
+				} catch(e) {
+					console.log(e);
+				}
+
+				if(!response){
+					return;
+				}
+				
+ 				let row = {};
+				row.data = JSON.stringify({});
+				row.sequence = JSON.stringify({});
+				row.state = JSON.stringify({});
+				row.completed = true;
+				row.canceled = true;
+  
+				let paramQuery = {};
+				paramQuery.text = `
+					UPDATE telegram_user_subprocesses
+					SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
+					WHERE id = ${userSubprocess.id}
+				;`;
+				await DB_CLIENT.query(paramQuery);
+				
+				row = {};
+				row.creation_date = creation_date;
+				row.command = `CANCEL__CREATE_DISH`;
+				row.tg_user_id = userInfo.tg_user_id;
+				row.process_id = userSubprocess.id;
+				row.canceled = true;
+
+				paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO telegram_user_sended_commands
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+				;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				await DB_CLIENT.query(paramQuery);
+			} else if (Array.isArray(re_result = callbackQuery.data.match(reSave))){
+				//check ingredients
+				//make obj to insert in dish_items
+				//insert saved in telegram_user_sended_commands
+				//clear telegram_user_subprocess
+				
+				console.log(`code me`);
+			} else if (Array.isArray(re_result = callbackQuery.data.match(reCommands))) {
+
+				console.log(`code me`);
+			}
+
+		} else {
+			console.log(`code me`);
 		}
 	}
-
 
 });
 
