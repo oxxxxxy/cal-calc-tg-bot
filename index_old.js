@@ -132,19 +132,19 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 		return userLastCommand;
 	}
 
-	const getUserProcess = async (pgClient, tgId) => {
+	const getUserSubProcess = async (pgClient, tgId) => {
 		const response = await pgClient.query(`
 			SELECT *
-			FROM telegram_user_processes
+			FROM telegram_user_subprocesses
 			WHERE tg_user_id = ${tgId}
 			AND NOT completed
 			ORDER BY id DESC
 			limit 1;
 		`);
 
-		const userProcess = response.rows[0];
+		const userSubprocess = response.rows[0];
 
-		return userProcess;
+		return userSubprocess;
 	}
 
 
@@ -275,6 +275,23 @@ const cleanLimitationOfUCFI = async () => {
 		await delay(30000);
 	}
 }
+
+const cleanSubprocessesAfter1H = async () => {
+	while (true) {
+		const date = (new Date(Date.now() - 1000*60*60)).toISOString();
+	
+		await DB_CLIENT.query(`
+			UPDATE telegram_user_subprocesses
+			SET completed = true,
+			canceled_by_service = true
+			WHERE creation_date < '${date}'
+		;`);
+
+		await delay(300000);
+	}
+}
+
+cleanSubprocessesAfter1H();
 
 const cleanTGInlineKeyboards = async () => {
 	while (true) {
@@ -542,13 +559,13 @@ bot.on(`message`, async ctx => {
 		return;
 	}
 
-	const userProcess = await getUserProcess(DB_CLIENT, ctx.update.message.from.id);
+	const userSubprocess = await getUserSubProcess(DB_CLIENT, ctx.update.message.from.id);
 	
 	const reqDate = ctx.update.message.date * 1000;	
 	const creation_date = new Date(reqDate).toISOString();
 
 	if(!ctx.update.message.text){
-		if (userProcess) {
+		if (userSubprocess) {
 		
 			try{
 				await bot.telegram.deleteMessage(
@@ -562,12 +579,13 @@ bot.on(`message`, async ctx => {
 			let sequenceAction = {};
 			sequenceAction.fromUser = true;
 			sequenceAction.incorrectInput = true;
+			sequenceAction.incorrectCause = `1ctx.update.message.text`;
 			sequenceAction.message_id = ctx.update.message.message_id;
 
-			userProcess.sequence.push(sequenceAction);
+			userSubprocess.sequence.push(sequenceAction);
 
 			let lastNonDeteledIndex;
-			let botPreviousAnswer = userProcess.sequence.findLast((e, i) => {
+			let botPreviousAnswer = userSubprocess.sequence.findLast((e, i) => {
 				if(e.fromBot && e.incorrectInputReply && !e.deleted){
 					lastNonDeteledIndex = i;
 					return true;
@@ -576,34 +594,19 @@ bot.on(`message`, async ctx => {
 
 			if (botPreviousAnswer && botPreviousAnswer?.incorrectCause == `!ctx.update.message.text`){
 				let row = {};
-				row.creation_date = creation_date;
-				row.command = `INVALID`;
-				row.tg_user_id = userInfo.tg_user_id;
-
-				let paramQuery = {};
-				paramQuery.text = `
-					INSERT INTO telegram_user_sended_commands
-					(${objKeysToColumnStr(row)})
-					VALUES
-					(${objKeysToColumn$IndexesStr(row)})
-				;`;
-				paramQuery.values = getArrOfValuesFromObj(row);
-				await DB_CLIENT.query(paramQuery);
-
-				row = {};
-				row.data = userProcess.data;
-				row.sequence = userProcess.sequence;
-				row.state = userProcess.state;
+				row.data = userSubprocess.data;
+				row.sequence = userSubprocess.sequence;
+				row.state = userSubprocess.state;
 
 				row.data = JSON.stringify(row.data);
 				row.sequence = JSON.stringify(row.sequence);
 				row.state = JSON.stringify(row.state);
 
-				paramQuery = {};
+				let paramQuery = {};
 				paramQuery.text = `
-					UPDATE telegram_user_processes
+					UPDATE telegram_user_subprocesses
 					SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
-					WHERE id = ${userProcess.id}
+					WHERE id = ${userSubprocess.id}
 				;`;
 				await DB_CLIENT.query(paramQuery);
 
@@ -614,7 +617,7 @@ bot.on(`message`, async ctx => {
 				let response;
 				try{
 					response = await bot.telegram.deleteMessage(
-						userProcess.tg_user_id,
+						userSubprocess.tg_user_id,
 						botPreviousAnswer.message_id
 					);
 				}catch(e){
@@ -628,7 +631,7 @@ bot.on(`message`, async ctx => {
 					botPreviousAnswer.deleted = true;
 				}
 				
-				userProcess.sequence[lastNonDeteledIndex] = botPreviousAnswer;
+				userSubprocess.sequence[lastNonDeteledIndex] = botPreviousAnswer;
 			}
 
 			let messageText = `А текст можно, да?`;
@@ -654,12 +657,12 @@ bot.on(`message`, async ctx => {
 			sequenceAction.incorrectCause = `!ctx.update.message.text`;
 			sequenceAction.message_id = response.message_id;
 
-			userProcess.sequence.push(sequenceAction);
+			userSubprocess.sequence.push(sequenceAction);
 
 			let row = {};
-			row.data = userProcess.data;
-			row.sequence = userProcess.sequence;
-			row.state = userProcess.state;
+			row.data = userSubprocess.data;
+			row.sequence = userSubprocess.sequence;
+			row.state = userSubprocess.state;
 
 			row.data = JSON.stringify(row.data);
 			row.sequence = JSON.stringify(row.sequence);
@@ -667,18 +670,20 @@ bot.on(`message`, async ctx => {
 
 			let paramQuery = {};
 			paramQuery.text = `
-				UPDATE telegram_user_processes
+				UPDATE telegram_user_subprocesses
 				SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
-				WHERE id = ${userProcess.id}
+				WHERE id = ${userSubprocess.id}
 			;`;
 			await DB_CLIENT.query(paramQuery);
+			return;
 		}
 
 		let row = {};
 		row.creation_date = creation_date;
-		row.command = `INVALID`;
+		row.invalid_command = true;
+		row.invalid_cause = `!ctx.update.message.text`;
 		row.tg_user_id = userInfo.tg_user_id;
-
+//add return last 20, find sequences and reply funny shit
 		let paramQuery = {};
 		paramQuery.text = `
 			INSERT INTO telegram_user_sended_commands
@@ -694,7 +699,7 @@ bot.on(`message`, async ctx => {
 
 	console.log(
 		userInfo,
-		// userProcess
+		// userSubprocess
 	);
 		
 
@@ -703,7 +708,7 @@ bot.on(`message`, async ctx => {
 
 	let text = ctx.update.message.text.replaceAll(/\s+/g, ` `).trim();
 	
-	if(!userProcess){
+	if(!userSubprocess){
 
 		if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_LAST_ACTION))) {
 		
@@ -874,7 +879,7 @@ bot.on(`message`, async ctx => {
 
 				let messageText = `*Чпок, и готооова...*`;
 				
-				const foodName = text.slice(re_result[1].length-1, re_result[2].length + re_result[1].length).slice(0, 128).trim();//(re_result[2].trim()).slice(0, 128); // poisk odinakovih imen, otpravka i ojidanie podtverjdeniya
+				const foodName = text.slice(re_result[1].length-1, re_result[2].length + re_result[1].length).slice(0, 128).replaceAll(/['"\\]/ug, ``).trim();//(re_result[2].trim()).slice(0, 128); // poisk odinakovih imen, otpravka i ojidanie podtverjdeniya
 				// console.log( foodName, re_result);return;
 				if (foodName.length < 4) {
 					ctx.reply(`Название еды должно иметь хотя бы 4 символа.`)
@@ -1099,10 +1104,26 @@ bot.on(`message`, async ctx => {
 					return;
 				}
 
-				const dishName = re_result[2].slice(0, 128).trim();//(re_result[2].trim()).slice(0, 128); 
+				const dishName = re_result[2].slice(0, 128).replaceAll(/['"\\]/ug, ``).trim();//(re_result[2].trim()).slice(0, 128); 
 				
 				if (dishName.length < 4) {
 					//tot je process s renaymom sdelat'
+					//peredumal, NE DELAT', zachem zapuskat' process kotoriy teper' subprocess, esli eto v bolshom, glavnom processe chata sidit. vot ego sdelat' nada
+					/* let row = {};
+					row.creation_date = creation_date;
+					row.invalid_command = true;
+					row.invalid_cause = `dishName.length < 4`;
+					row.tg_user_id = userInfo.tg_user_id;
+
+					let paramQuery = {};
+					paramQuery.text = `
+						INSERT INTO telegram_user_sended_commands
+						(${objKeysToColumnStr(row)})
+						VALUES
+						(${objKeysToColumn$IndexesStr(row)})
+					;`;
+					paramQuery.values = getArrOfValuesFromObj(row);
+					await DB_CLIENT.query(paramQuery); */
 					ctx.reply(`Название еды должно иметь хотя бы 4 символа.`)
 					return;
 				}
@@ -1113,6 +1134,7 @@ bot.on(`message`, async ctx => {
 
 				console.log(findIdenticalNameResponse);
 				if (findIdenticalNameResponse?.hits?.length) {
+					//na global chat process perepisat'
 					let messageText = `Блюдо с названием "<b>${dishName}</b>" уже существует.\n\nОтправьте <b>новое название блюда</b> или нажмите "<b>Отменить</b>".`;
 
 					const id = userInfo.tg_user_id;
@@ -1182,7 +1204,7 @@ bot.on(`message`, async ctx => {
 
 					paramQuery = {};
 					paramQuery.text = `
-						INSERT INTO telegram_user_processes
+						INSERT INTO telegram_user_subprocesses
 						(${objKeysToColumnStr(row)})
 						VALUES
 						(${objKeysToColumn$IndexesStr(row)})
@@ -1194,7 +1216,6 @@ bot.on(`message`, async ctx => {
 				}
 
 				const count_of_user_created_di = Number(userInfo.count_of_user_created_di) + 1;
-
 
 				const makeDishNumForSheetLine = (num, maxLength) => {
 					const defaultMaxLength = 2;
@@ -1243,7 +1264,6 @@ bot.on(`message`, async ctx => {
 				messageText += dishReminder;
 
 
-
 				const id = userInfo.tg_user_id;
 				const inlineKeyboard = telegraf.Markup.inlineKeyboard([[
 						telegraf.Markup.button.callback(`Сохранить`, `id${id}save`),
@@ -1272,6 +1292,7 @@ bot.on(`message`, async ctx => {
 
 				console.log(response);
 return;
+
 				//add to telegram_user_sended_commands
 				let row = {};
 				row.creation_date = creation_date;
@@ -1691,14 +1712,35 @@ return;
 			console.log(`user has last command`);
 			//delete previous user sended shit after new message
 			//use sequence
+			console.log(userSubprocess);	
+			const lastUserAction = {};
+			lastUserAction.element = userSubprocess.sequence.findLast((e, i) => {
+				if (e.fromUser && e.message_id) {
+					lastUserAction.index = i;
+					return true;
+				}
+			});
+
+			let response;
 			try{
-				await bot.telegram.deleteMessage(
+				response = await bot.telegram.deleteMessage(
 					ctx.update.message.chat.id,
-					ctx.update.message.message_id
+					lastUserAction.element.message_id
 				);
 			}catch(e){
 				console.log(e);
+				if (e.error_code == 400){
+					lastUserAction.element.deleted = true;
+				}
 			}
+
+			if (response) {
+				lastUserAction.element.deleted = true;
+			}
+
+			userSubprocess.sequence[lastUserAction.index] = lastUserAction.element;
+
+
 
 			const bjukToNum = obj => {
 				obj.protein = Number(obj.protein);
@@ -1773,7 +1815,7 @@ return;
 					name}</i>`
 			};
 
-			if (userProcess.process_name == `CREATE_DISH` || userProcess.process_name == `EDIT_DISH`){
+			if (userSubprocess.process_name == `CREATE_DISH` || userSubprocess.process_name == `EDIT_DISH`){
 				if (Array.isArray(re_result = text.toLowerCase().match(RE__RESOLVE_FD_ID_WEIGHT_FROM_InlQuery))){
 					//get food|dish id, weight
 					const foodDishType = re_result[1];
@@ -2612,56 +2654,52 @@ console.log(response);
 				} else {
 					ctx.reply(`не понимаю команду`)
 				}
-			} else if (userProcess.process_name == `DISH_CREATION__RENAMING`){
-				let dishName = text.slice(0, 128).trim();
+			} else if (userSubprocess.process_name == `DISH_CREATION__RENAMING`){
+				// const cleanDishName = dishName.replaceAll(/['"]/ug, `\\'`); //''"`
+				let dishName = text.slice(0, 128).replaceAll(/['"\\]/ug, ``).trim();
+
  				if (dishName.length < 4) {
 					let sequenceAction = {};
 					sequenceAction.fromUser = true;
 					sequenceAction.incorrectInput = true;
+					sequenceAction.incorrectCause = `dishName.length < 4`;
 					sequenceAction.message_id = ctx.update.message.message_id;
- 					userProcess.sequence.push(sequenceAction);
+
+ 					userSubprocess.sequence.push(sequenceAction);
+
  					let lastNonDeteledIndex;
-					let botPreviousAnswer = userProcess.sequence.findLast((e, i) => {
+					let botPreviousAnswer = userSubprocess.sequence.findLast((e, i) => {
 						if(e.fromBot && e.incorrectInputReply && !e.deleted){
 							lastNonDeteledIndex = i;
 							return true;
 						}
 					});
+ 					
  					if (botPreviousAnswer && botPreviousAnswer?.incorrectCause == `dishName.length < 4`){
-						let row = {};
-						row.creation_date = creation_date;
-						row.command = `INVALID`;
-						row.tg_user_id = userInfo.tg_user_id;
- 						let paramQuery = {};
-						paramQuery.text = `
-							INSERT INTO telegram_user_sended_commands
-							(${objKeysToColumnStr(row)})
-							VALUES
-							(${objKeysToColumn$IndexesStr(row)})
-						;`;
-						paramQuery.values = getArrOfValuesFromObj(row);
-						await DB_CLIENT.query(paramQuery);
- 						row = {};
-						row.data = userProcess.data;
-						row.sequence = userProcess.sequence;
-						row.state = userProcess.state;
+ 						let row = {};
+						row.data = userSubprocess.data;
+						row.sequence = userSubprocess.sequence;
+						row.state = userSubprocess.state;
+ 						
  						row.data = JSON.stringify(row.data);
 						row.sequence = JSON.stringify(row.sequence);
 						row.state = JSON.stringify(row.state);
- 						paramQuery = {};
+
+ 						let paramQuery = {};
 						paramQuery.text = `
-							UPDATE telegram_user_processes
+							UPDATE telegram_user_subprocesses
 							SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
-							WHERE id = ${userProcess.id}
+							WHERE id = ${userSubprocess.id}
 						;`;
 						await DB_CLIENT.query(paramQuery);
  						return;
 					}
+
  					if (botPreviousAnswer) {
 						let response;
 						try{
 							response = await bot.telegram.deleteMessage(
-								userProcess.tg_user_id,
+								userSubprocess.tg_user_id,
 								botPreviousAnswer.message_id
 							);
 						}catch(e){
@@ -2674,8 +2712,9 @@ console.log(response);
 							botPreviousAnswer.deleted = true;
 						}
 						
-						userProcess.sequence[lastNonDeteledIndex] = botPreviousAnswer;
+						userSubprocess.sequence[lastNonDeteledIndex] = botPreviousAnswer;
 					}
+
  					let messageText = `Название блюда должно иметь хотя бы 4 символа.`;
  					let response;
  					try {
@@ -2697,36 +2736,27 @@ console.log(response);
 					sequenceAction.incorrectInputReply = true;
 					sequenceAction.incorrectCause = `dishName.length < 4`;
 					sequenceAction.message_id = response.message_id;
- 					userProcess.sequence.push(sequenceAction);
- 					let row = {};
-					row.creation_date = creation_date;
-					row.command = `INVALID`;
-					row.tg_user_id = userInfo.tg_user_id;
- 					let paramQuery = {};
-					paramQuery.text = `
-						INSERT INTO telegram_user_sended_commands
-						(${objKeysToColumnStr(row)})
-						VALUES
-						(${objKeysToColumn$IndexesStr(row)})
-					;`;
-					paramQuery.values = getArrOfValuesFromObj(row);
-					await DB_CLIENT.query(paramQuery);
- 					row = {};
-					row.data = userProcess.data;
-					row.sequence = userProcess.sequence;
-					row.state = userProcess.state;
+ 					userSubprocess.sequence.push(sequenceAction);
+
+					let row = {};
+					row.data = userSubprocess.data;
+					row.sequence = userSubprocess.sequence;
+					row.state = userSubprocess.state;
+
  					row.data = JSON.stringify(row.data);
 					row.sequence = JSON.stringify(row.sequence);
 					row.state = JSON.stringify(row.state);
- 					paramQuery = {};
+
+ 					let paramQuery = {};
 					paramQuery.text = `
-						UPDATE telegram_user_processes
+						UPDATE telegram_user_subprocesses
 						SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
-						WHERE id = ${userProcess.id}
+						WHERE id = ${userSubprocess.id}
 					;`;
 					await DB_CLIENT.query(paramQuery);
 					return;
 				}
+
 
  				let findIdenticalNameResponse = await MSDB.search(dishName, {
 					filter: `name__lang_code_ru = '${dishName}' AND tg_user_id = ${userInfo.tg_user_id}`
@@ -2734,7 +2764,7 @@ console.log(response);
 
  				if (findIdenticalNameResponse?.hits?.length) {
  					let messageText;
- 					if(userProcess.data.name__lang_code_ru == dishName) {
+ 					if(userSubprocess.data.name__lang_code_ru == dishName) {
 						messageText = `Ты чо там, прикалываешься??? Зачем то же самое название кидаешь? Ты чо ебан? *диджей ебан туц-туц-туц*`;
 					} else {
 						messageText = `Везунчик, блюдо с названием <b>"${dishName}"</b> уже тоже есть. Давай, ёпта, завязывай клоунаду свою и оригинальное название выдай или отредактируй существующее блюдо, додик.`;
@@ -2743,50 +2773,44 @@ console.log(response);
 					let sequenceAction = {};
 					sequenceAction.fromUser = true;
 					sequenceAction.incorrectInput = true;
+					sequenceAction.incorrectCause = `findIdenticalNameResponse?.hits?.length`;
 					sequenceAction.message_id = ctx.update.message.message_id;
- 					userProcess.sequence.push(sequenceAction);
+
+ 					userSubprocess.sequence.push(sequenceAction);
+
  					let lastNonDeteledIndex;
-					let botPreviousAnswer = userProcess.sequence.findLast((e, i) => {
+					let botPreviousAnswer = userSubprocess.sequence.findLast((e, i) => {
 						if(e.fromBot && e.incorrectInputReply && !e.deleted){
 							lastNonDeteledIndex = i;
 							return true;
 						}
 					});
- 					if (botPreviousAnswer && botPreviousAnswer?.incorrectCause == `findIdenticalNameResponse?.hits?.length`){
-						let row = {};
-						row.creation_date = creation_date;
-						row.command = `INVALID`;
-						row.tg_user_id = userInfo.tg_user_id;
- 						let paramQuery = {};
-						paramQuery.text = `
-							INSERT INTO telegram_user_sended_commands
-							(${objKeysToColumnStr(row)})
-							VALUES
-							(${objKeysToColumn$IndexesStr(row)})
-						;`;
-						paramQuery.values = getArrOfValuesFromObj(row);
-						await DB_CLIENT.query(paramQuery);
- 						row = {};
-						row.data = userProcess.data;
-						row.sequence = userProcess.sequence;
-						row.state = userProcess.state;
+
+					if (botPreviousAnswer && botPreviousAnswer?.incorrectCause == `findIdenticalNameResponse?.hits?.length`){
+ 						let row = {};
+						row.data = userSubprocess.data;
+						row.sequence = userSubprocess.sequence;
+						row.state = userSubprocess.state;
+
  						row.data = JSON.stringify(row.data);
 						row.sequence = JSON.stringify(row.sequence);
 						row.state = JSON.stringify(row.state);
- 						paramQuery = {};
+
+ 						let paramQuery = {};
 						paramQuery.text = `
-							UPDATE telegram_user_processes
+							UPDATE telegram_user_subprocesses
 							SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
-							WHERE id = ${userProcess.id}
+							WHERE id = ${userSubprocess.id}
 						;`;
 						await DB_CLIENT.query(paramQuery);
  						return;
 					}
+
  					if (botPreviousAnswer) {
 						let response;
 						try{
 							response = await bot.telegram.deleteMessage(
-								userProcess.tg_user_id,
+								userSubprocess.tg_user_id,
 								botPreviousAnswer.message_id
 							);
 						}catch(e){
@@ -2799,7 +2823,7 @@ console.log(response);
 							botPreviousAnswer.deleted = true;
 						}
 						
-						userProcess.sequence[lastNonDeteledIndex] = botPreviousAnswer;
+						userSubprocess.sequence[lastNonDeteledIndex] = botPreviousAnswer;
 					}
   					let response;
  					try {
@@ -2821,54 +2845,190 @@ console.log(response);
 					sequenceAction.incorrectInputReply = true;
 					sequenceAction.incorrectCause = `findIdenticalNameResponse?.hits?.length`;
 					sequenceAction.message_id = response.message_id;
- 					userProcess.sequence.push(sequenceAction);
- 					let row = {};
-					row.creation_date = creation_date;
-					row.command = `INVALID`;
-					row.tg_user_id = userInfo.tg_user_id;
-   
-					let paramQuery = {};
-					paramQuery.text = `
-						INSERT INTO telegram_user_sended_commands
-						(${objKeysToColumnStr(row)})
-						VALUES
-						(${objKeysToColumn$IndexesStr(row)})
-					;`;
-					paramQuery.values = getArrOfValuesFromObj(row);
-					await DB_CLIENT.query(paramQuery);
-   
-					row = {};
-					row.data = userProcess.data;
-					row.sequence = userProcess.sequence;
-					row.state = userProcess.state;
+
+ 					userSubprocess.sequence.push(sequenceAction);
+
+					let row = {};
+					row.data = userSubprocess.data;
+					row.sequence = userSubprocess.sequence;
+					row.state = userSubprocess.state;
    
 					row.data = JSON.stringify(row.data);
 					row.sequence = JSON.stringify(row.sequence);
 					row.state = JSON.stringify(row.state);
    
-					paramQuery = {};
+					let paramQuery = {};
 					paramQuery.text = `
-						UPDATE telegram_user_processes
+						UPDATE telegram_user_subprocesses
 						SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
-						WHERE id = ${userProcess.id}
+						WHERE id = ${userSubprocess.id}
 					;`;
 					await DB_CLIENT.query(paramQuery);
 					return;
 				}
+			
 
 
+				const count_of_user_created_di = Number(userInfo.count_of_user_created_di) + 1;
+
+				const makeDishNumForSheetLine = (num, maxLength) => {
+					const defaultMaxLength = 2;
+					maxLength = maxLength ? maxLength : defaultMaxLength;
+					const str = String(num);
+					let result = ``;
+
+					for (let i = 0, diff = maxLength - str.length; i < diff; i++) {
+						result += `_`;
+					}
+					result += `<code>${str}</code>`;
+
+					return result;
+				};
+				
+				const addCharBeforeValue = (value, maxLength, charS) => {
+					let str = Number(value).toFixed(1);
+					
+					let result = ``;
+
+					for (let i = 0, diff = maxLength - str.length; i < diff; i++) {
+						result += charS;
+					}
+					result += str;
+
+					return result;
+				};
+
+				
+				let messageText = `<b><u>|__ID| Название блюда</u></b>\n`;
+				messageText += `|${makeDishNumForSheetLine(count_of_user_created_di, 4)}| ${dishName}\n`;
+
+				let dishSheetHead = `\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм)| <i>Ингредиент и его название</i></b></u>`;
+
+				let dishSheetFooter = `\n<u>|<b>И__|Б:${
+					addCharBeforeValue(0, 6, '_')} |Ж:${
+					addCharBeforeValue(0, 6, '_')} |У:${
+					addCharBeforeValue(0, 6, '_')} |К:${
+					addCharBeforeValue(0, 7, '_')} |В:_100.0|</b></u> Итого на 100 грамм.\n<b><u>|Вес:${
+					addCharBeforeValue(0, 6, '_')} |Итоговый вес:__н/д__|Разница:__н/д__|</u></b>`;
+
+				let dishReminder = `\n\n—Перед добавлением ингредиента его нужно создать.\n—Если в блюде больше 20 ингредиентов, то блюдо придется разделить на два блюда. Создать одно и добавить его как ингредиент в создоваемое второе.\n\nНужна помощь? Отправь <code>п</code>\nОтменить? Отправь <code>о</code>`;
+
+				messageText += dishSheetHead;
+				messageText += dishSheetFooter;
+				messageText += dishReminder;
 
 
-					/* if (Array.isArray(re_result = text.match(/^((([а-яА-Яa-zA-Z0-9]+)(\s+|))+)$/u))) {
-						console.log(`yes`);
-						//regexp new dish name
-						//validation
-						//insert data like it was command without identical name
-					} else {
-						//insert invalid user message in sequence of process
-						//insert reply, which will be deleted;
-						ctx.reply(`Неразумлю вашу хрюканину.`);
-					} */
+				const id = userInfo.tg_user_id;
+				const inlineKeyboard = telegraf.Markup.inlineKeyboard([[
+						telegraf.Markup.button.callback(`Сохранить`, `id${id}save`),
+						telegraf.Markup.button.callback(`Отмена`, `id${id}cancel`),
+						telegraf.Markup.button.callback(`Команды`, `id${id}commands`)
+					]]);
+
+				inlineKeyboard.parse_mode = 'HTML';
+
+// pothinkat', vdrug ne poluchitsya obnovit' soobshcenie
+// to libo chota s inetom, libo service ne rabotaet, libo och staroe soobschenie, jdem service
+				let response;
+
+				try {
+ 					response = await bot.telegram.editMessageText(
+						ctx.update.message.chat.id,
+						userSubprocess.state.message_id,
+						``,
+						messageText,
+						inlineKeyboard
+					);
+				} catch(e) {
+					console.log(e);
+				}
+
+				if(!response){
+					return;
+				}
+
+				console.log(response);
+
+				// finish that process,
+ 				let row = {};
+				row.data = JSON.stringify({});
+				row.sequence = JSON.stringify({});
+				row.state = JSON.stringify({});
+				row.completed = true;
+  
+				let paramQuery = {};
+				paramQuery.text = `
+					UPDATE telegram_user_subprocesses
+					SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
+					WHERE id = ${userSubprocess.id}
+				;`;
+				await DB_CLIENT.query(paramQuery);
+
+				// make new process dish_creating
+				//					
+
+				row = {};
+				row.creation_date = creation_date;
+				row.command = `CREATE_DISH`;
+				row.tg_user_id = userInfo.tg_user_id;
+				row.is_process_c = true;
+
+				paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO telegram_user_sended_commands
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+					RETURNING id
+				;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				res = await DB_CLIENT.query(paramQuery);
+
+				//create process and insert in it dish data, state return process_id
+				const sendedCommandId = res.rows[0].id;
+
+				row = {};
+				row.creation_date = creation_date;
+				row.tg_user_id = userInfo.tg_user_id;
+				row.sended_command_id = sendedCommandId;
+				row.process_name = `DISH_CREATION`;
+
+				row.data = {};
+				row.data.name__lang_code_ru = dishName;
+				row.data.dish_items_id = count_of_user_created_di;
+				row.data.ingredients = [];
+
+				row.sequence = [];
+
+				const userLastAction = {};
+				userLastAction.fromUser = true;
+				userLastAction.message_id = ctx.update.message.message_id;
+
+				const botLastIncorrectInputReply = userSubprocess.sequence.findLast(e => e.fromBot && e.incorrectInputReply);
+
+				if (botLastIncorrectInputReply){
+					row.sequence.push(botLastIncorrectInputReply);
+				}
+
+				row.sequence.push(userLastAction);
+
+				row.state = {};
+				row.state.message_id = response.message_id;
+				row.state.interface = `main`;
+
+				row.data = JSON.stringify(row.data);
+				row.sequence = JSON.stringify(row.sequence);
+				row.state = JSON.stringify(row.state);
+
+				paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO telegram_user_subprocesses
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+				;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				await DB_CLIENT.query(paramQuery);
 			} else {
 				console.log(`main tree`);
 			}
@@ -3293,7 +3453,7 @@ bot.on(`inline_query`, async ctx => {
 				console.log(re_result);
 
 				const userInputWeight = Number(re_result[1].replaceAll(/,/g, '.'));
-				const userInputIngredientName = text.slice(re_result[0].length).trim().replaceAll(/\:\{\}\[\]\;/g, ``).slice(0, 128);
+				const userInputIngredientName = text.slice(re_result[0].length).replaceAll(/['"\\]/ug, ``).slice(0, 128).trim();
 				console.log(userInputIngredientName);
 				
 				let articleIdPart = Date.now().toString();
