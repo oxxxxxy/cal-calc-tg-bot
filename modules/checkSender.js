@@ -6,6 +6,8 @@ const {
 
 
 const renamedColumnsOfTablesTgUsersAndRegUsers = `
+	tu.is_banned,
+	tu.last_check,
 	tu.tg_user_id,
 	tu.deleted AS tu_deleted,
 	tu.s__lang_code AS tu_s__lang_code,
