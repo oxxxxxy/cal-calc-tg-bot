@@ -148,6 +148,80 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 	}
 
 
+			const bjukToNum = obj => {
+				obj.protein = Number(obj.protein);
+				obj.fat = Number(obj.fat);
+				obj.carbohydrate = Number(obj.carbohydrate);
+				obj.caloric_content = Number(obj.caloric_content);
+				return obj;
+			}
+			
+			const bjukValueToWC = (obj, w) => {
+				obj.protein = obj.protein * w / 100;
+				obj.fat = obj.fat * w / 100;
+				obj.carbohydrate = obj.carbohydrate * w / 100;
+				obj.caloric_content = obj.caloric_content * w / 100;
+				return obj;
+			}
+			
+			const bjukToFixedNum = obj => {
+				obj.protein = obj.protein.toFixed(1);
+				obj.fat = obj.fat.toFixed(1);
+				obj.carbohydrate = obj.carbohydrate.toFixed(1);
+				obj.caloric_content = obj.caloric_content.toFixed(1);
+				return obj;
+			}
+			
+			const calcConcentration = (c1, w1, c2, w2) => {
+				return (c1 * w1 + c2 * w2)/(w1 + w2);
+			}
+
+			const calcDecreiseConcentration = (c1, w1, c2, w2) => {
+				return (c1 * w1 - c2 * w2)/(w1 - w2);
+			}
+				
+			const makeDishNumForSheetLine = (num, maxLength) => {
+				const defaultMaxLength = 2;
+				maxLength = maxLength ? maxLength : defaultMaxLength;
+				const str = String(num);
+				let result = ``;
+
+				for (let i = 0, diff = maxLength - str.length; i < diff; i++) {
+					result += `_`;
+				}
+				result += `<code>${str}</code>`;
+
+				return result;
+			};
+
+			const addCharBeforeValue = (value, maxLength, charS) => {
+				let str = Number(value).toFixed(1);
+				
+				let result = ``;
+				const diff = maxLength - str.length;
+				if ( diff >= 0) {
+					for (let i = 0; i < diff; i++) {
+						result += charS;
+					}
+				} else {
+					str = str.slice(Math.abs(diff));
+				}
+				result += str;
+
+				return result;
+			};
+
+			const makeDishSheetLine = (ingreNum, protein, fat, carb, cal, weight, name) => {
+				return `\n|${
+					makeDishNumForSheetLine(ingreNum)} <u>|Б:${
+					addCharBeforeValue(protein, 6, '_')} |Ж:${
+					addCharBeforeValue(fat, 6, '_')} |У:${
+					addCharBeforeValue(carb, 6, '_')} |К:${
+					addCharBeforeValue(cal, 7, '_')} |В:${
+					addCharBeforeValue(weight, 6, '_')}</u> <i>${
+					name}</i>`
+			};
+
 	const setZeroBJUKnW = dish => {
 		dish.protein = 0;
 		dish.fat = 0;
@@ -189,6 +263,34 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 	};
 
 
+				const makeDishSheetHeader = dish => {
+					return `<b><u>|__ID| Название блюда</u></b>\n|${
+						makeDishNumForSheetLine(dish.di_id_for_user, 4)}| ${
+						dish.name__lang_code_ru}\n\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм)| <i>Ингредиент и его название</i></b></u>`;
+				};
+
+				const makeDishSheetFooter = dish => {
+					let dishSheetFooter = `\n<u>|<b>И__|Б:${
+						addCharBeforeValue(dish.protein, 6, '_')} |Ж:${
+						addCharBeforeValue(dish.fat, 6, '_')} |У:${
+						addCharBeforeValue(dish.carbohydrate, 6, '_')} |К:${
+						addCharBeforeValue(dish.caloric_content, 7, '_')} |В:_100.0|</b></u> Итого на 100 грамм.`;
+
+					let totalWeight = `__н/д__`;
+					let difference = `__н/д__`;
+					if (dish.total_g_weight) {
+						let diff = dish.g_weight - dish.total_g_weight;
+						totalWeight = addCharBeforeValue(dish.total_g_weight, 6, '_') + ' ';
+						difference = addCharBeforeValue(diff, 6, '_') + ' ';
+					}
+
+					dishSheetFooter += `\n<b><u>|Вес:${
+						addCharBeforeValue(dish.g_weight, 6, '_')} |Итоговый вес:${
+						totalWeight}|Разница:${
+						difference}|</u></b>`;
+
+					return dishSheetFooter;
+				};
 
 
 
@@ -1250,6 +1352,13 @@ bot.on(`message`, async ctx => {
 				let findIdenticalNameResponse = await MSDB.search(dishName, {
 					filter: `name__lang_code_ru = '${dishName}' AND tg_user_id = ${userInfo.tg_user_id}`
 				});
+				
+				const count_of_user_created_di = Number(userInfo.count_of_user_created_di) + 1;
+				
+				const dish = setZeroBJUKnW({});
+				dish.name__lang_code_ru = dishName;
+				dish.total_g_weight = 0;
+				dish.di_id_for_user = count_of_user_created_di;
 
 				console.log(findIdenticalNameResponse);
 				if (findIdenticalNameResponse?.hits?.length) {
@@ -1308,10 +1417,7 @@ bot.on(`message`, async ctx => {
 					row.process_name = `DISH_CREATION__RENAMING`;
 
 					row.data = {};
-					row.data.dish = {};
-					row.data.dish = setZeroBJUKnW(row.data.dish);
-					row.data.dish.name__lang_code_ru = dishName;
-					row.data.dish.total_g_weight = 0;
+					row.data.dish = dish;
 					row.data.ingredients = [];
 
 					row.sequence = [];
@@ -1337,54 +1443,12 @@ bot.on(`message`, async ctx => {
 					return;
 				}
 
-				const count_of_user_created_di = Number(userInfo.count_of_user_created_di) + 1;
+				let messageText = makeDishSheetHeader(dish);
+				messageText += makeDishSheetFooter(dish);
 
-				const makeDishNumForSheetLine = (num, maxLength) => {
-					const defaultMaxLength = 2;
-					maxLength = maxLength ? maxLength : defaultMaxLength;
-					const str = String(num);
-					let result = ``;
+				let dishReminder = `\n\n—Перед добавлением ингредиента его нужно создать.\n—Если в блюде больше 20 ингредиентов, то блюдо придется разделить на два блюда. Создать первое блюдо и добавить его как ингредиент в создоваемое второе.\n\nНужна помощь? Нажми "<b>Команды</b>"`;
 
-					for (let i = 0, diff = maxLength - str.length; i < diff; i++) {
-						result += `_`;
-					}
-					result += `<code>${str}</code>`;
-
-					return result;
-				};
-				
-				const addCharBeforeValue = (value, maxLength, charS) => {
-					let str = Number(value).toFixed(1);
-					
-					let result = ``;
-
-					for (let i = 0, diff = maxLength - str.length; i < diff; i++) {
-						result += charS;
-					}
-					result += str;
-
-					return result;
-				};
-
-				
-				let messageText = `<b><u>|__ID| Название блюда</u></b>\n`;
-				messageText += `|${makeDishNumForSheetLine(count_of_user_created_di, 4)}| ${dishName}\n`;
-
-				let dishSheetHead = `\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм)| <i>Ингредиент и его название</i></b></u>`;
-
-				let dishSheetFooter = `\n<u>|<b>И__|Б:${
-					addCharBeforeValue(0, 6, '_')} |Ж:${
-					addCharBeforeValue(0, 6, '_')} |У:${
-					addCharBeforeValue(0, 6, '_')} |К:${
-					addCharBeforeValue(0, 7, '_')} |В:_100.0|</b></u> Итого на 100 грамм.\n<b><u>|Вес:${
-					addCharBeforeValue(0, 6, '_')} |Итоговый вес:__н/д__|Разница:__н/д__|</u></b>`;
-
-				let dishReminder = `\n\n—Перед добавлением ингредиента его нужно создать.\n—Если в блюде больше 20 ингредиентов, то блюдо придется разделить на два блюда. Создать одно и добавить его как ингредиент в создоваемое второе.\n\nНужна помощь? Отправь <code>п</code>\nОтменить? Отправь <code>о</code>`;
-
-				messageText += dishSheetHead;
-				messageText += dishSheetFooter;
 				messageText += dishReminder;
-
 
 				const id = userInfo.tg_user_id;
 				const inlineKeyboard = telegraf.Markup.inlineKeyboard([[
@@ -1394,7 +1458,6 @@ bot.on(`message`, async ctx => {
 					]]);
 
 				inlineKeyboard.parse_mode = 'HTML';
-
 
 				let response;
 
@@ -1432,7 +1495,6 @@ bot.on(`message`, async ctx => {
 				paramQuery.values = getArrOfValuesFromObj(row);
 				res = await DB_CLIENT.query(paramQuery);
 
-
 				//create process and insert in it dish data, state return process_id
 				const sendedCommandId = res.rows[0].id;
 
@@ -1443,8 +1505,7 @@ bot.on(`message`, async ctx => {
 				row.process_name = `DISH_CREATION`;
 
 				row.data = {};
-				row.data.name__lang_code_ru = dishName;
-				row.data.dish_items_id = count_of_user_created_di;
+				row.data.dish = dish;
 				row.data.ingredients = [];
 
 				row.sequence = [];
@@ -1858,79 +1919,6 @@ return;
 
 
 
-			const bjukToNum = obj => {
-				obj.protein = Number(obj.protein);
-				obj.fat = Number(obj.fat);
-				obj.carbohydrate = Number(obj.carbohydrate);
-				obj.caloric_content = Number(obj.caloric_content);
-				return obj;
-			}
-			
-			const bjukValueToWC = (obj, w) => {
-				obj.protein = obj.protein * w / 100;
-				obj.fat = obj.fat * w / 100;
-				obj.carbohydrate = obj.carbohydrate * w / 100;
-				obj.caloric_content = obj.caloric_content * w / 100;
-				return obj;
-			}
-			
-			const bjukToFixedNum = obj => {
-				obj.protein = obj.protein.toFixed(1);
-				obj.fat = obj.fat.toFixed(1);
-				obj.carbohydrate = obj.carbohydrate.toFixed(1);
-				obj.caloric_content = obj.caloric_content.toFixed(1);
-				return obj;
-			}
-			
-			const calcConcentration = (c1, w1, c2, w2) => {
-				return (c1 * w1 + c2 * w2)/(w1 + w2);
-			}
-
-			const calcDecreiseConcentration = (c1, w1, c2, w2) => {
-				return (c1 * w1 - c2 * w2)/(w1 - w2);
-			}
-				
-			const makeDishNumForSheetLine = (num, maxLength) => {
-				const defaultMaxLength = 2;
-				maxLength = maxLength ? maxLength : defaultMaxLength;
-				const str = String(num);
-				let result = ``;
-
-				for (let i = 0, diff = maxLength - str.length; i < diff; i++) {
-					result += `_`;
-				}
-				result += `<code>${str}</code>`;
-
-				return result;
-			};
-			const addCharBeforeValue = (value, maxLength, charS) => {
-				let str = Number(value).toFixed(1);
-				
-				let result = ``;
-				const diff = maxLength - str.length;
-				if ( diff >= 0) {
-					for (let i = 0; i < diff; i++) {
-						result += charS;
-					}
-				} else {
-					str = str.slice(Math.abs(diff));
-				}
-				result += str;
-
-				return result;
-			};
-
-			const makeDishSheetLine = (ingreNum, protein, fat, carb, cal, weight, name) => {
-				return `\n|${
-					makeDishNumForSheetLine(ingreNum)} <u>|Б:${
-					addCharBeforeValue(protein, 6, '_')} |Ж:${
-					addCharBeforeValue(fat, 6, '_')} |У:${
-					addCharBeforeValue(carb, 6, '_')} |К:${
-					addCharBeforeValue(cal, 7, '_')} |В:${
-					addCharBeforeValue(weight, 6, '_')}</u> <i>${
-					name}</i>`
-			};
-
 			if (userSubprocess.process_name == `CREATE_DISH` || userSubprocess.process_name == `EDIT_DISH`){
 				if (Array.isArray(re_result = text.toLowerCase().match(RE__RESOLVE_FD_ID_WEIGHT_FROM_InlQuery))){
 					//get food|dish id, weight
@@ -1988,7 +1976,7 @@ return;
 
 
 					console.log(userSubprocess.data);
-
+					return;
 
 					
 					//find food|dish by id and creDish in pgdb
