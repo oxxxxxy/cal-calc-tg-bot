@@ -148,6 +148,51 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 	}
 
 
+	const setZeroBJUKnW = dish => {
+		dish.protein = 0;
+		dish.fat = 0;
+		dish.carbohydrate = 0;
+		dish.caloric_content = 0;
+		dish.g_weight = 0;
+
+		return dish;
+	}
+					
+	const addIngredientInDish = (dish, ingredient) => {
+		const BJUK = ['protein', 'fat', 'carbohydrate', 'caloric_content'];
+		
+		BJUK.forEach( e => {
+			dish[e] =	calcConcentration(
+				dish[e],
+				dish.g_weight,
+				ingredient[e],
+				ingredient.g_weight
+			);
+		});
+
+		dish.g_weight += ingredient.g_weight;
+		
+		return dish;
+	};
+
+	const calcDishBJUKnW = (dish, ingredients) => {
+		dish = setZeroBJUKnW(dish);
+
+		ingredients.forEach(el => {
+				dish = addIngredientInDish(dish, el);						
+			});	
+
+		dish = bjukToFixedNum(dish);
+		dish = bjukToNum(dish);
+
+		return dish;
+	};
+
+
+
+
+
+
 
 /*
 */
@@ -1264,12 +1309,8 @@ bot.on(`message`, async ctx => {
 
 					row.data = {};
 					row.data.dish = {};
+					row.data.dish = setZeroBJUKnW(row.data.dish);
 					row.data.dish.name__lang_code_ru = dishName;
-					row.data.dish.protein = 0;
-					row.data.dish.fat = 0;
-					row.data.dish.carbohydrate = 0;
-					row.data.dish.caloric_content = 0;
-					row.data.dish.g_weight = 0;
 					row.data.dish.total_g_weight = 0;
 					row.data.ingredients = [];
 
@@ -1938,32 +1979,17 @@ return;
 					newIngredient.g_weight = g_weight;
 					newIngredient = bjukToNum(newIngredient);
 
-					let dish = userSubprocess.data.dish;
+					userSubprocess.data.ingredients.push(newIngredient);
 
-					dish.protein = calcConcentration(
-						dish.protein, 
-						dish.g_weight,
-						newIngredient.protein,
-						newIngredient.g_weight);
-					dish.fat = calcConcentration(
-						dish.fat, 
-						dish.g_weight,
-						newIngredient.fat,
-						newIngredient.g_weight);
-					dish.carbohydrate = calcConcentration(
-						dish.carbohydrate, 
-						dish.g_weight,
-						newIngredient.carbohydrate,
-						newIngredient.g_weight);
-					dish.caloric_content = calcConcentration(
-						dish.caloric_content, 
-						dish.g_weight,
-						newIngredient.caloric_content,
-						newIngredient.g_weight);
-					dish.g_weight += newIngredient.g_weight;
+					userSubprocess.data.dish = calcDishBJUKnW(
+						userSubprocess.data.dish,
+						userSubprocess.data.ingredients
+					);
 
-					dish = bjukToFixedNum(dish);
-					dish = bjukToNum(dish);
+
+					console.log(userSubprocess.data);
+
+
 					
 					//find food|dish by id and creDish in pgdb
 					let res = await DB_CLIENT.query(`
