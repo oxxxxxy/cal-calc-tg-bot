@@ -211,16 +211,6 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 				return result;
 			};
 
-			const makeDishSheetLine = (ingreNum, protein, fat, carb, cal, weight, name) => {
-				return `\n|${
-					makeDishNumForSheetLine(ingreNum)} <u>|Б:${
-					addCharBeforeValue(protein, 6, '_')} |Ж:${
-					addCharBeforeValue(fat, 6, '_')} |У:${
-					addCharBeforeValue(carb, 6, '_')} |К:${
-					addCharBeforeValue(cal, 7, '_')} |В:${
-					addCharBeforeValue(weight, 6, '_')}</u> <i>${
-					name}</i>`
-			};
 
 	const setZeroBJUKnW = dish => {
 		dish.protein = 0;
@@ -291,7 +281,32 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 
 					return dishSheetFooter;
 				};
+			
+	const makeDishSheetLine = (ingreNum, protein, fat, carb, cal, weight, name) => {
+				return `\n|${
+					makeDishNumForSheetLine(ingreNum)} <u>|Б:${
+					addCharBeforeValue(protein, 6, '_')} |Ж:${
+					addCharBeforeValue(fat, 6, '_')} |У:${
+					addCharBeforeValue(carb, 6, '_')} |К:${
+					addCharBeforeValue(cal, 7, '_')} |В:${
+					addCharBeforeValue(weight, 6, '_')}</u> <i>${
+					name}</i>`
+			};
 
+				const makeDishSheet = (dish, ingredients) => {
+					let dishSheet = ``;
+
+					dishSheet += makeDishSheetHeader(dish);
+
+					ingredients.forEach((el, i) => {
+						el = bjukValueToWC(el, el.g_weight);
+						dishSheet += makeDishSheetLine(i+1, el.protein, el.fat, el.carbohydrate, el.caloric_content, el.g_weight, el.name__lang_code_ru);
+					});
+
+					dishSheet += makeDishSheetFooter(dish);
+					
+					return dishSheet;
+				};
 
 
 
@@ -443,9 +458,9 @@ const cleanSubprocessesAfter1H = async () => {
 
 				let messageText;
 
-				if( userSubprocess.process_name == `DISH_CREATION` ){
+				if( userSubprocess.process_name == `DISH_CREATING` ){
 					messageText = `Создание блюда отменено.`
-				}	else if ( userSubprocess.process_name == `DISH_CREATION__RENAMING` ){
+				}	else if ( userSubprocess.process_name == `DISH_CREATING__RENAMING` ){
 					messageText = `Переимнование блюда отменено`;
 				}
 
@@ -1414,7 +1429,7 @@ bot.on(`message`, async ctx => {
 					row.creation_date = creation_date;
 					row.tg_user_id = userInfo.tg_user_id;
 					row.sended_command_id = sendedCommandId;
-					row.process_name = `DISH_CREATION__RENAMING`;
+					row.process_name = `DISH_CREATING__RENAMING`;
 
 					row.data = {};
 					row.data.dish = dish;
@@ -1443,8 +1458,7 @@ bot.on(`message`, async ctx => {
 					return;
 				}
 
-				let messageText = makeDishSheetHeader(dish);
-				messageText += makeDishSheetFooter(dish);
+				let messageText = makeDishSheet(dish, []);
 
 				let dishReminder = `\n\n—Перед добавлением ингредиента его нужно создать.\n—Если в блюде больше 20 ингредиентов, то блюдо придется разделить на два блюда. Создать первое блюдо и добавить его как ингредиент в создоваемое второе.\n\nНужна помощь? Нажми "<b>Команды</b>"`;
 
@@ -1502,7 +1516,7 @@ bot.on(`message`, async ctx => {
 				row.creation_date = creation_date;
 				row.tg_user_id = userInfo.tg_user_id;
 				row.sended_command_id = sendedCommandId;
-				row.process_name = `DISH_CREATION`;
+				row.process_name = `DISH_CREATING`;
 
 				row.data = {};
 				row.data.dish = dish;
@@ -1575,17 +1589,24 @@ return;
  */
 
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__EDIT_DISH))) {
-					ctx.reply(`code me, bitch`);
+				ctx.reply(`code me, bitch`);
+				console.log(`code me`);
 
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SHOW_CREATED_DISHES))) {
 
 				console.log(re_result);
-				
-					ctx.reply(`code me, bitch`);
-					console.log(`блюда не написаны...`);
+			
+				ctx.reply(`code me, bitch`);
+				console.log(`блюда не написаны...`);
+
+				if(!userInfo.available_count_of_user_created_di){
+					ctx.reply(`Нет созданной еды... Т_Т`)
+					return;
+				}
 				
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SHOW_CREATED_FOOD))) {
 				console.log(re_result);
+				console.log(`переписать меня нада...`);
 
 				if(!userInfo.available_count_of_user_created_fi){
 					ctx.reply(`Нет созданной еды... Т_Т`)
@@ -1876,9 +1897,10 @@ return;
 
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_CREATED_DISH_IDs))) {
 					ctx.reply(`code me, btch`)
-					console.log(`b`)
+					console.log(`code me`)
 			} else {
 				//ne mogu raspoznat' zapros //ssilka na manual
+				//
 
 				ctx.reply(`Не понимаю команду.\n\n*Краткая инструкция:*\n-создать еду\n  се мороженое Обамка. б3,4ж17,2у22,2к257\nи т.д.\n\n\nПодробная инструкция ссылка.`, { parse_mode: 'Markdown', allow_sending_without_reply: true })
 
@@ -1887,39 +1909,44 @@ return;
 		} else {
 			console.log(`user has last command, main tree, subprocess`);
 
+
+
 			//delete previous user sended shit after new message
 			//use sequence
 			console.log(userSubprocess);	
+
 			const lastUserAction = {};
 			lastUserAction.element = userSubprocess.sequence.findLast((e, i) => {
-				if (e.fromUser && e.message_id) {
+				if (e.fromUser && e.message_id && !e.deleted) {
 					lastUserAction.index = i;
 					return true;
 				}
 			});
 
-			let response;
-			try{
-				response = await bot.telegram.deleteMessage(
-					ctx.update.message.chat.id,
-					lastUserAction.element.message_id
-				);
-			}catch(e){
-				console.log(e);
-				if (e.error_code == 400){
+			if(lastUserAction.element){
+				let response;
+				try{
+					response = await bot.telegram.deleteMessage(
+						ctx.update.message.chat.id,
+						lastUserAction.element.message_id
+					);
+				}catch(e){
+					console.log(e);
+					if (e.error_code == 400){
+						lastUserAction.element.deleted = true;
+					}
+				}
+
+				if (response) {
 					lastUserAction.element.deleted = true;
 				}
+
+				userSubprocess.sequence[lastUserAction.index] = lastUserAction.element;
 			}
 
-			if (response) {
-				lastUserAction.element.deleted = true;
-			}
-
-			userSubprocess.sequence[lastUserAction.index] = lastUserAction.element;
 
 
-
-			if (userSubprocess.process_name == `CREATE_DISH` || userSubprocess.process_name == `EDIT_DISH`){
+			if (userSubprocess.process_name == `DISH_CREATING` || userSubprocess.process_name == `DISH_EDITING`){
 				if (Array.isArray(re_result = text.toLowerCase().match(RE__RESOLVE_FD_ID_WEIGHT_FROM_InlQuery))){
 					//get food|dish id, weight
 					const foodDishType = re_result[1];
@@ -1930,7 +1957,107 @@ return;
 					//add it
 					//calcalute all
 					//send message
-					//
+					
+					if(userSubprocess.data.ingredients.length >= 20){
+						let cause = `userSubprocess.data.ingredients.length >= 20`;
+
+						let sequenceAction = {};
+						sequenceAction.fromUser = true;
+						sequenceAction.incorrectInput = true;
+						sequenceAction.incorrectCause = cause;
+						sequenceAction.message_id = ctx.update.message.message_id;
+
+ 						userSubprocess.sequence.push(sequenceAction);
+
+ 						let lastNonDeteledIndex;
+						let botPreviousAnswer = userSubprocess.sequence.findLast((e, i) => {
+							if(e.fromBot && e.incorrectInputReply && !e.deleted){
+								lastNonDeteledIndex = i;
+								return true;
+							}
+						});
+ 						
+ 						if (botPreviousAnswer && botPreviousAnswer?.incorrectCause == cause){
+ 							let row = {};
+							row.data = userSubprocess.data;
+							row.sequence = userSubprocess.sequence;
+							row.state = userSubprocess.state;
+ 							
+ 							row.data = JSON.stringify(row.data);
+							row.sequence = JSON.stringify(row.sequence);
+							row.state = JSON.stringify(row.state);
+
+ 							let paramQuery = {};
+							paramQuery.text = `
+								UPDATE telegram_user_subprocesses
+								SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
+								WHERE id = ${userSubprocess.id}
+							;`;
+							await DB_CLIENT.query(paramQuery);
+ 							return;
+						}
+
+ 						if (botPreviousAnswer) {
+							let response;
+							try{
+								response = await bot.telegram.deleteMessage(
+									userSubprocess.tg_user_id,
+									botPreviousAnswer.message_id
+								);
+							}catch(e){
+								console.log(e);
+								if(e.response.error_code == 400){
+									botPreviousAnswer.deleted = true;
+								}
+							}
+ 							if(response) {
+								botPreviousAnswer.deleted = true;
+							}
+							
+							userSubprocess.sequence[lastNonDeteledIndex] = botPreviousAnswer;
+						}
+
+ 						let messageText = `Нельзя добавлять больше 20 ингредиентов в одно блюдо. Придётся сохранить текущее, создать второе блюдо и добавить в него текущее.\nТакие дела, чо...`;
+ 						let response;
+ 						try {
+								response = await bot.telegram.sendMessage(
+								ctx.update.message.chat.id,
+								messageText
+							);
+						} catch(e) {
+							console.log(e);
+						}
+ 						if(!response){
+							return;
+						}
+ 						console.log(response);
+ 						// add to sequence
+						sequenceAction = {};
+						sequenceAction.fromBot = true;
+						sequenceAction.type = `sendMessage`;
+						sequenceAction.incorrectInputReply = true;
+						sequenceAction.incorrectCause = cause;
+						sequenceAction.message_id = response.message_id;
+ 						userSubprocess.sequence.push(sequenceAction);
+
+						let row = {};
+						row.data = userSubprocess.data;
+						row.sequence = userSubprocess.sequence;
+						row.state = userSubprocess.state;
+
+ 						row.data = JSON.stringify(row.data);
+						row.sequence = JSON.stringify(row.sequence);
+						row.state = JSON.stringify(row.state);
+
+ 						let paramQuery = {};
+						paramQuery.text = `
+							UPDATE telegram_user_subprocesses
+							SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
+							WHERE id = ${userSubprocess.id}
+						;`;
+						await DB_CLIENT.query(paramQuery);
+						return;
+					}
 
 					let newIngredient;
 
@@ -1941,6 +2068,7 @@ return;
 							WHERE id = ${id}
 						;`);
 						newIngredient = res.rows[0];
+						newIngredient.t = 'f';
 					} else {
 						let res = await pgClient.query(`
 							SELECT id, name__lang_code_ru, protein, fat, carbohydrate, caloric_content
@@ -1948,6 +2076,7 @@ return;
 							WHERE id = ${id}
 						;`);
 						newIngredient = res.rows[0];
+						newIngredient.t = 'd';
 					}
 
 					if (!newIngredient) {
@@ -1974,8 +2103,19 @@ return;
 						userSubprocess.data.ingredients
 					);
 
+					let messageText = makeDishSheet(
+						userSubprocess.data.dish,
+						userSubprocess.data.ingredients
+					);
+
 
 					console.log(userSubprocess.data);
+
+
+
+
+
+
 					return;
 
 					
@@ -2060,10 +2200,11 @@ return;
 					
 					//update list message in chat
 					
-				let messageText = `<b>__ID Название блюда</b>\n`;
+				 messageText = `<b>__ID Название блюда</b>\n`;
 				messageText += `${makeDishNumForSheetLine(userInfo.count_of_user_created_di, 4)} ${creDish.name__lang_code_ru}\n`;
 
 				let dishSheetHead = `\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм) <i>Ингредиент и его название</i></b></u>`;
+
 
 				let dishSheetAddedIngredientList = ``;
 
@@ -2811,7 +2952,7 @@ console.log(response);
 				} else {
 					ctx.reply(`не понимаю команду`)
 				}
-			} else if (userSubprocess.process_name == `DISH_CREATION__RENAMING`){
+			} else if (userSubprocess.process_name == `DISH_CREATING__RENAMING`){
 				// const cleanDishName = dishName.replaceAll(/['"]/ug, `\\'`); //''"`
 				let dishName = text.slice(0, 128).replaceAll(/['"\\]/ug, ``).trim();
 
@@ -3148,7 +3289,7 @@ console.log(response);
 				row.creation_date = creation_date;
 				row.tg_user_id = userInfo.tg_user_id;
 				row.sended_command_id = sendedCommandId;
-				row.process_name = `DISH_CREATION`;
+				row.process_name = `DISH_CREATING`;
 
 				row.data = {};
 				row.data.name__lang_code_ru = dishName;
@@ -3560,7 +3701,7 @@ console.log(userSubprocess);
 		console.log(`!userSubprocess, main tree`);
 
 	} else {
-		if(userSubprocess.process_name == `DISH_CREATION__RENAMING`){
+		if(userSubprocess.process_name == `DISH_CREATING__RENAMING`){
 			if(Array.isArray(re_result = callbackQuery.data.match(reCancel))){
 				console.log(re_result);
 
@@ -3617,7 +3758,7 @@ console.log(userSubprocess);
 
 			}
 
-		} else if(userSubprocess.process_name == `DISH_CREATION`){
+		} else if(userSubprocess.process_name == `DISH_CREATING`){
 			if(Array.isArray(re_result = callbackQuery.data.match(reCancel))){
 
 				let messageText = `Создание блюда отменено.`
@@ -3659,7 +3800,6 @@ console.log(userSubprocess);
 				row.command = `CANCEL__CREATE_DISH`;
 				row.tg_user_id = userInfo.tg_user_id;
 				row.process_id = userSubprocess.id;
-				row.canceled = true;
 
 				paramQuery = {};
 				paramQuery.text = `
@@ -3778,11 +3918,91 @@ console.log(userSubprocess);
 					await DB_CLIENT.query(paramQuery);
 					return;
 				}
+				return;
+
 				//make obj to insert in dish_items
-				//insert saved in telegram_user_sended_commands
-				//clear telegram_user_subprocess
+				//telegram_users registered_users 
+
+				//
+		//insert fooddish_ids_for_meilisearch  get id
+				let row = {};
+				row.dish_items_id;
+					
+				let paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO fooddish_ids_for_meilisearch
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+					RETURNING	id
+				;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				res = await DB_CLIENT.query(paramQuery);
+
+				const dishIdForMeiliSearch = res.rows[0].id;
+				//insert meilisearch
+				const documents = [];
+				const doc = {};
+				doc.id = Number(dishIdForMeiliSearch);
+				doc.dish_items_id = Number(userLastCommand.data.dish_items_ids[0]);
+				doc.name__lang_code_ru = dish.name__lang_code_ru;
+				doc.tg_user_id = Number(userInfo.tg_user_id);
+				doc.created_by_project = false;
+				doc.protein = dish.protein?Number(dish.protein):0;
+				doc.fat = dish.fat?Number(dish.fat):0;
+				doc.carbohydrate = dish.carbohydrate ?Number(dish.carbohydrate):0;
+				doc.caloric_content = dish.caloric_content ? Number(dish.caloric_content ) : 0;
+				documents.push(doc);
+
+				await MSDB.addDocuments(documents);
+
+				//insert telegram_user_sended_commands
+				row = {};
+				row.creation_date = creation_date;
+				row.command = 'SAVE_DISH';
+				row.tg_user_id = userInfo.tg_user_id;
+
+				row.data = {};
+				row.data.dish_items_ids = [userLastCommand.data.dish_items_ids[0]];
+				row.data = JSON.stringify(row.data);
+
+				paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO telegram_user_sended_commands
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+				;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				await DB_CLIENT.query(paramQuery);
+
+				//make message and send
+				let dishSheetHead = `\n<b><u>|__ID|Б_______|Ж_______|У_______|К______|</u> <i>Название блюда</i></b>`;
+
+				let dishSheetFooter = `\n<u>|${
+					makeDishNumForSheetLine(userInfo.count_of_user_created_di, 4)}|Б:${
+					addCharBeforeValue(dish.protein, 5, '_')} |Ж:${
+					addCharBeforeValue(dish.fat, 5, '_')} |У:${
+					addCharBeforeValue(dish.carbohydrate, 5, '_')} |К:${
+					addCharBeforeValue(dish.caloric_content, 5, '_')}|</u> <i>${
+					dish.name__lang_code_ru}</i>\n\n<b>СОХРАНЕНО.</b>`;
+
+				let messageText = dishSheetHead+dishSheetFooter;
+
+				let response;
+				try{
+					response = await bot.telegram.editMessageText(
+						callbackQuery.message.chat.id,
+						userLastCommand.data.message_id,
+						``,
+						messageText,
+						{parse_mode:'HTML'}
+					);
+				}catch(e){
+					console.log(e)
+				}
+				console.log(response)
 				
-				console.log(`code me`);
 			} else if (Array.isArray(re_result = callbackQuery.data.match(reCommands))) {
 
 				console.log(`code me`);
@@ -3855,7 +4075,7 @@ bot.on(`inline_query`, async ctx => {
 
 
 	} else {
-		if (userSubprocess.process_name == 'DISH_CREATION'){
+		if (userSubprocess.process_name == 'DISH_CREATING'){
 			if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_INLINE_COMMAND__ADD_INGREDIENT_TO_DISH))) {
 				console.log(re_result);
 
