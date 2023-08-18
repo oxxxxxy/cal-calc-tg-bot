@@ -408,6 +408,18 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 						await pgClient.query(paramQuery);
 					}
 
+				const makeUnderlineIDOfUserCreatedFI = id => {
+					const str = String(id);
+					const maxStrIDLength = 4;
+					
+					let result = ``;
+
+					for (let i = 0, diff = maxStrIDLength - str.len; i < diff; i++) {
+						result += `_`;
+					}
+
+					return result;
+				};
 
 /*
 */
@@ -2607,105 +2619,14 @@ return;
 					await invalidInputHandler(ctx, userSubprocess, cause, message);
 				}
 			} else if (userSubprocess.process_name == `DISH_CREATING__RENAMING`){
-				// const cleanDishName = dishName.replaceAll(/['"]/ug, `\\'`); //''"`
 				let dishName = text.slice(0, 128).replaceAll(/['"\\]/ug, ``).trim();
 
  				if (dishName.length < 4) {
-					let sequenceAction = {};
-					sequenceAction.fromUser = true;
-					sequenceAction.incorrectInput = true;
-					sequenceAction.incorrectCause = `dishName.length < 4`;
-					sequenceAction.message_id = ctx.update.message.message_id;
+ 					let message = `Название блюда должно иметь хотя бы 4 символа.`;
+ 					let cause = `dishName.length < 4`;
+					
+					await invalidInputHandler(ctx, userSubprocess, cause, message);
 
- 					userSubprocess.sequence.push(sequenceAction);
-
- 					let lastNonDeteledIndex;
-					let botPreviousAnswer = userSubprocess.sequence.findLast((e, i) => {
-						if(e.fromBot && e.incorrectInputReply && !e.deleted){
-							lastNonDeteledIndex = i;
-							return true;
-						}
-					});
- 					
- 					if (botPreviousAnswer && botPreviousAnswer?.incorrectCause == `dishName.length < 4`){
- 						let row = {};
-						row.data = userSubprocess.data;
-						row.sequence = userSubprocess.sequence;
-						row.state = userSubprocess.state;
- 						
- 						row.data = JSON.stringify(row.data);
-						row.sequence = JSON.stringify(row.sequence);
-						row.state = JSON.stringify(row.state);
-
- 						let paramQuery = {};
-						paramQuery.text = `
-							UPDATE telegram_user_subprocesses
-							SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
-							WHERE id = ${userSubprocess.id}
-						;`;
-						await DB_CLIENT.query(paramQuery);
- 						return;
-					}
-
- 					if (botPreviousAnswer) {
-						let response;
-						try{
-							response = await bot.telegram.deleteMessage(
-								userSubprocess.tg_user_id,
-								botPreviousAnswer.message_id
-							);
-						}catch(e){
-							console.log(e);
-							if(e.response.error_code == 400){
-								botPreviousAnswer.deleted = true;
-							}
-						}
- 						if(response) {
-							botPreviousAnswer.deleted = true;
-						}
-						
-						userSubprocess.sequence[lastNonDeteledIndex] = botPreviousAnswer;
-					}
-
- 					let messageText = `Название блюда должно иметь хотя бы 4 символа.`;
- 					let response;
- 					try {
-							response = await bot.telegram.sendMessage(
-							ctx.update.message.chat.id,
-							messageText
-						);
-					} catch(e) {
-						console.log(e);
-					}
- 					if(!response){
-						return;
-					}
- 					console.log(response);
- 					// add to sequence
-					sequenceAction = {};
-					sequenceAction.fromBot = true;
-					sequenceAction.type = `sendMessage`;
-					sequenceAction.incorrectInputReply = true;
-					sequenceAction.incorrectCause = `dishName.length < 4`;
-					sequenceAction.message_id = response.message_id;
- 					userSubprocess.sequence.push(sequenceAction);
-
-					let row = {};
-					row.data = userSubprocess.data;
-					row.sequence = userSubprocess.sequence;
-					row.state = userSubprocess.state;
-
- 					row.data = JSON.stringify(row.data);
-					row.sequence = JSON.stringify(row.sequence);
-					row.state = JSON.stringify(row.state);
-
- 					let paramQuery = {};
-					paramQuery.text = `
-						UPDATE telegram_user_subprocesses
-						SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
-						WHERE id = ${userSubprocess.id}
-					;`;
-					await DB_CLIENT.query(paramQuery);
 					return;
 				}
 
@@ -2715,107 +2636,17 @@ return;
 				});
 
  				if (findIdenticalNameResponse?.hits?.length) {
- 					let messageText;
+ 					let message;
  					if(userSubprocess.data.name__lang_code_ru == dishName) {
-						messageText = `Ты чо там, прикалываешься??? Зачем то же самое название кидаешь? Ты чо ебан? *диджей ебан туц-туц-туц*`;
+						message = `Ты чо там, прикалываешься??? Зачем то же самое название кидаешь? Ты чо ебан? *диджей ебан туц-туц-туц*`;
 					} else {
-						messageText = `Везунчик, блюдо с названием <b>"${dishName}"</b> уже тоже есть. Давай, ёпта, завязывай клоунаду свою и оригинальное название выдай или отредактируй существующее блюдо, додик.`;
+						message = `Везунчик, блюдо с названием <b>"${dishName}"</b> уже тоже есть. Давай, ёпта, завязывай клоунаду свою и оригинальное название выдай или отредактируй существующее блюдо, додик.`;
 					}
+ 					
+ 					let cause = `findIdenticalNameResponse?.hits?.length`;
 					
-					let sequenceAction = {};
-					sequenceAction.fromUser = true;
-					sequenceAction.incorrectInput = true;
-					sequenceAction.incorrectCause = `findIdenticalNameResponse?.hits?.length`;
-					sequenceAction.message_id = ctx.update.message.message_id;
-
- 					userSubprocess.sequence.push(sequenceAction);
-
- 					let lastNonDeteledIndex;
-					let botPreviousAnswer = userSubprocess.sequence.findLast((e, i) => {
-						if(e.fromBot && e.incorrectInputReply && !e.deleted){
-							lastNonDeteledIndex = i;
-							return true;
-						}
-					});
-
-					if (botPreviousAnswer && botPreviousAnswer?.incorrectCause == `findIdenticalNameResponse?.hits?.length`){
- 						let row = {};
-						row.data = userSubprocess.data;
-						row.sequence = userSubprocess.sequence;
-						row.state = userSubprocess.state;
-
- 						row.data = JSON.stringify(row.data);
-						row.sequence = JSON.stringify(row.sequence);
-						row.state = JSON.stringify(row.state);
-
- 						let paramQuery = {};
-						paramQuery.text = `
-							UPDATE telegram_user_subprocesses
-							SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
-							WHERE id = ${userSubprocess.id}
-						;`;
-						await DB_CLIENT.query(paramQuery);
- 						return;
-					}
-
- 					if (botPreviousAnswer) {
-						let response;
-						try{
-							response = await bot.telegram.deleteMessage(
-								userSubprocess.tg_user_id,
-								botPreviousAnswer.message_id
-							);
-						}catch(e){
-							console.log(e);
-							if(e.response.error_code == 400){
-								botPreviousAnswer.deleted = true;
-							}
-						}
- 						if(response) {
-							botPreviousAnswer.deleted = true;
-						}
-						
-						userSubprocess.sequence[lastNonDeteledIndex] = botPreviousAnswer;
-					}
-  					let response;
- 					try {
-							response = await bot.telegram.sendMessage(
-							ctx.update.message.chat.id,
-							messageText
-						);
-					} catch(e) {
-						console.log(e);
-					}
- 					if(!response){
-						return;
-					}
- 					console.log(response);
- 					// add to sequence
-					sequenceAction = {};
-					sequenceAction.fromBot = true;
-					sequenceAction.type = `sendMessage`;
-					sequenceAction.incorrectInputReply = true;
-					sequenceAction.incorrectCause = `findIdenticalNameResponse?.hits?.length`;
-					sequenceAction.message_id = response.message_id;
-
- 					userSubprocess.sequence.push(sequenceAction);
-
-					let row = {};
-					row.data = userSubprocess.data;
-					row.sequence = userSubprocess.sequence;
-					row.state = userSubprocess.state;
-   
-					row.data = JSON.stringify(row.data);
-					row.sequence = JSON.stringify(row.sequence);
-					row.state = JSON.stringify(row.state);
-   
-					let paramQuery = {};
-					paramQuery.text = `
-						UPDATE telegram_user_subprocesses
-						SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
-						WHERE id = ${userSubprocess.id}
-					;`;
-					await DB_CLIENT.query(paramQuery);
+					await invalidInputHandler(ctx, userSubprocess, cause, message);
+					
 					return;
 				}
 
@@ -3010,18 +2841,6 @@ bot.on(`callback_query`, async ctx => {
 	const reCancel = /id(\d+)cancel/;
 	const reCommands = /id(\d+)commands/;	
 
-				const addCharBeforeValue = (value, maxLength, charS) => {
-					let str = Number(value).toFixed(1);
-					
-					let result = ``;
-
-					for (let i = 0, diff = maxLength - str.length; i < diff; i++) {
-						result += charS;
-					}
-					result += str;
-
-					return result;
-				};
 
 console.log(userSubprocess);	
 	if(!userSubprocess){
@@ -3085,18 +2904,6 @@ console.log(userSubprocess);
 			ucfi_offset_string = `OFFSET ${ucfi_offset}`;
 		}
 
-				const makeUnderlineIDOfUserCreatedFI = id => {
-					const str = String(id);
-					const maxStrIDLength = 4;
-					
-					let result = ``;
-
-					for (let i = 0, diff = maxStrIDLength - str.len; i < diff; i++) {
-						result += `_`;
-					}
-
-					return result;
-				};
 
 
 				let message = `<b>Cписок созданной еды.</b> Всего: <b>${userInfo.available_count_of_user_created_fi}</b>.\n<b>ID</b>   БЖУК (на 100г) <b><i>Название еды</i></b>`;
@@ -3414,109 +3221,13 @@ console.log(userSubprocess);
 				//check dish ingredients if no return
 				if (!userSubprocess.data.ingredients.length){
 					const cause = `!userSubprocess.data.ingredients`;
+					const message = `Блюдо не содержит ингредиентов. Не могу сохранить.`;
 
-					let sequenceAction = {};
-					sequenceAction.fromUser = true;
-					sequenceAction.incorrectInput = true;
-					sequenceAction.incorrectCause = cause;
-					// sequenceAction.message_id = ctx.update.message.message_id;
+					await invalidInputHandler(ctx, userSubprocess, cause, message);
 
- 					userSubprocess.sequence.push(sequenceAction);
-
- 					let lastNonDeteledIndex;
-					let botPreviousAnswer = userSubprocess.sequence.findLast((e, i) => {
-						if(e.fromBot && e.incorrectInputReply && !e.deleted){
-							lastNonDeteledIndex = i;
-							return true;
-						}
-					});
- 					
- 					if (botPreviousAnswer && botPreviousAnswer?.incorrectCause == cause) {
-
- 						let row = {};
-						row.data = userSubprocess.data;
-						row.sequence = userSubprocess.sequence;
-						row.state = userSubprocess.state;
- 						
- 						row.data = JSON.stringify(row.data);
-						row.sequence = JSON.stringify(row.sequence);
-						row.state = JSON.stringify(row.state);
-
- 						let paramQuery = {};
-						paramQuery.text = `
-							UPDATE telegram_user_subprocesses
-							SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
-							WHERE id = ${userSubprocess.id}
-						;`;
-						await DB_CLIENT.query(paramQuery);
-
-
- 						return;
-					}
-
- 					if (botPreviousAnswer) {
-						let response;
-						try{
-							response = await bot.telegram.deleteMessage(
-								userSubprocess.tg_user_id,
-								botPreviousAnswer.message_id
-							);
-						}catch(e){
-							console.log(e);
-							if(e.response.error_code == 400){
-								botPreviousAnswer.deleted = true;
-							}
-						}
- 						if(response) {
-							botPreviousAnswer.deleted = true;
-						}
-						
-						userSubprocess.sequence[lastNonDeteledIndex] = botPreviousAnswer;
-					}
-
- 					let messageText = `Блюдо не содержит ингредиентов. Не могу сохранить.`;
- 					let response;
- 					try {
-							response = await bot.telegram.sendMessage(
-							callbackQuery.message.chat.id,
-							messageText
-						);
-					} catch(e) {
-						console.log(e);
-					}
-
- 					if(!response){
-						return;
-					}
-
- 					console.log(response);
- 					// add to sequence
-					sequenceAction = {};
-					sequenceAction.fromBot = true;
-					sequenceAction.type = `sendMessage`;
-					sequenceAction.incorrectInputReply = true;
-					sequenceAction.incorrectCause = cause;
-					sequenceAction.message_id = response.message_id;
- 					userSubprocess.sequence.push(sequenceAction);
-
-					let row = {};
-					row.data = userSubprocess.data;
-					row.sequence = userSubprocess.sequence;
-					row.state = userSubprocess.state;
-
- 					row.data = JSON.stringify(row.data);
-					row.sequence = JSON.stringify(row.sequence);
-					row.state = JSON.stringify(row.state);
-
- 					let paramQuery = {};
-					paramQuery.text = `
-						UPDATE telegram_user_subprocesses
-						SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
-						WHERE id = ${userSubprocess.id}
-					;`;
-					await DB_CLIENT.query(paramQuery);
 					return;
 				}
+
 				return;
 
 				//make obj to insert in dish_items
