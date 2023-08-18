@@ -148,6 +148,41 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 	}
 
 
+const shortenBJUKnWNOfIngredients = ingredients => {
+		ingredients.forEach((e, i) => {
+			const obj = {};
+			obj.i = e.id;
+			obj.ru = e.name__lang_code_ru;
+			obj.p = e.protein;
+			obj.f = e.fat;
+			obj.c = e.carbohydrate;
+			obj.ca = e.caloric_content;
+			obj.t = e.t;
+			obj.w = e.g_weight;
+			ingredients[i] = obj;
+		});
+
+		return ingredients;
+	};
+	
+const extendBJUKnWNOfIngredients = ingredients => {
+		ingredients.forEach((e, i) => {
+			const obj = {};
+			obj.id = e.i;
+			obj.name__lang_code_ru = e.ru;
+			obj.protein = e.p;
+			obj.fat = e.f;
+			obj.carbohydrate = e.c;
+			obj.caloric_content = e.ca;
+			obj.t = e.t;
+			obj.n = i + 1;
+			obj.g_weight = e.w;
+			ingredients[i] = obj;
+		});
+
+		return ingredients;
+	};
+
 			const bjukToNum = obj => {
 				obj.protein = Number(obj.protein);
 				obj.fat = Number(obj.fat);
@@ -224,13 +259,14 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 					
 	const addIngredientInDish = (dish, ingredient) => {
 		const BJUK = ['protein', 'fat', 'carbohydrate', 'caloric_content'];
+		const _100gramm = 100;
 		
 		BJUK.forEach( e => {
 			dish[e] =	calcConcentration(
 				dish[e],
-				dish.g_weight,
+				_100gramm,
 				ingredient[e],
-				ingredient.g_weight
+				_100gramm
 			);
 		});
 
@@ -239,7 +275,15 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 		return dish;
 	};
 
-	const calcDishBJUKnW = (dish, ingredients) => {
+	const calcDishBJUKnW = (d, ings) => {
+		let dish = Object.assign({}, d);
+		const ingredients = [];
+
+		ings.forEach(e => {
+			const obj = Object.assign({}, e);
+			ingredients.push(obj);
+		});
+		
 		dish = setZeroBJUKnW(dish);
 
 		ingredients.forEach(el => {
@@ -293,14 +337,33 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 					name}</i>`
 			};
 
-				const makeDishSheet = (dish, ingredients) => {
+				const makeDishSheet = (d, ings) => {
+					let dish = Object.assign({}, d);
+					const ingredients = [];
+
+					ings.forEach(e => {
+						const obj = Object.assign({}, e);
+						ingredients.push(obj);
+					});
+
 					let dishSheet = ``;
 
 					dishSheet += makeDishSheetHeader(dish);
 
-					ingredients.forEach((el, i) => {
-						el = bjukValueToWC(el, el.g_weight);
-						dishSheet += makeDishSheetLine(i+1, el.protein, el.fat, el.carbohydrate, el.caloric_content, el.g_weight, el.name__lang_code_ru);
+					ingredients.forEach(e => {
+						e = bjukToNum(
+							bjukToFixedNum(
+								bjukValueToWC(e, e.g_weight)
+							)
+						);
+						dishSheet += makeDishSheetLine(
+							e.n,
+							e.protein,
+							e.fat,
+							e.carbohydrate,
+							e.caloric_content,
+							e.g_weight,
+							e.name__lang_code_ru);
 					});
 
 					dishSheet += makeDishSheetFooter(dish);
@@ -2063,104 +2126,11 @@ return;
 					const g_weight = Number(Number(re_result[3]).toFixed(1));
 					
 					if(userSubprocess.data.ingredients.length >= 20){
+ 						let message = `Нельзя добавлять больше 20 ингредиентов в одно блюдо. Придётся сохранить текущее, создать второе блюдо и добавить в него текущее.\nТакие дела, чо...`;
 						let cause = `userSubprocess.data.ingredients.length >= 20`;
 
-						let sequenceAction = {};
-						sequenceAction.fromUser = true;
-						sequenceAction.incorrectInput = true;
-						sequenceAction.incorrectCause = cause;
-						sequenceAction.message_id = ctx.update.message.message_id;
-
- 						userSubprocess.sequence.push(sequenceAction);
-
- 						let lastNonDeteledIndex;
-						let botPreviousAnswer = userSubprocess.sequence.findLast((e, i) => {
-							if(e.fromBot && e.incorrectInputReply && !e.deleted){
-								lastNonDeteledIndex = i;
-								return true;
-							}
-						});
- 						
- 						if (botPreviousAnswer && botPreviousAnswer?.incorrectCause == cause){
- 							let row = {};
-							row.data = userSubprocess.data;
-							row.sequence = userSubprocess.sequence;
-							row.state = userSubprocess.state;
- 							
- 							row.data = JSON.stringify(row.data);
-							row.sequence = JSON.stringify(row.sequence);
-							row.state = JSON.stringify(row.state);
-
- 							let paramQuery = {};
-							paramQuery.text = `
-								UPDATE telegram_user_subprocesses
-								SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
-								WHERE id = ${userSubprocess.id}
-							;`;
-							await DB_CLIENT.query(paramQuery);
- 							return;
-						}
-
- 						if (botPreviousAnswer) {
-							let response;
-							try{
-								response = await bot.telegram.deleteMessage(
-									userSubprocess.tg_user_id,
-									botPreviousAnswer.message_id
-								);
-							}catch(e){
-								console.log(e);
-								if(e.response.error_code == 400){
-									botPreviousAnswer.deleted = true;
-								}
-							}
- 							if(response) {
-								botPreviousAnswer.deleted = true;
-							}
-							
-							userSubprocess.sequence[lastNonDeteledIndex] = botPreviousAnswer;
-						}
-
- 						let messageText = `Нельзя добавлять больше 20 ингредиентов в одно блюдо. Придётся сохранить текущее, создать второе блюдо и добавить в него текущее.\nТакие дела, чо...`;
- 						let response;
- 						try {
-								response = await bot.telegram.sendMessage(
-								ctx.update.message.chat.id,
-								messageText
-							);
-						} catch(e) {
-							console.log(e);
-						}
-
- 						if(!response){
-							return;
-						}
- 						console.log(response);
- 						// add to sequence
-						sequenceAction = {};
-						sequenceAction.fromBot = true;
-						sequenceAction.type = `sendMessage`;
-						sequenceAction.incorrectInputReply = true;
-						sequenceAction.incorrectCause = cause;
-						sequenceAction.message_id = response.message_id;
- 						userSubprocess.sequence.push(sequenceAction);
-
-						let row = {};
-						row.data = userSubprocess.data;
-						row.sequence = userSubprocess.sequence;
-						row.state = userSubprocess.state;
-
- 						row.data = JSON.stringify(row.data);
-						row.sequence = JSON.stringify(row.sequence);
-						row.state = JSON.stringify(row.state);
-
- 						let paramQuery = {};
-						paramQuery.text = `
-							UPDATE telegram_user_subprocesses
-							SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
-							WHERE id = ${userSubprocess.id}
-						;`;
-						await DB_CLIENT.query(paramQuery);
+						await invalidInputHandler(ctx, userSubprocess, cause, message);
+						
 						return;
 					}
 
@@ -2184,7 +2154,7 @@ return;
 						newIngredient.t = 'd';
 					}
 
-					if (!newIngredient) {
+					if (!newIngredient.id) {
 						ctx.reply(`Ошибка в базе данных... Чо? 0_0`);
 						console.log(`oshibka v baze blyat'!!!!!!!!!!!!!!ALEEEEEEEEEEEEEEEEEEEE ERROR V BAZE SUKA`);
 
@@ -2195,6 +2165,20 @@ return;
 								('${JSON.stringify(ctx.update)}', '["iskal v bd id, no nenashel... gde-to commanda proshla. otkuda???"]')
 							;`);
 						
+						return;
+					}
+					
+					newIngredient.id = Number(newIngredient.id);
+
+					const identicalIngredient = userSubprocess.data.ingredients.find(e => e.id == newIngredient.id && e.t == newIngredient.t);
+
+					if (identicalIngredient) {
+						
+						let message = `Ingredient "${newIngredient.name__lang_code_ru}" uje dobavlen pod nomerom ${identicalIngredient.n}.`;
+						let cause = `identicalIngredient`;
+
+						await invalidInputHandler(ctx, userSubprocess, cause, message);
+
 						return;
 					}
 
@@ -2320,6 +2304,7 @@ return;
 								listNums.splice(k, 1);
 								userSubprocess.data.ingredients.splice(i, 1);
 								k = 0;
+								i = i - 1;
 							}
 						}
 					}
@@ -2637,13 +2622,14 @@ return;
 
  				if (findIdenticalNameResponse?.hits?.length) {
  					let message;
+ 					let cause = `findIdenticalNameResponse?.hits?.length`;
  					if(userSubprocess.data.name__lang_code_ru == dishName) {
 						message = `Ты чо там, прикалываешься??? Зачем то же самое название кидаешь? Ты чо ебан? *диджей ебан туц-туц-туц*`;
+						cause += `1`;
 					} else {
 						message = `Везунчик, блюдо с названием <b>"${dishName}"</b> уже тоже есть. Давай, ёпта, завязывай клоунаду свою и оригинальное название выдай или отредактируй существующее блюдо, додик.`;
+						cause += `2`;
 					}
- 					
- 					let cause = `findIdenticalNameResponse?.hits?.length`;
 					
 					await invalidInputHandler(ctx, userSubprocess, cause, message);
 					
@@ -2776,9 +2762,6 @@ return;
 			console.log(text, re_result)
 
 		}
-
-	//}
-
 
 });
 
@@ -3228,17 +3211,34 @@ console.log(userSubprocess);
 					return;
 				}
 
-				return;
+				const ingredients = shortenBJUKnWNOfIngredients(
+					[].concat(userSubprocess.data.ingredients)
+				);
 
-				//make obj to insert in dish_items
-				//telegram_users registered_users 
-
-				//
-		//insert fooddish_ids_for_meilisearch  get id
-				let row = {};
-				row.dish_items_id;
-					
+				let dish = Object.assign({}, userSubprocess.data.dish);
+				//insert into dish_items
+				let row = dish;
+				row.creation_date = creation_date;
+				row.fooddish_gweight_items_json = JSON.stringify(ingredients);
+				row.tg_user_id = userSubprocess.tg_user_id;
+				
 				let paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO dish_items
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+					RETURNING	id
+				;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				let res = await DB_CLIENT.query(paramQuery);
+				const dishItemsId = res.rows[0].id;
+
+				//insert into fooddish_ids_for_meilisearch
+				row = {};
+				row.dish_items_id = dishItemsId;
+					
+				paramQuery = {};
 				paramQuery.text = `
 					INSERT INTO fooddish_ids_for_meilisearch
 					(${objKeysToColumnStr(row)})
@@ -3248,20 +3248,20 @@ console.log(userSubprocess);
 				;`;
 				paramQuery.values = getArrOfValuesFromObj(row);
 				res = await DB_CLIENT.query(paramQuery);
+				const fdIdsForMSId = res.rows[0].id;
 
-				const dishIdForMeiliSearch = res.rows[0].id;
-				//insert meilisearch
+				//insert into meilisearch
+				dish = Object.assign({}, userSubprocess.data.dish);
+				delete dish.di_id_for_user;
+				delete dish.g_weight;
+				delete dish.total_g_weight;
+				
 				const documents = [];
-				const doc = {};
-				doc.id = Number(dishIdForMeiliSearch);
-				doc.dish_items_id = Number(userLastCommand.data.dish_items_ids[0]);
-				doc.name__lang_code_ru = dish.name__lang_code_ru;
-				doc.tg_user_id = Number(userInfo.tg_user_id);
+				const doc = dish;
+				doc.id = Number(fdIdsForMSId);
+				doc.dish_items_id = Number(dishItemsId);
+				doc.tg_user_id = Number(userSubprocess.tg_user_id);
 				doc.created_by_project = false;
-				doc.protein = dish.protein?Number(dish.protein):0;
-				doc.fat = dish.fat?Number(dish.fat):0;
-				doc.carbohydrate = dish.carbohydrate ?Number(dish.carbohydrate):0;
-				doc.caloric_content = dish.caloric_content ? Number(dish.caloric_content ) : 0;
 				documents.push(doc);
 
 				await MSDB.addDocuments(documents);
@@ -3270,10 +3270,12 @@ console.log(userSubprocess);
 				row = {};
 				row.creation_date = creation_date;
 				row.command = 'SAVE_DISH';
-				row.tg_user_id = userInfo.tg_user_id;
+				row.tg_user_id = userSubprocess.tg_user_id;
+				row.can_it_be_removed = true;
+				row.process_id = userSubprocess.id;
 
 				row.data = {};
-				row.data.dish_items_ids = [userLastCommand.data.dish_items_ids[0]];
+				row.data.dish_items_ids = [dishItemsId];
 				row.data = JSON.stringify(row.data);
 
 				paramQuery = {};
@@ -3286,32 +3288,54 @@ console.log(userSubprocess);
 				paramQuery.values = getArrOfValuesFromObj(row);
 				await DB_CLIENT.query(paramQuery);
 
+				//insert telegram_users
+				//perepisat' na telegram_users
+				//registered_users available_count_of_user_created_fi - 1 //add check for all users
+				userInfo.available_count_of_user_created_di = Number(userInfo.available_count_of_user_created_di) + 1;
+				await DB_CLIENT.query(`
+					UPDATE registered_users
+					SET available_count_of_user_created_di = ${userInfo.available_count_of_user_created_di},
+					count_of_user_created_di = ${userSubprocess.data.dish.di_id_for_user}
+					WHERE id = ${userInfo.r_user_id};
+				`);
+
+				//update telegram_user_subprocesses 
+				row = {};
+				row.data = JSON.stringify({});
+				row.sequence = JSON.stringify({});
+				row.state = JSON.stringify({});
+				row.completed = true;
+  
+				paramQuery = {};
+				paramQuery.text = `
+					UPDATE telegram_user_subprocesses
+					SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
+					WHERE id = ${userSubprocess.id}
+				;`;
+				await DB_CLIENT.query(paramQuery);
+
+
 				//make message and send
-				let dishSheetHead = `\n<b><u>|__ID|Б_______|Ж_______|У_______|К______|</u> <i>Название блюда</i></b>`;
+				let messageText = makeDishSheet(
+					userSubprocess.data.dish,
+					userSubprocess.data.ingredients
+				);
 
-				let dishSheetFooter = `\n<u>|${
-					makeDishNumForSheetLine(userInfo.count_of_user_created_di, 4)}|Б:${
-					addCharBeforeValue(dish.protein, 5, '_')} |Ж:${
-					addCharBeforeValue(dish.fat, 5, '_')} |У:${
-					addCharBeforeValue(dish.carbohydrate, 5, '_')} |К:${
-					addCharBeforeValue(dish.caloric_content, 5, '_')}|</u> <i>${
-					dish.name__lang_code_ru}</i>\n\n<b>СОХРАНЕНО.</b>`;
-
-				let messageText = dishSheetHead+dishSheetFooter;
-
-				let response;
 				try{
-					response = await bot.telegram.editMessageText(
-						callbackQuery.message.chat.id,
-						userLastCommand.data.message_id,
+					await bot.telegram.editMessageText(
+						callbackQuery.message.chat.id, 
+						userSubprocess.state.message_id,
 						``,
 						messageText,
 						{parse_mode:'HTML'}
 					);
+					await bot.telegram.sendMessage(
+						callbackQuery.message.chat.id, 
+						`SOHRANENO`
+					);
 				}catch(e){
 					console.log(e)
 				}
-				console.log(response)
 				
 			} else if (Array.isArray(re_result = callbackQuery.data.match(reCommands))) {
 
@@ -3487,9 +3511,11 @@ bot.on(`inline_query`, async ctx => {
 						});
 					});
 
+					console.log(inlineQueryResultArticles)
+
 					for (let i = 0; i < inlineQueryResultArticles.length; i++) {
 						for (let k = i + 1; k < inlineQueryResultArticles.length; k++) {
-							if (inlineQueryResultArticles[i].id == inlineQueryResultArticles[k].id) {
+							if (inlineQueryResultArticles[i]?.id == inlineQueryResultArticles[k].id) {
 								inlineQueryResultArticles.splice(k, 1);
 								k--;
 								i--;
