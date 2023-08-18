@@ -597,7 +597,7 @@ const cleanSubprocessesAfter1H = async () => {
 				row = {};
 				row.creation_date = creation_date;
 				row.command = `CANCEL__${userSubprocess.process_name}`.slice(0, 64);
-				row.tg_user_id = userInfo.tg_user_id;
+				row.tg_user_id = userSubprocess.tg_user_id;
 				row.process_id = userSubprocess.id;
 
 				paramQuery = {};
@@ -2290,6 +2290,7 @@ return;
 						return;
 					}
 
+					let biggerThanLength;
 					if (!userSubprocess.data.ingredients.length) {
 
 						let message = `nechego udalyat'`;
@@ -2297,10 +2298,16 @@ return;
 
 						await invalidInputHandler(ctx, userSubprocess, cause, message);
 
+						return;
+					} else if (biggerThanLength = listNums.find(el => el > userSubprocess.data.ingredients.length)) {
+
+						let message = `ingredienta s takim nomerom "${biggerThanLength}" net`;
+						let cause = `biggerThanLength = listNums.find(el => el > userSubprocess.data.ingredients.length)`;
+
+						await invalidInputHandler(ctx, userSubprocess, cause, message);
 
 						return;
 					}
-
 
 return;
 
@@ -2312,7 +2319,6 @@ return;
 					let creDish = res.rows[0];
 					console.log(creDish);
 					
-					let biggerThanLength;
 					if(!creDish.fooddish_gweight_items_json?.length){
 						ctx.reply(`nechego udalyat'`);
 						return;
