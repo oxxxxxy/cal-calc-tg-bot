@@ -148,40 +148,6 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 	}
 
 
-const shortenBJUKnWNOfIngredients = ingredients => {
-		ingredients.forEach((e, i) => {
-			const obj = {};
-			obj.i = e.id;
-			obj.ru = e.name__lang_code_ru;
-			obj.p = e.protein;
-			obj.f = e.fat;
-			obj.c = e.carbohydrate;
-			obj.ca = e.caloric_content;
-			obj.t = e.t;
-			obj.w = e.g_weight;
-			ingredients[i] = obj;
-		});
-
-		return ingredients;
-	};
-	
-const extendBJUKnWNOfIngredients = ingredients => {
-		ingredients.forEach((e, i) => {
-			const obj = {};
-			obj.id = e.i;
-			obj.name__lang_code_ru = e.ru;
-			obj.protein = e.p;
-			obj.fat = e.f;
-			obj.carbohydrate = e.c;
-			obj.caloric_content = e.ca;
-			obj.t = e.t;
-			obj.n = i + 1;
-			obj.g_weight = e.w;
-			ingredients[i] = obj;
-		});
-
-		return ingredients;
-	};
 
 			const bjukToNum = obj => {
 				obj.protein = Number(obj.protein);
@@ -275,14 +241,20 @@ const extendBJUKnWNOfIngredients = ingredients => {
 		return dish;
 	};
 
+	const makeCopyOfObjArray = a => {
+		const arr = [];
+		
+		a.forEach(e => {
+			const obj = Object.assign({}, e);
+			arr.push(obj);
+		});
+
+		return arr;
+	};
+
 	const calcDishBJUKnW = (d, ings) => {
 		let dish = Object.assign({}, d);
-		const ingredients = [];
-
-		ings.forEach(e => {
-			const obj = Object.assign({}, e);
-			ingredients.push(obj);
-		});
+		const ingredients = makeCopyOfObjArray(ings);
 		
 		dish = setZeroBJUKnW(dish);
 
@@ -339,12 +311,7 @@ const extendBJUKnWNOfIngredients = ingredients => {
 
 				const makeDishSheet = (d, ings) => {
 					let dish = Object.assign({}, d);
-					const ingredients = [];
-
-					ings.forEach(e => {
-						const obj = Object.assign({}, e);
-						ingredients.push(obj);
-					});
+					const ingredients = makeCopyOfObjArray(ings);
 
 					let dishSheet = ``;
 
@@ -371,6 +338,42 @@ const extendBJUKnWNOfIngredients = ingredients => {
 					return dishSheet;
 				};
 
+const shortenBJUKnWNOfIngredients = ings => {
+		const ingredients = makeCopyOfObjArray(ings);
+		ingredients.forEach((e, i) => {
+			const obj = {};
+			obj.i = e.id;
+			obj.ru = e.name__lang_code_ru;
+			obj.p = e.protein;
+			obj.f = e.fat;
+			obj.c = e.carbohydrate;
+			obj.ca = e.caloric_content;
+			obj.t = e.t;
+			obj.w = e.g_weight;
+			ingredients[i] = obj;
+		});
+
+		return ingredients;
+	};
+	
+const extendBJUKnWNOfIngredients = ings => {
+		const ingredients = makeCopyOfObjArray(ings);
+		ingredients.forEach((e, i) => {
+			const obj = {};
+			obj.id = e.i;
+			obj.name__lang_code_ru = e.ru;
+			obj.protein = e.p;
+			obj.fat = e.f;
+			obj.carbohydrate = e.c;
+			obj.caloric_content = e.ca;
+			obj.t = e.t;
+			obj.n = i + 1;
+			obj.g_weight = e.w;
+			ingredients[i] = obj;
+		});
+
+		return ingredients;
+	};
 
 					const invalidInputHandler = async (ctx, userSubprocess, cause, message) => {
 						let sequenceAction = {};
@@ -389,7 +392,7 @@ const extendBJUKnWNOfIngredients = ingredients => {
 							}
 						});
  						
- 						if (botPreviousAnswer && botPreviousAnswer?.incorrectCause == cause){
+ 						/* if (botPreviousAnswer && botPreviousAnswer?.incorrectCause == cause){
  							let row = {};
 							row.data = userSubprocess.data;
 							row.sequence = userSubprocess.sequence;
@@ -407,7 +410,7 @@ const extendBJUKnWNOfIngredients = ingredients => {
 							;`;
 							await pgClient.query(paramQuery);
  							return;
-						}
+						} */
 
  						if (botPreviousAnswer) {
 							let response;
@@ -483,6 +486,118 @@ const extendBJUKnWNOfIngredients = ingredients => {
 
 					return result;
 				};
+
+
+							const getNumberOfPages = (lengthOfItems, maxNumberOfLines) => {
+								let numberOfPages = Math.floor(lengthOfItems / maxNumberOfLines) + 1;
+
+								if(lengthOfItems > 0 && !(lengthOfItems % maxNumberOfLines)) {
+									numberOfPages = numberOfPages - 1;
+								}
+
+								return numberOfPages;
+							};
+
+						const getPagesOfDish = (lengthOfItems, maxNumberOfLines, selectedPage) => {
+							const numberOfPages = getNumberOfPages(lengthOfItems, maxNumberOfLines);
+					
+							const pages = {};
+							pages.selected = selectedPage;
+					
+							pages.moveNext = selectedPage + 1;
+							if (pages.moveNext > numberOfPages) {
+								pages.moveNext = numberOfPages;
+							}
+					
+							if (selectedPage > 1) {
+								pages.movePrevious = selectedPage - 1;
+							} else {
+								pages.movePrevious = 1;
+							}
+							return pages;
+						}
+						
+const getButtonTextPagesOfDish = pages => {
+							const buttonTextPages = {};
+
+							if (pages.movePrevious == pages.selected) {
+								buttonTextPages.left = pages.movePrevious + '';
+							} else {
+								buttonTextPages.left = pages.movePrevious + '<';
+							}
+
+							buttonTextPages.middle = pages.selected;
+
+							if (pages.moveNext == pages.selected) {
+								buttonTextPages.right = '' + pages.moveNext;
+							} else {
+								buttonTextPages.right = '>' + pages.moveNext;
+							}
+
+							return buttonTextPages;
+						};
+
+
+					const getDishMessage = (selectedPage, maxNumberOfLines, userSubprocess) => {
+						const lengthOfIngredients = userSubprocess.data.ingredients.length;
+
+						const message = {};
+
+						if (lengthOfIngredients > maxNumberOfLines) {
+							const pages = getPagesOfDish(lengthOfIngredients, maxNumberOfLines, selectedPage);
+							const buttonTextPages = getButtonTextPagesOfDish(pages);
+
+							message.inlineKeyboard = telegraf.Markup.inlineKeyboard(
+								[
+									[	
+										telegraf.Markup.button.callback(buttonTextPages.left, `i${userSubprocess.tg_user_id}p${pages.movePrevious}`),
+										telegraf.Markup.button.callback(buttonTextPages.middle, `i${userSubprocess.tg_user_id}p${pages.selected}`),
+										telegraf.Markup.button.callback(buttonTextPages.right, `i${userSubprocess.tg_user_id}p${pages.moveNext}`)
+									],
+									[
+										telegraf.Markup.button.callback(`Сохранить`, `i${userSubprocess.tg_user_id}save`),
+										telegraf.Markup.button.callback(`Отменить`, `i${userSubprocess.tg_user_id}cancel`),
+										telegraf.Markup.button.callback(`Команды`, `i${userSubprocess.tg_user_id}commands`)
+									]
+								]
+							);
+						} else {
+							message.inlineKeyboard = telegraf.Markup.inlineKeyboard(
+								[
+									[
+										telegraf.Markup.button.callback(`Сохранить`, `i${userSubprocess.tg_user_id}save`),
+										telegraf.Markup.button.callback(`Отменить`, `i${userSubprocess.tg_user_id}cancel`),
+										telegraf.Markup.button.callback(`Команды`, `i${userSubprocess.tg_user_id}commands`)
+									]
+								]
+							);
+						}
+
+						const selectedIngredients = userSubprocess.data.ingredients.slice(
+							(selectedPage - 1) * maxNumberOfLines,
+							selectedPage * maxNumberOfLines
+						);
+						
+						message.text = makeDishSheet(
+							userSubprocess.data.dish,
+							selectedIngredients
+						);
+		
+						message.inlineKeyboard.parse_mode = 'HTML';
+
+						return message;
+
+					};
+
+
+
+
+
+
+
+
+
+
 
 /*
 */
@@ -694,7 +809,7 @@ const cleanSubprocessesAfter1H = async () => {
 	}
 }
 
-cleanSubprocessesAfter1H();
+// cleanSubprocessesAfter1H();
 
 const cleanTGInlineKeyboards = async () => {
 	while (true) {
@@ -1555,7 +1670,7 @@ bot.on(`message`, async ctx => {
 
 					const id = userInfo.tg_user_id;
 					const inlineKeyboard = telegraf.Markup.inlineKeyboard([[
-							telegraf.Markup.button.callback(`Отменить`, `id${id}cancel`),
+							telegraf.Markup.button.callback(`Отменить`, `i${id}cancel`),
 						]]);
 
 					inlineKeyboard.parse_mode = 'HTML';
@@ -1639,9 +1754,9 @@ bot.on(`message`, async ctx => {
 
 				const id = userInfo.tg_user_id;
 				const inlineKeyboard = telegraf.Markup.inlineKeyboard([[
-						telegraf.Markup.button.callback(`Сохранить`, `id${id}save`),
-						telegraf.Markup.button.callback(`Отменить`, `id${id}cancel`),
-						telegraf.Markup.button.callback(`Команды`, `id${id}commands`)
+						telegraf.Markup.button.callback(`Сохранить`, `i${id}save`),
+						telegraf.Markup.button.callback(`Отменить`, `i${id}cancel`),
+						telegraf.Markup.button.callback(`Команды`, `i${id}commands`)
 					]]);
 
 				inlineKeyboard.parse_mode = 'HTML';
@@ -1890,13 +2005,13 @@ return;
 
 				const makeInlineKeyboard = (pages, tableName, id) => {
 					return telegraf.Markup.inlineKeyboard([[
-							telegraf.Markup.button.callback(`${pages.first}`, `${tableName + pages.first}id${id}`),
-							telegraf.Markup.button.callback(`${pages.movePreviousMinusFive}<<`, `${tableName + pages.movePreviousMinusFive}id${id}`),
-							telegraf.Markup.button.callback(`${pages.movePrevious}<`, `${tableName + pages.movePrevious}id${id}`),
-							telegraf.Markup.button.callback(`${pages.selected}`, `${tableName + pages.selected}id${id}`),
-							telegraf.Markup.button.callback(`>${pages.moveNext}`, `${tableName + pages.moveNext}id${id}`),
-							telegraf.Markup.button.callback(`>>${pages.moveNextPlusFive}`, `${tableName + pages.moveNextPlusFive}id${id}`),
-							telegraf.Markup.button.callback(`${pages.last}`, `${tableName + pages.last}id${id}`)
+							telegraf.Markup.button.callback(`${pages.first}`, `${tableName + pages.first}i${id}`),
+							telegraf.Markup.button.callback(`${pages.movePreviousMinusFive}<<`, `${tableName + pages.movePreviousMinusFive}i${id}`),
+							telegraf.Markup.button.callback(`${pages.movePrevious}<`, `${tableName + pages.movePrevious}i${id}`),
+							telegraf.Markup.button.callback(`${pages.selected}`, `${tableName + pages.selected}i${id}`),
+							telegraf.Markup.button.callback(`>${pages.moveNext}`, `${tableName + pages.moveNext}i${id}`),
+							telegraf.Markup.button.callback(`>>${pages.moveNextPlusFive}`, `${tableName + pages.moveNextPlusFive}i${id}`),
+							telegraf.Markup.button.callback(`${pages.last}`, `${tableName + pages.last}i${id}`)
 					]]);
 				}
 
@@ -2125,9 +2240,9 @@ return;
 					const id = Number(re_result[2]);
 					const g_weight = Number(Number(re_result[3]).toFixed(1));
 					
-					if(userSubprocess.data.ingredients.length >= 20){
- 						let message = `Нельзя добавлять больше 20 ингредиентов в одно блюдо. Придётся сохранить текущее, создать второе блюдо и добавить в него текущее.\nТакие дела, чо...`;
-						let cause = `userSubprocess.data.ingredients.length >= 20`;
+					if(userSubprocess.data.ingredients.length >= 100){
+ 						let message = `Больше 100 ингредиентов в одном блюде? Не шутишь?\nТогда придётся сохранить текущее блюдо, создать второе блюдо и добавить в него текущее.\nТакие дела, чо...`;
+						let cause = `userSubprocess.data.ingredients.length >= 100`;
 
 						await invalidInputHandler(ctx, userSubprocess, cause, message);
 						
@@ -2152,20 +2267,6 @@ return;
 						;`);
 						newIngredient = res.rows[0];
 						newIngredient.t = 'd';
-					}
-
-					if (!newIngredient.id) {
-						ctx.reply(`Ошибка в базе данных... Чо? 0_0`);
-						console.log(`oshibka v baze blyat'!!!!!!!!!!!!!!ALEEEEEEEEEEEEEEEEEEEE ERROR V BAZE SUKA`);
-
-						await pgClient.query(`
-								INSERT INTO	telegram_bot_log
-								(log, internal_use_only)
-								VALUES
-								('${JSON.stringify(ctx.update)}', '["iskal v bd id, no nenashel... gde-to commanda proshla. otkuda???"]')
-							;`);
-						
-						return;
 					}
 					
 					newIngredient.id = Number(newIngredient.id);
@@ -2193,22 +2294,12 @@ return;
 						userSubprocess.data.ingredients
 					);
 					
-					console.log(userSubprocess.data);
+					const lengthOfIngredients = userSubprocess.data.ingredients.length;
+					const maxNumberOfLines = 20;
+					const selectedPage = getNumberOfPages(lengthOfIngredients, maxNumberOfLines);
 
-					let messageText = makeDishSheet(
-						userSubprocess.data.dish,
-						userSubprocess.data.ingredients
-					);
-	
-					const tg_user_id = userInfo.tg_user_id;
-					const inlineKeyboard = telegraf.Markup.inlineKeyboard([[
-							telegraf.Markup.button.callback(`Сохранить`, `id${tg_user_id}save`),
-							telegraf.Markup.button.callback(`Отменить`, `id${tg_user_id}cancel`),
-							telegraf.Markup.button.callback(`Команды`, `id${tg_user_id}commands`)
-						]]);
-	
-					inlineKeyboard.parse_mode = 'HTML';
-	
+					const m = getDishMessage(selectedPage, maxNumberOfLines, userSubprocess);
+
 					let response;
 	
 					try {
@@ -2216,8 +2307,8 @@ return;
 							ctx.update.message.chat.id,
 							userSubprocess.state.message_id,
 							``,
-							messageText,
-							inlineKeyboard
+							m.text,
+							m.inlineKeyboard
 						);
 					} catch(e) {
 						console.log(e);
@@ -2225,8 +2316,8 @@ return;
 							try{
 								response = await bot.telegram.sendMessage(
 									ctx.update.message.chat.id,
-									messageText,
-									inlineKeyboard
+									m.text,
+									m.inlineKeyboard
 								);
 							}catch(e){
 								console.log(e)
@@ -2297,14 +2388,17 @@ return;
 							return;
 						}
 					}
+					console.log(
+						userSubprocess.data.dish,
+						userSubprocess.data.ingredients
+					);
 
 					for(let i = 0; i < userSubprocess.data.ingredients.length; i++){
 						for (let k = 0; k < listNums.length; k++) {
 							if(listNums[k] == userSubprocess.data.ingredients[i].n){
 								listNums.splice(k, 1);
 								userSubprocess.data.ingredients.splice(i, 1);
-								k = 0;
-								i = i - 1;
+								k = -1;
 							}
 						}
 					}
@@ -2318,22 +2412,12 @@ return;
 						userSubprocess.data.ingredients
 					);
 					
-					console.log(userSubprocess.data);
+					const lengthOfIngredients = userSubprocess.data.ingredients.length;
+					const maxNumberOfLines = 20;
+					const selectedPage = getNumberOfPages(lengthOfIngredients, maxNumberOfLines);
 
-					let messageText = makeDishSheet(
-						userSubprocess.data.dish,
-						userSubprocess.data.ingredients
-					);
-	
-					const tg_user_id = userInfo.tg_user_id;
-					const inlineKeyboard = telegraf.Markup.inlineKeyboard([[
-							telegraf.Markup.button.callback(`Сохранить`, `id${tg_user_id}save`),
-							telegraf.Markup.button.callback(`Отменить`, `id${tg_user_id}cancel`),
-							telegraf.Markup.button.callback(`Команды`, `id${tg_user_id}commands`)
-						]]);
-	
-					inlineKeyboard.parse_mode = 'HTML';
-	
+					const m = getDishMessage(selectedPage, maxNumberOfLines, userSubprocess);
+
 					let response;
 	
 					try {
@@ -2341,8 +2425,8 @@ return;
 							ctx.update.message.chat.id,
 							userSubprocess.state.message_id,
 							``,
-							messageText,
-							inlineKeyboard
+							m.text,
+							m.inlineKeyboard
 						);
 					} catch(e) {
 						console.log(e);
@@ -2350,8 +2434,8 @@ return;
 							try{
 								response = await bot.telegram.sendMessage(
 									ctx.update.message.chat.id,
-									messageText,
-									inlineKeyboard
+									m.text,
+									m.inlineKeyboard
 								);
 							}catch(e){
 								console.log(e)
@@ -2428,9 +2512,9 @@ return;
 	
 					const tg_user_id = userInfo.tg_user_id;
 					const inlineKeyboard = telegraf.Markup.inlineKeyboard([[
-							telegraf.Markup.button.callback(`Сохранить`, `id${tg_user_id}save`),
-							telegraf.Markup.button.callback(`Отменить`, `id${tg_user_id}cancel`),
-							telegraf.Markup.button.callback(`Команды`, `id${tg_user_id}commands`)
+							telegraf.Markup.button.callback(`Сохранить`, `i${tg_user_id}save`),
+							telegraf.Markup.button.callback(`Отменить`, `i${tg_user_id}cancel`),
+							telegraf.Markup.button.callback(`Команды`, `i${tg_user_id}commands`)
 						]]);
 	
 					inlineKeyboard.parse_mode = 'HTML';
@@ -2537,9 +2621,9 @@ return;
 	
 					const tg_user_id = userInfo.tg_user_id;
 					const inlineKeyboard = telegraf.Markup.inlineKeyboard([[
-							telegraf.Markup.button.callback(`Сохранить`, `id${tg_user_id}save`),
-							telegraf.Markup.button.callback(`Отменить`, `id${tg_user_id}cancel`),
-							telegraf.Markup.button.callback(`Команды`, `id${tg_user_id}commands`)
+							telegraf.Markup.button.callback(`Сохранить`, `i${tg_user_id}save`),
+							telegraf.Markup.button.callback(`Отменить`, `i${tg_user_id}cancel`),
+							telegraf.Markup.button.callback(`Команды`, `i${tg_user_id}commands`)
 						]]);
 	
 					inlineKeyboard.parse_mode = 'HTML';
@@ -2648,9 +2732,9 @@ return;
 
 				const id = userInfo.tg_user_id;
 				const inlineKeyboard = telegraf.Markup.inlineKeyboard([[
-						telegraf.Markup.button.callback(`Сохранить`, `id${id}save`),
-						telegraf.Markup.button.callback(`Отмена`, `id${id}cancel`),
-						telegraf.Markup.button.callback(`Команды`, `id${id}commands`)
+						telegraf.Markup.button.callback(`Сохранить`, `i${id}save`),
+						telegraf.Markup.button.callback(`Отмена`, `i${id}cancel`),
+						telegraf.Markup.button.callback(`Команды`, `i${id}commands`)
 					]]);
 
 				inlineKeyboard.parse_mode = 'HTML';
@@ -2779,7 +2863,7 @@ bot.on(`callback_query`, async ctx => {
 
 	let re_result;
 	
-	const reTGUserId = /id(\d+)/;
+	const reTGUserId = /i(\d+)/;
 
 	if (Array.isArray(re_result = callbackQuery.data.match(reTGUserId)) && re_result[1] != callbackQuery.from.id) {
 		try{
@@ -2819,10 +2903,10 @@ bot.on(`callback_query`, async ctx => {
 			limit 1;
 		`)).rows[0];
 	
-	const reFoodItems = new RegExp(`${tableNames.food_items}(\\d+)id(\\d+)`);
-	const reSave = /id(\d+)save/;
-	const reCancel = /id(\d+)cancel/;
-	const reCommands = /id(\d+)commands/;	
+	const reFoodItems = new RegExp(`${tableNames.food_items}(\\d+)i(\\d+)`);
+	const reSave = /i(\d+)save/;
+	const reCancel = /i(\d+)cancel/;
+	const reCommands = /i(\d+)commands/;	
 
 
 console.log(userSubprocess);	
@@ -2929,13 +3013,13 @@ console.log(userSubprocess);
 
 				const makeInlineKeyboard = (pages, tableName, id) => {
 					return telegraf.Markup.inlineKeyboard([[
-							telegraf.Markup.button.callback(`${pages.first}`, `${tableName + pages.first}id${id}`),
-							telegraf.Markup.button.callback(`${pages.movePreviousMinusFive}<<`, `${tableName + pages.movePreviousMinusFive}id${id}`),
-							telegraf.Markup.button.callback(`${pages.movePrevious}<`, `${tableName + pages.movePrevious}id${id}`),
-							telegraf.Markup.button.callback(`${pages.selected}`, `${tableName + pages.selected}id${id}`),
-							telegraf.Markup.button.callback(`>${pages.moveNext}`, `${tableName + pages.moveNext}id${id}`),
-							telegraf.Markup.button.callback(`>>${pages.moveNextPlusFive}`, `${tableName + pages.moveNextPlusFive}id${id}`),
-							telegraf.Markup.button.callback(`${pages.last}`, `${tableName + pages.last}id${id}`)
+							telegraf.Markup.button.callback(`${pages.first}`, `${tableName + pages.first}i${id}`),
+							telegraf.Markup.button.callback(`${pages.movePreviousMinusFive}<<`, `${tableName + pages.movePreviousMinusFive}i${id}`),
+							telegraf.Markup.button.callback(`${pages.movePrevious}<`, `${tableName + pages.movePrevious}i${id}`),
+							telegraf.Markup.button.callback(`${pages.selected}`, `${tableName + pages.selected}i${id}`),
+							telegraf.Markup.button.callback(`>${pages.moveNext}`, `${tableName + pages.moveNext}i${id}`),
+							telegraf.Markup.button.callback(`>>${pages.moveNextPlusFive}`, `${tableName + pages.moveNextPlusFive}i${id}`),
+							telegraf.Markup.button.callback(`${pages.last}`, `${tableName + pages.last}i${id}`)
 					]]);
 				}
 
@@ -3212,7 +3296,7 @@ console.log(userSubprocess);
 				}
 
 				const ingredients = shortenBJUKnWNOfIngredients(
-					[].concat(userSubprocess.data.ingredients)
+					userSubprocess.data.ingredients
 				);
 
 				let dish = Object.assign({}, userSubprocess.data.dish);
