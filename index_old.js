@@ -22,8 +22,9 @@ const {
 	COMMAND__CREATE_FOOD__YES,
 	COMMAND__CREATE_FOOD__NO
 } = require(`./modules/user_commands/create_food_funcs.js`);
-const { inlineKeyboard } = require('telegraf/typings/markup.js');
+// const { inlineKeyboard } = require('telegraf/typings/markup.js');
 // const { callback } = require('telegraf/typings/button.js');
+
 
 
 const TG_USERS_LAST_ACTION_TIME = {};
@@ -223,23 +224,32 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 
 		return dish;
 	}
+
+	const setBJUKnWofFirstIngToDish = (ingredient, dish) => {
+		const BJUK = ['protein', 'fat', 'carbohydrate', 'caloric_content'];
+		
+		BJUK.forEach( e => {
+			dish[e] =	ingredient[e];
+		});
+
+		dish.g_weight = ingredient.g_weight;
+	};
 					
 	const addIngredientInDish = (dish, ingredient) => {
 		const BJUK = ['protein', 'fat', 'carbohydrate', 'caloric_content'];
-		const _100gramm = 100;
-		
+
 		BJUK.forEach( e => {
 			dish[e] =	calcConcentration(
 				dish[e],
-				_100gramm,
+				dish.g_weight,
 				ingredient[e],
-				_100gramm
+				ingredient.g_weight
 			);
 		});
 
-		dish.g_weight += ingredient.g_weight;
-		
-		return dish;
+		if(ingredient.g_weight > 0){
+			dish.g_weight += ingredient.g_weight;
+		}
 	};
 
 	const makeCopyOfObjArray = a => {
@@ -259,9 +269,14 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 		const ingredients = makeCopyOfObjArray(ings);
 		
 		dish = setZeroBJUKnW(dish);
+		dish.total_g_weight = 0;
 
-		ingredients.forEach(el => {
-				dish = addIngredientInDish(dish, el);						
+		ingredients.forEach((el, i) => {
+				if(i){
+					addIngredientInDish(dish, el);
+					return;
+				}
+				setBJUKnWofFirstIngToDish(el, dish);
 			});	
 
 		dish = bjukToFixedNum(dish);
@@ -468,17 +483,28 @@ const extendBJUKnWNOfIngredients = ings => {
 	};
 
 					const deletePreviousBotComment = async userSubprocess => {
-						const botPreviousAnswer = userSubprocess.sequence.findLast(e => e.fromBot && !e.deleted);
+						const botPreviousComment = userSubprocess.sequence.findLast(e => e.fromBot && !e.deleted);
 
-						if(botPreviousAnswer) {
-							botPreviousAnswer.deleted = await deleteMessage(
+						if(botPreviousComment) {
+							botPreviousComment.deleted = await deleteMessage(
 									userSubprocess.tg_user_id,
-									botPreviousAnswer.message_id
+									botPreviousComment.message_id
 								);
 						}
 					}
+
+					const deletePreviousUserInput = async userSubprocess => {
+						const userPreviousInput = userSubprocess.sequence.findLast(e => e.fromUser && e.message_id && !e.deleted);
+
+						if(userPreviousInput){
+							userPreviousInput.deleted = await deleteMessage(
+									userSubprocess.tg_user_id,
+									userPreviousInput.message_id
+								);
+						}
+					};
 					
-						const completeSubrocess = async (userMessageId, userSubprocess, comment, subCommand, cause) => {
+						const completeSubrocessCommand = async (userMessageId, userSubprocess, comment, subCommand, cause) => {
 							// add mark of user valid/invalid input
 							userSubprocess.sequence.push(
 								getSequenceAction(
@@ -491,7 +517,7 @@ const extendBJUKnWNOfIngredients = ings => {
 							await deletePreviousBotComment(userSubprocess);
 	
 	 						//use for funny reply if sequence of the same bad user input
-	 						/* if (botPreviousAnswer && botPreviousAnswer?.incorrectCause == cause){
+	 						/* if (botPreviousComment && botPreviousComment?.incorrectCause == cause){
 	 							let row = {};
 								row.data = userSubprocess.data;
 								row.sequence = userSubprocess.sequence;
@@ -1165,14 +1191,14 @@ bot.on(`message`, async ctx => {
 			userSubprocess.sequence.push(sequenceAction);
 
 			let lastNonDeteledIndex;
-			let botPreviousAnswer = userSubprocess.sequence.findLast((e, i) => {
+			let botPreviousComment = userSubprocess.sequence.findLast((e, i) => {
 				if(e.fromBot && e.incorrectInputReply && !e.deleted){
 					lastNonDeteledIndex = i;
 					return true;
 				}
 			});
 
-			if (botPreviousAnswer && botPreviousAnswer?.incorrectCause == `!ctx.update.message.text`){
+			if (botPreviousComment && botPreviousComment?.incorrectCause == `!ctx.update.message.text`){
 				let row = {};
 				row.data = userSubprocess.data;
 				row.sequence = userSubprocess.sequence;
@@ -1193,25 +1219,25 @@ bot.on(`message`, async ctx => {
 				return;
 			}
 
-			if (botPreviousAnswer) {
+			if (botPreviousComment) {
 				let response;
 				try{
 					response = await bot.telegram.deleteMessage(
 						userSubprocess.tg_user_id,
-						botPreviousAnswer.message_id
+						botPreviousComment.message_id
 					);
 				}catch(e){
 					console.log(e);
 					if(e.response.error_code == 400){
-						botPreviousAnswer.deleted = true;
+						botPreviousComment.deleted = true;
 					}
 				}
 
 				if(response) {
-					botPreviousAnswer.deleted = true;
+					botPreviousComment.deleted = true;
 				}
 				
-				userSubprocess.sequence[lastNonDeteledIndex] = botPreviousAnswer;
+				userSubprocess.sequence[lastNonDeteledIndex] = botPreviousComment;
 			}
 
 			let messageText = `А текст можно, да?`;
@@ -2253,47 +2279,13 @@ return;
 		} else {
 			console.log(`user has last command, main tree, subprocess`);
 
+			await deletePreviousUserInput(userSubprocess);
 
-
-			//delete previous user sended shit after new message
-			//use sequence
-			console.log(userSubprocess);	
-
-			const lastUserAction = {};
-			lastUserAction.element = userSubprocess.sequence.findLast((e, i) => {
-				if (e.fromUser && e.message_id && !e.deleted) {
-					lastUserAction.index = i;
-					return true;
-				}
-			});
-
-			if(lastUserAction.element){
-				let response;
-				try{
-					response = await bot.telegram.deleteMessage(
-						ctx.update.message.chat.id,
-						lastUserAction.element.message_id
-					);
-				}catch(e){
-					console.log(e);
-					if (e.error_code == 400){
-						lastUserAction.element.deleted = true;
-					}
-				}
-
-				if (response) {
-					lastUserAction.element.deleted = true;
-				}
-
-				userSubprocess.sequence[lastUserAction.index] = lastUserAction.element;
-			}
-
-
+			const userMessageId = ctx.update.message.message_id;
 
 			if (userSubprocess.process_name == `DISH_CREATING` || userSubprocess.process_name == `DISH_EDITING`){
 				if (Array.isArray(re_result = text.toLowerCase().match(RE__RESOLVE_FD_ID_WEIGHT_FROM_InlQuery))){
 					const subCommand = `resolveFDIDWeightFromInlQuery`;
-					const userMessageId = ctx.update.message.message_id;
 
 					const foodDishType = re_result[1];
 					const id = Number(re_result[2]);
@@ -2303,8 +2295,7 @@ return;
  						const invalidComment = `Больше 100 ингредиентов в одном блюде? Не шутишь?\nТогда придётся сохранить текущее блюдо, создать второе блюдо и добавить в него текущее.\nТакие дела, чо...`;
 						const cause = `userSubprocess.data.ingredients.length >= 100`;
 						
-						await completeSubrocess(userMessageId, userSubprocess, invalidComment, subCommand, cause);
-						
+						await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, subCommand, cause);
 						return;
 					}
 
@@ -2337,7 +2328,7 @@ return;
 						const invalidComment = `Ingredient "${newIngredient.name__lang_code_ru}" uje dobavlen pod nomerom ${identicalIngredient.n}.`;
 						const cause = `identicalIngredient`;
 
-						await completeSubrocess(userMessageId, userSubprocess, invalidComment, subCommand, cause);
+						await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, subCommand, cause);
 
 						return;
 					}
@@ -2376,9 +2367,11 @@ return;
 					
 					userSubprocess.state.message_id = res.message_id;
 
-					await completeSubrocess(userMessageId, userSubprocess, validComment, subCommand);
+					await completeSubrocessCommand(userMessageId, userSubprocess, validComment, subCommand);
 
 				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_INGREDIENTs_FROM_DISH))) {
+					const subCommand = `deleteIngrFromDish`;
+
 					//row.data.action = {delete ingredient, ingredients}
 					let listNums = [];
 					[...re_result.input.matchAll(/[0-9]+/g)].forEach(el => {
@@ -2388,11 +2381,10 @@ return;
 					console.log(listNums);
 
 					if (!userSubprocess.data.ingredients.length) {
+						const invalidComment = `nechego udalyat'`;
+						const cause = `!userSubprocess.data.ingredients.length`;
 
-						let message = `nechego udalyat'`;
-						let cause = `!userSubprocess.data.ingredients.length`;
-
-						await commentUserInvalidInput(ctx, userSubprocess, cause, message);
+						await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, subCommand, cause);
 
 						return;
 					} else {
@@ -2404,18 +2396,32 @@ return;
 						});
 
 						if(absentNums.length) {
-							let message = `igredientov s ${absentNums.length>1?'nomerami':'nomerom'} ${absentNums.join()} net`;
-							let cause = `absentNums.length`;
+							const invalidComment = `igredientov s ${absentNums.length>1?'nomerami':'nomerom'} ${absentNums.join()} net`;
+							const cause = `absentNums.length`;
 
-							await commentUserInvalidInput(ctx, userSubprocess, cause, message);
+							await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, subCommand, cause);
 
 							return;
 						}
 					}
-					console.log(
-						userSubprocess.data.dish,
-						userSubprocess.data.ingredients
-					);
+
+
+					const getStrListOfDeletedIngreditents = (deletedNums, ingredients) => {
+						let strList = ``;
+						
+						deletedNums.forEach(e => {
+							console.log(e, ingredients)
+							strList += `\n${ingredients[e - 1].name__lang_code_ru}`;
+						});
+
+						return strList;
+					}
+
+					const validComment = `Ингредиент${
+						listNums.length > 1 ? 'ы' : ''
+					} удален${
+						listNums.length > 1 ? 'ы' : ''
+					}:\n${getStrListOfDeletedIngreditents(listNums, userSubprocess.data.ingredients)}`;
 
 					listNums.sort();
 					const lastDeletedNum = listNums[listNums.length - 1];
@@ -2444,182 +2450,106 @@ return;
 
 					const m = getDishMessage(selectedPage, maxNumberOfLines, userSubprocess);
 
-					let response;
-	
-					try {
-						response = await bot.telegram.editMessageText(
-							ctx.update.message.chat.id,
-							userSubprocess.state.message_id,
-							``,
-							m.text,
-							m.inlineKeyboard
-						);
-					} catch(e) {
-						console.log(e);
-						if(e.error_code == 400){
-							try{
-								response = await bot.telegram.sendMessage(
-									ctx.update.message.chat.id,
-									m.text,
-									m.inlineKeyboard
-								);
-							}catch(e){
-								console.log(e)
-							}
-						}
-					}
-	
-					if(!response){
+					let res = await editDishSheetMessage(
+						userSubprocess.tg_user_id,
+						userSubprocess.state.message_id,
+						m.text,
+						m.inlineKeyboard
+					);
+
+					if(!res){
 						return;
 					}
+					
+					userSubprocess.state.message_id = res.message_id;
 
-					const userLastAction = {};
-					userLastAction.fromUser = true;
-					userLastAction.message_id = ctx.update.message.message_id;
-
-					userSubprocess.sequence.push(userLastAction);
-
-					userSubprocess.state.message_id = response.message_id;
-
-					let row = {};
-					row.data = userSubprocess.data;
-					row.sequence = userSubprocess.sequence;
-					row.state = userSubprocess.state;
-
-					row.data = JSON.stringify(row.data);
-					row.sequence = JSON.stringify(row.sequence);
-					row.state = JSON.stringify(row.state);
-
-					let paramQuery = {};
-					paramQuery.text = `
-						UPDATE telegram_user_subprocesses
-						SET	${getStrOfColumnNamesAndTheirSettedValues(row)}
-						WHERE id = ${userSubprocess.id}
-					;`;
-					await DB_CLIENT.query(paramQuery);
+					await completeSubrocessCommand(userMessageId, userSubprocess, validComment, subCommand);
 
 				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__EDIT_INGREDIENT_WEIGHT_IN_DISH))) {
+					const subCommand = `deleteIngrFromDish`;
+
 					const ingredientNum = Number(re_result[1]);
 					const newWeight = Number(re_result[2].replace(/\,/, '.'));
 					
 					if (!userSubprocess.data.ingredients.length) {
+						const invalidComment = `nechego izmenyat''`;
+						const cause = `!userSubprocess.data.ingredients.length edit w`;
 
-						let message = `nechego izmenyat''`;
-						let cause = `!userSubprocess.data.ingredients.length edit w`;
-
-						await commentUserInvalidInput(ctx, userSubprocess, cause, message);
+						await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, subCommand, cause);
 
 						return;
 					}
 
 					if ( ingredientNum < 1 || ingredientNum > userSubprocess.data.ingredients.length) {
+						const invalidComment = `igredienta s nomerom ${ingredientNum} net`;
+						const cause = `ingredientNum < 1 || ingredientNum > userSubprocess.data.ingredients.length`;
 
-						let message = `igredienta s nomerom ${ingredientNum} net`;
-						let cause = `ingredientNum < 1 || ingredientNum > userSubprocess.data.ingredients.length`;
-
-						await commentUserInvalidInput(ctx, userSubprocess, cause, message);
+						await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, subCommand, cause);
 
 						return;
 					}
 
-					userSubprocess.data.ingredients[ingredientNum].g_weight = newWeight;
+					if (userSubprocess.data.ingredients[ingredientNum - 1].g_weight == newWeight){
+						const invalidComment = `Зачем задавать точно такой же вес ингредиенту???`;
+						const cause = `userSubprocess.data.ingredients[ingredientNum].g_weight == newWeight`;
+
+						await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, subCommand, cause);
+
+						return;
+					}
+
+					userSubprocess.data.ingredients[ingredientNum - 1].g_weight = newWeight;
 
 					userSubprocess.data.dish = calcDishBJUKnW(
 						userSubprocess.data.dish,
 						userSubprocess.data.ingredients
 					);
-					
-					console.log(userSubprocess.data);
 
-					let messageText = makeDishSheet(
-						userSubprocess.data.dish,
-						userSubprocess.data.ingredients
+					const validComment = `Изменен вес ингредиента:\n\n${userSubprocess.data.ingredients[ingredientNum - 1].name__lang_code_ru}`;
+					
+					const maxNumberOfLines = 20;
+					const selectedPage = getNumberOfPages(ingredientNum, maxNumberOfLines);
+
+					const m = getDishMessage(selectedPage, maxNumberOfLines, userSubprocess);
+
+					let res = await editDishSheetMessage(
+						userSubprocess.tg_user_id,
+						userSubprocess.state.message_id,
+						m.text,
+						m.inlineKeyboard
 					);
-	
-					const tg_user_id = userInfo.tg_user_id;
-					const inlineKeyboard = telegraf.Markup.inlineKeyboard([[
-							telegraf.Markup.button.callback(`Сохранить`, `i${tg_user_id}save`),
-							telegraf.Markup.button.callback(`Отменить`, `i${tg_user_id}cancel`),
-							telegraf.Markup.button.callback(`Команды`, `i${tg_user_id}commands`)
-						]]);
-	
-					inlineKeyboard.parse_mode = 'HTML';
-	
-					let response;
-	
-					try {
-						response = await bot.telegram.editMessageText(
-							ctx.update.message.chat.id,
-							userSubprocess.state.message_id,
-							``,
-							messageText,
-							inlineKeyboard
-						);
-					} catch(e) {
-						console.log(e);
-						if(e.error_code == 400){
-							try{
-								response = await bot.telegram.sendMessage(
-									ctx.update.message.chat.id,
-									messageText,
-									inlineKeyboard
-								);
-							}catch(e){
-								console.log(e)
-							}
-						}
-					}
-	
-					if(!response){
+
+					if(!res){
 						return;
 					}
+					
+					userSubprocess.state.message_id = res.message_id;
 
-					const userLastAction = {};
-					userLastAction.fromUser = true;
-					userLastAction.message_id = ctx.update.message.message_id;
-
-					userSubprocess.sequence.push(userLastAction);
-
-					userSubprocess.state.message_id = response.message_id;
-
-					let row = {};
-					row.data = userSubprocess.data;
-					row.sequence = userSubprocess.sequence;
-					row.state = userSubprocess.state;
-
-					row.data = JSON.stringify(row.data);
-					row.sequence = JSON.stringify(row.sequence);
-					row.state = JSON.stringify(row.state);
-
-					let paramQuery = {};
-					paramQuery.text = `
-						UPDATE telegram_user_subprocesses
-						SET	${getStrOfColumnNamesAndTheirSettedValues(row)}
-						WHERE id = ${userSubprocess.id}
-					;`;
-					await DB_CLIENT.query(paramQuery);
+					await completeSubrocessCommand(userMessageId, userSubprocess, validComment, subCommand);
 
 				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DISH_TOTAL_WEIGHT))) {
+					const subCommand = `dishTotalWeight`;
+
 					const totalWeight = Number(re_result[1].replace(/\,/, '.'));
 
 					//check more than actual weight
 					//
 					if (!userSubprocess.data.ingredients.length) {
 
-						let message = `Blyudo ne imeet ingredientov. Nechemu zadavat' itogoviy ves.`;
-						let cause = `!userSubprocess.data.ingredients.length itog ves`;
+						const invalidComment = `Blyudo ne imeet ingredientov. Nechemu zadavat' itogoviy ves.`;
+						const cause = `!userSubprocess.data.ingredients.length itog ves`;
 
-						await commentUserInvalidInput(ctx, userSubprocess, cause, message);
+						await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, subCommand, cause);
 
 						return;
 					}
 
 					if (totalWeight > userSubprocess.data.dish.g_weight){
 
-						let message = `Itogoviy ves ne mojet bit' bolshe vesa summi vseh ingredientov. Dobavlena voda? Zanesi ee togda.`;
-						let cause = `totalWeight > userSubprocess.data.dish.g_weight)`;
+						const invalidComment = `Itogoviy ves ne mojet bit' bolshe vesa summi vseh ingredientov. Dobavlena voda? Zanesi ee togda.`;
+						const cause = `totalWeight > userSubprocess.data.dish.g_weight)`;
 
-						await commentUserInvalidInput(ctx, userSubprocess, cause, message);
+						await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, subCommand, cause);
 
 						return;
 					}
@@ -2639,80 +2569,36 @@ return;
 
 					userSubprocess.data.dish.total_g_weight = totalWeight;
 
+					const validComment = `Итоговый вес блюда задан.`;
 
-					let messageText = makeDishSheet(
-						userSubprocess.data.dish,
-						userSubprocess.data.ingredients
+					const lengthOfIngredients = userSubprocess.data.ingredients.length;
+					const maxNumberOfLines = 20;
+					const selectedPage = getNumberOfPages(lengthOfIngredients, maxNumberOfLines);// COMPABILITY BITCH
+
+					const m = getDishMessage(selectedPage, maxNumberOfLines, userSubprocess);
+
+					let res = await editDishSheetMessage(
+						userSubprocess.tg_user_id,
+						userSubprocess.state.message_id,
+						m.text,
+						m.inlineKeyboard
 					);
-	
-					const tg_user_id = userInfo.tg_user_id;
-					const inlineKeyboard = telegraf.Markup.inlineKeyboard([[
-							telegraf.Markup.button.callback(`Сохранить`, `i${tg_user_id}save`),
-							telegraf.Markup.button.callback(`Отменить`, `i${tg_user_id}cancel`),
-							telegraf.Markup.button.callback(`Команды`, `i${tg_user_id}commands`)
-						]]);
-	
-					inlineKeyboard.parse_mode = 'HTML';
-	
-					let response;
-	
-					try {
-						response = await bot.telegram.editMessageText(
-							ctx.update.message.chat.id,
-							userSubprocess.state.message_id,
-							``,
-							messageText,
-							inlineKeyboard
-						);
-					} catch(e) {
-						console.log(e);
-						if(e.error_code == 400){
-							try{
-								response = await bot.telegram.sendMessage(
-									ctx.update.message.chat.id,
-									messageText,
-									inlineKeyboard
-								);
-							}catch(e){
-								console.log(e)
-							}
-						}
-					}
-	
-					if(!response){
+
+					if(!res){
 						return;
 					}
+					
+					userSubprocess.state.message_id = res.message_id;
 
-					const userLastAction = {};
-					userLastAction.fromUser = true;
-					userLastAction.message_id = ctx.update.message.message_id;
+					await completeSubrocessCommand(userMessageId, userSubprocess, validComment, subCommand);
 
-					userSubprocess.sequence.push(userLastAction);
-
-					userSubprocess.state.message_id = response.message_id;
-
-					let row = {};
-					row.data = userSubprocess.data;
-					row.sequence = userSubprocess.sequence;
-					row.state = userSubprocess.state;
-
-					row.data = JSON.stringify(row.data);
-					row.sequence = JSON.stringify(row.sequence);
-					row.state = JSON.stringify(row.state);
-
-					let paramQuery = {};
-					paramQuery.text = `
-						UPDATE telegram_user_subprocesses
-						SET	${getStrOfColumnNamesAndTheirSettedValues(row)}
-						WHERE id = ${userSubprocess.id}
-					;`;
-					await DB_CLIENT.query(paramQuery);
 				} else {
-					let message = `Ne ponimayu komandu.`;
-					let cause = `Ne ponimayu komandu`;
+					const invalidComment = `Ne ponimayu komandu.`;
+					const cause = `Ne ponimayu komandu`;
 
-					await commentUserInvalidInput(ctx, userSubprocess, cause, message);
+					await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, 'undefined', cause);
 				}
+
 			} else if (userSubprocess.process_name == `DISH_CREATING__RENAMING`){
 				let dishName = text.slice(0, 128).replaceAll(/['"\\]/ug, ``).trim();
 
