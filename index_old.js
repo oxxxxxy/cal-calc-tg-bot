@@ -375,12 +375,94 @@ const extendBJUKnWNOfIngredients = ings => {
 		return ingredients;
 	};
 
-					const invalidInputHandler = async (ctx, userSubprocess, cause, message) => {
+	const updateUserSubprocess = async userSubprocess => {
+		let row = {};
+		row.data = userSubprocess.data;
+		row.sequence = userSubprocess.sequence;
+		row.state = userSubprocess.state;
+
+		row.data = JSON.stringify(row.data);
+		row.sequence = JSON.stringify(row.sequence);
+		row.state = JSON.stringify(row.state);
+
+		let paramQuery = {};
+		paramQuery.text = `
+			UPDATE telegram_user_subprocesses
+			SET	${getStrOfColumnNamesAndTheirSettedValues(row)}
+			WHERE id = ${userSubprocess.id}
+		;`;
+		await DB_CLIENT.query(paramQuery);
+	};
+	
+	const commentValidInput = async (ctx, userSubprocess, cause, message) => {
+		const userLastAction = {};
+		userLastAction.fromUser = true;
+		userLastAction.message_id = ctx.update.message.message_id;
+
+		userSubprocess.sequence.push(userLastAction);
+
+ 		let lastNonDeteledIndex;
+		let botPreviousAnswer = userSubprocess.sequence.findLast((e, i) => {
+			if(e.fromBot && !e.deleted){
+				lastNonDeteledIndex = i;
+				return true;
+			}
+		});
+
+		if (botPreviousAnswer) {
+			let response;
+			try{
+				response = await bot.telegram.deleteMessage(
+					userSubprocess.tg_user_id,
+					botPreviousAnswer.message_id
+				);
+			}catch(e){
+				console.log(e);
+				if(e.response.error_code == 400){
+					botPreviousAnswer.deleted = true;
+				}
+			}
+
+			if(response) {
+				botPreviousAnswer.deleted = true;
+			}
+			
+			userSubprocess.sequence[lastNonDeteledIndex] = botPreviousAnswer;
+		}
+
+		let messageText = message;
+		let response;
+		try {
+			response = await bot.telegram.sendMessage(
+				ctx.update.message.chat.id,
+				messageText
+			);
+		} catch(e) {
+			console.log(e);
+		}
+
+		if(!response){
+			return;
+		}
+			console.log(response);
+			// add to sequence
+		sequenceAction = {};
+		sequenceAction.fromBot = true;
+		sequenceAction.type = `sendMessage`;
+		sequenceAction.incorrectInputReply = true;
+		sequenceAction.incorrectCause = cause;
+		sequenceAction.message_id = response.message_id;
+		userSubprocess.sequence.push(sequenceAction);
+
+		await updateUserSubprocess(userSubprocess);
+	}
+
+					const commentInvalidInput = async (ctx, userSubprocess, cause, message) => {
 						let sequenceAction = {};
 						sequenceAction.fromUser = true;
+						sequenceAction.message_id = ctx.update.message.message_id;
 						sequenceAction.incorrectInput = true;
 						sequenceAction.incorrectCause = cause;
-						sequenceAction.message_id = ctx.update.message.message_id;
 
  						userSubprocess.sequence.push(sequenceAction);
 
@@ -392,6 +474,7 @@ const extendBJUKnWNOfIngredients = ings => {
 							}
 						});
  						
+ 						//use for funny reply if sequence of the same bad input
  						/* if (botPreviousAnswer && botPreviousAnswer?.incorrectCause == cause){
  							let row = {};
 							row.data = userSubprocess.data;
@@ -456,22 +539,7 @@ const extendBJUKnWNOfIngredients = ings => {
 						sequenceAction.message_id = response.message_id;
  						userSubprocess.sequence.push(sequenceAction);
 
-						let row = {};
-						row.data = userSubprocess.data;
-						row.sequence = userSubprocess.sequence;
-						row.state = userSubprocess.state;
-
- 						row.data = JSON.stringify(row.data);
-						row.sequence = JSON.stringify(row.sequence);
-						row.state = JSON.stringify(row.state);
-
- 						let paramQuery = {};
-						paramQuery.text = `
-							UPDATE telegram_user_subprocesses
-							SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
-							WHERE id = ${userSubprocess.id}
-						;`;
-						await pgClient.query(paramQuery);
+						await updateUserSubprocess(userSubprocess);
 					}
 
 				const makeUnderlineIDOfUserCreatedFI = id => {
@@ -521,17 +589,17 @@ const getButtonTextPagesOfDish = pages => {
 							const buttonTextPages = {};
 
 							if (pages.movePrevious == pages.selected) {
-								buttonTextPages.left = pages.movePrevious + '';
+								buttonTextPages.left = `<<${pages.movePrevious}>>`;
 							} else {
-								buttonTextPages.left = pages.movePrevious + '<';
+								buttonTextPages.left = `${pages.movePrevious}<<`;
 							}
 
-							buttonTextPages.middle = pages.selected;
+							buttonTextPages.middle = `<<${pages.selected}>>`;
 
 							if (pages.moveNext == pages.selected) {
-								buttonTextPages.right = '' + pages.moveNext;
+								buttonTextPages.right = `<<${pages.moveNext}>>`;
 							} else {
-								buttonTextPages.right = '>' + pages.moveNext;
+								buttonTextPages.right = `>>${pages.moveNext}`;
 							}
 
 							return buttonTextPages;
@@ -2244,7 +2312,7 @@ return;
  						let message = `Больше 100 ингредиентов в одном блюде? Не шутишь?\nТогда придётся сохранить текущее блюдо, создать второе блюдо и добавить в него текущее.\nТакие дела, чо...`;
 						let cause = `userSubprocess.data.ingredients.length >= 100`;
 
-						await invalidInputHandler(ctx, userSubprocess, cause, message);
+						await commentInvalidInput(ctx, userSubprocess, cause, message);
 						
 						return;
 					}
@@ -2278,7 +2346,7 @@ return;
 						let message = `Ingredient "${newIngredient.name__lang_code_ru}" uje dobavlen pod nomerom ${identicalIngredient.n}.`;
 						let cause = `identicalIngredient`;
 
-						await invalidInputHandler(ctx, userSubprocess, cause, message);
+						await commentInvalidInput(ctx, userSubprocess, cause, message);
 
 						return;
 					}
@@ -2368,7 +2436,7 @@ return;
 						let message = `nechego udalyat'`;
 						let cause = `!userSubprocess.data.ingredients.length`;
 
-						await invalidInputHandler(ctx, userSubprocess, cause, message);
+						await commentInvalidInput(ctx, userSubprocess, cause, message);
 
 						return;
 					} else {
@@ -2383,7 +2451,7 @@ return;
 							let message = `igredientov s ${absentNums.length>1?'nomerami':'nomerom'} ${absentNums.join()} net`;
 							let cause = `absentNums.length`;
 
-							await invalidInputHandler(ctx, userSubprocess, cause, message);
+							await commentInvalidInput(ctx, userSubprocess, cause, message);
 
 							return;
 						}
@@ -2392,6 +2460,9 @@ return;
 						userSubprocess.data.dish,
 						userSubprocess.data.ingredients
 					);
+
+					listNums.sort();
+					const lastDeletedNum = listNums[listNums.length - 1];
 
 					for(let i = 0; i < userSubprocess.data.ingredients.length; i++){
 						for (let k = 0; k < listNums.length; k++) {
@@ -2412,9 +2483,8 @@ return;
 						userSubprocess.data.ingredients
 					);
 					
-					const lengthOfIngredients = userSubprocess.data.ingredients.length;
 					const maxNumberOfLines = 20;
-					const selectedPage = getNumberOfPages(lengthOfIngredients, maxNumberOfLines);
+					const selectedPage = getNumberOfPages(lastDeletedNum, maxNumberOfLines);
 
 					const m = getDishMessage(selectedPage, maxNumberOfLines, userSubprocess);
 
@@ -2481,7 +2551,7 @@ return;
 						let message = `nechego izmenyat''`;
 						let cause = `!userSubprocess.data.ingredients.length edit w`;
 
-						await invalidInputHandler(ctx, userSubprocess, cause, message);
+						await commentInvalidInput(ctx, userSubprocess, cause, message);
 
 						return;
 					}
@@ -2491,7 +2561,7 @@ return;
 						let message = `igredienta s nomerom ${ingredientNum} net`;
 						let cause = `ingredientNum < 1 || ingredientNum > userSubprocess.data.ingredients.length`;
 
-						await invalidInputHandler(ctx, userSubprocess, cause, message);
+						await commentInvalidInput(ctx, userSubprocess, cause, message);
 
 						return;
 					}
@@ -2583,7 +2653,7 @@ return;
 						let message = `Blyudo ne imeet ingredientov. Nechemu zadavat' itogoviy ves.`;
 						let cause = `!userSubprocess.data.ingredients.length itog ves`;
 
-						await invalidInputHandler(ctx, userSubprocess, cause, message);
+						await commentInvalidInput(ctx, userSubprocess, cause, message);
 
 						return;
 					}
@@ -2593,7 +2663,7 @@ return;
 						let message = `Itogoviy ves ne mojet bit' bolshe vesa summi vseh ingredientov. Dobavlena voda? Zanesi ee togda.`;
 						let cause = `totalWeight > userSubprocess.data.dish.g_weight)`;
 
-						await invalidInputHandler(ctx, userSubprocess, cause, message);
+						await commentInvalidInput(ctx, userSubprocess, cause, message);
 
 						return;
 					}
@@ -2685,7 +2755,7 @@ return;
 					let message = `Ne ponimayu komandu.`;
 					let cause = `Ne ponimayu komandu`;
 
-					await invalidInputHandler(ctx, userSubprocess, cause, message);
+					await commentInvalidInput(ctx, userSubprocess, cause, message);
 				}
 			} else if (userSubprocess.process_name == `DISH_CREATING__RENAMING`){
 				let dishName = text.slice(0, 128).replaceAll(/['"\\]/ug, ``).trim();
@@ -2694,7 +2764,7 @@ return;
  					let message = `Название блюда должно иметь хотя бы 4 символа.`;
  					let cause = `dishName.length < 4`;
 					
-					await invalidInputHandler(ctx, userSubprocess, cause, message);
+					await commentInvalidInput(ctx, userSubprocess, cause, message);
 
 					return;
 				}
@@ -2715,7 +2785,7 @@ return;
 						cause += `2`;
 					}
 					
-					await invalidInputHandler(ctx, userSubprocess, cause, message);
+					await commentInvalidInput(ctx, userSubprocess, cause, message);
 					
 					return;
 				}
@@ -3290,7 +3360,7 @@ console.log(userSubprocess);
 					const cause = `!userSubprocess.data.ingredients`;
 					const message = `Блюдо не содержит ингредиентов. Не могу сохранить.`;
 
-					await invalidInputHandler(ctx, userSubprocess, cause, message);
+					await commentInvalidInput(ctx, userSubprocess, cause, message);
 
 					return;
 				}
