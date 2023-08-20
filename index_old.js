@@ -356,7 +356,6 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 				};
 
 const shortenBJUKnWNOfIngredients = ings => {
-		const ingredients = makeCopyOfObjArray(ings);
 		ingredients.forEach((e, i) => {
 			const obj = {};
 			obj.i = e.id;
@@ -392,6 +391,28 @@ const extendBJUKnWNOfIngredients = ings => {
 		return ingredients;
 	};
 
+	const insertIntoTelegramUserSendedCommandsPostgresTable = async row => {
+		let paramQuery = {};
+		paramQuery.text = `
+			INSERT INTO telegram_user_sended_commands
+			(${objKeysToColumnStr(row)})
+			VALUES
+			(${objKeysToColumn$IndexesStr(row)})
+		;`;
+		paramQuery.values = getArrOfValuesFromObj(row);
+		await DB_CLIENT.query(paramQuery);
+	}
+
+	const updateTelegramUserSubprocessPostgresTable = async (id, row) => {
+		let paramQuery = {};
+		paramQuery.text = `
+			UPDATE telegram_user_subprocesses
+			SET	${getStrOfColumnNamesAndTheirSettedValues(row)}
+			WHERE id = ${id}
+		;`;
+		await DB_CLIENT.query(paramQuery);
+	};
+
 	const updateUserSubprocess = async userSubprocess => {
 		let row = {};
 		row.data = userSubprocess.data;
@@ -402,13 +423,26 @@ const extendBJUKnWNOfIngredients = ings => {
 		row.sequence = JSON.stringify(row.sequence);
 		row.state = JSON.stringify(row.state);
 
-		let paramQuery = {};
-		paramQuery.text = `
-			UPDATE telegram_user_subprocesses
-			SET	${getStrOfColumnNamesAndTheirSettedValues(row)}
-			WHERE id = ${userSubprocess.id}
-		;`;
-		await DB_CLIENT.query(paramQuery);
+		await updateTelegramUserSubprocessPostgresTable(
+			userSubprocess.id,
+			row
+		);
+	};
+	
+	const completeUserSubprocess = async (userSubprocess, obj) => {
+		let row = {};
+		if(obj){
+			row = obj;
+		}
+		row.data = JSON.stringify({});
+		row.sequence = JSON.stringify({});
+		row.state = JSON.stringify({});
+		row.completed = true;
+
+		await updateTelegramUserSubprocessPostgresTable(
+			userSubprocess.id,
+			row
+		);
 	};
 
 	const sendMessage = async (chatId, text) => {		
@@ -508,7 +542,7 @@ const extendBJUKnWNOfIngredients = ings => {
 							// add mark of user valid/invalid input
 							userSubprocess.sequence.push(
 								getSequenceAction(
-									userMessageId,
+									userMessageId ? userMessageId : undefined,
 									subCommand ? subCommand : undefined,
 									cause ? cause : undefined
 								)
@@ -2818,13 +2852,18 @@ bot.on(`callback_query`, async ctx => {
 	const reFoodItems = new RegExp(`${tableNames.food_items}(\\d+)i(\\d+)`);
 	const reSave = /i(\d+)save/;
 	const reCancel = /i(\d+)cancel/;
-	const reCommands = /i(\d+)commands/;	
+
+	const reCommands = /i(\d+)commands/;
+	const reCommandPage = /i(\d+)cp(\d+)/;
+
 
 
 console.log(userSubprocess);	
 	if(!userSubprocess){
+		if(Array.isArray(re_result = callbackQuery.data.match(reCommandPage))) {
+		//commands pages
 
-		if (Array.isArray(re_result = callbackQuery.data.match(reFoodItems))) {
+		} else if (Array.isArray(re_result = callbackQuery.data.match(reFoodItems))) {
 
 		const maxNumberOfLines = 10;//25
 
@@ -3109,37 +3148,17 @@ console.log(userSubprocess);
 					return;
 				}
 				
- 				let row = {};
-				row.data = JSON.stringify({});
-				row.sequence = JSON.stringify({});
-				row.state = JSON.stringify({});
-				row.completed = true;
-				row.canceled = true;
-  
-				let paramQuery = {};
-				paramQuery.text = `
-					UPDATE telegram_user_subprocesses
-					SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
-					WHERE id = ${userSubprocess.id}
-				;`;
-				await DB_CLIENT.query(paramQuery);
+				await completeUserSubprocess(userSubprocess, {
+						canceled: true
+					});
 				
-				row = {};
+				const row = {};
 				row.creation_date = creation_date;
 				row.command = `CANCEL__CREATE_DISH__RENAME`;
-				row.tg_user_id = userInfo.tg_user_id;
+				row.tg_user_id = userSubprocess.tg_user_id;
 				row.process_id = userSubprocess.id;
-				row.canceled = true;
 
-				paramQuery = {};
-				paramQuery.text = `
-					INSERT INTO telegram_user_sended_commands
-					(${objKeysToColumnStr(row)})
-					VALUES
-					(${objKeysToColumn$IndexesStr(row)})
-				;`;
-				paramQuery.values = getArrOfValuesFromObj(row);
-				await DB_CLIENT.query(paramQuery);
+				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
 
 			}
 
@@ -3165,51 +3184,35 @@ console.log(userSubprocess);
 					return;
 				}
 				
- 				let row = {};
-				row.data = JSON.stringify({});
-				row.sequence = JSON.stringify({});
-				row.state = JSON.stringify({});
-				row.completed = true;
-				row.canceled = true;
-  
-				let paramQuery = {};
-				paramQuery.text = `
-					UPDATE telegram_user_subprocesses
-					SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
-					WHERE id = ${userSubprocess.id}
-				;`;
-				await DB_CLIENT.query(paramQuery);
+				await completeUserSubprocess(userSubprocess, {
+						canceled: true
+					});
 				
-				row = {};
+				const row = {};
 				row.creation_date = creation_date;
 				row.command = `CANCEL__CREATE_DISH`;
 				row.tg_user_id = userInfo.tg_user_id;
 				row.process_id = userSubprocess.id;
+				
+				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
 
-				paramQuery = {};
-				paramQuery.text = `
-					INSERT INTO telegram_user_sended_commands
-					(${objKeysToColumnStr(row)})
-					VALUES
-					(${objKeysToColumn$IndexesStr(row)})
-				;`;
-				paramQuery.values = getArrOfValuesFromObj(row);
-				await DB_CLIENT.query(paramQuery);
 			} else if (Array.isArray(re_result = callbackQuery.data.match(reSave))){
+				const subCommand = `callbackSaveDish`;
 				//check ingredients
 				//check dish ingredients if no return
 				if (!userSubprocess.data.ingredients.length){
+					const invalidComment = `Блюдо не содержит ингредиентов. Не могу сохранить.`;
 					const cause = `!userSubprocess.data.ingredients`;
-					const message = `Блюдо не содержит ингредиентов. Не могу сохранить.`;
 
-					await commentUserInvalidInput(ctx, userSubprocess, cause, message);
+					await completeSubrocessCommand (0, userSubprocess, invalidComment, subCommand, cause);
 
 					return;
 				}
 
-				const ingredients = shortenBJUKnWNOfIngredients(
+				let ingredients = makeCopyOfObjArray(
 					userSubprocess.data.ingredients
 				);
+				ingredients = shortenBJUKnWNOfIngredients(ingredients);
 
 				let dish = Object.assign({}, userSubprocess.data.dish);
 				//insert into dish_items
@@ -3269,20 +3272,13 @@ console.log(userSubprocess);
 				row.tg_user_id = userSubprocess.tg_user_id;
 				row.can_it_be_removed = true;
 				row.process_id = userSubprocess.id;
+				row.can_it_be_removed = true;
 
 				row.data = {};
 				row.data.dish_items_ids = [dishItemsId];
 				row.data = JSON.stringify(row.data);
 
-				paramQuery = {};
-				paramQuery.text = `
-					INSERT INTO telegram_user_sended_commands
-					(${objKeysToColumnStr(row)})
-					VALUES
-					(${objKeysToColumn$IndexesStr(row)})
-				;`;
-				paramQuery.values = getArrOfValuesFromObj(row);
-				await DB_CLIENT.query(paramQuery);
+				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
 
 				//insert telegram_users
 				//perepisat' na telegram_users
@@ -3295,23 +3291,11 @@ console.log(userSubprocess);
 					WHERE id = ${userInfo.r_user_id};
 				`);
 
-				//update telegram_user_subprocesses 
-				row = {};
-				row.data = JSON.stringify({});
-				row.sequence = JSON.stringify({});
-				row.state = JSON.stringify({});
-				row.completed = true;
-  
-				paramQuery = {};
-				paramQuery.text = `
-					UPDATE telegram_user_subprocesses
-					SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
-					WHERE id = ${userSubprocess.id}
-				;`;
-				await DB_CLIENT.query(paramQuery);
+				//update telegram_user_subprocesses  complete clear data state sequence
+				await completeUserSubprocess(userSubprocess);
 
 
-				//make message and send
+				//make message with buttons of dishitems id if ings > 20 and send
 				let messageText = makeDishSheet(
 					userSubprocess.data.dish,
 					userSubprocess.data.ingredients
@@ -3333,8 +3317,9 @@ console.log(userSubprocess);
 					console.log(e)
 				}
 				
-			} else if (Array.isArray(re_result = callbackQuery.data.match(reCommands))) {
+			} else if (Array.isArray(re_result = callbackQuery.data.match(reCommands))) {// redirect if sequence of shit input > 2
 
+				
 				console.log(`code me`);
 			}
 
