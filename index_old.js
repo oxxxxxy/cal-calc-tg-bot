@@ -2850,18 +2850,27 @@ bot.on(`callback_query`, async ctx => {
 		`)).rows[0];
 	
 	const reFoodItems = new RegExp(`${tableNames.food_items}(\\d+)i(\\d+)`);
-	const reSave = /i(\d+)save/;
-	const reCancel = /i(\d+)cancel/;
+	
+	const rePreCreatedDishPage = /^i(\d+)p(\d+)$/;
+	const reBack = /back/;
 
-	const reCommands = /i(\d+)commands/;
-	const reCommandPage = /i(\d+)cp(\d+)/;
+	const reCreatedDishPage = /^i(\d+)p(\d+)d(\d+)$/;
+
+	const reSave = /^i(\d+)save$/;
+	const reCancel = /^i(\d+)cancel$/;
+
+	const reCommands = /^i(\d+)commands$/;
+	const reCommandPage = /^i(\d+)cp(\d+)$/;
 
 
 
 console.log(userSubprocess);	
 	if(!userSubprocess){
 		if(Array.isArray(re_result = callbackQuery.data.match(reCommandPage))) {
-		//commands pages
+			//commands pages
+
+
+
 
 		} else if (Array.isArray(re_result = callbackQuery.data.match(reFoodItems))) {
 
