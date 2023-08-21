@@ -447,11 +447,12 @@ const extendBJUKnWNOfIngredients = ings => {
 		);
 	};
 
-	const sendMessage = async (chatId, text) => {		
+	const sendMessage = async (chatId, text, markup) => {		
 		try{
 			return await bot.telegram.sendMessage(
 				chatId,
-				text
+				text,
+				markup
 			);
 		}catch(e){
 			console.log(chatId, text, e);
@@ -1355,6 +1356,9 @@ bot.on(`message`, async ctx => {
 	if(!userSubprocess){
 
 		if(Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__HELP))){
+			console.log(HTMLCommandMaker.shortCommandList.length)	
+			// let res = await sendMessage(userInfo.tg_user_id, HTMLCommandMaker.shortCommandList);
+
 			console.log(`code me`);
 
 		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_LAST_ACTION))) {

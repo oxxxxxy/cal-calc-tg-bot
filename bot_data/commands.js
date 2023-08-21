@@ -257,7 +257,6 @@ const day = {
 		,parameterDescription:`Калорийность можно не задавать, если задано что-то из БЖУ.`
 		,usageExamples:[
 			`сд  кето день. б123ж321`
-			,`сд  обычный приём пищи . у500 к 3000`
 			,`сд  тренировочный день. б 200 у500 ж 90`
 			,`сд  восстановительный день. б1500у300ж100`
 		]
@@ -356,15 +355,6 @@ const dayChain = {
 	}
 }
 
-const test = obj => {
-	let str =``;
-
-
-
-
-
-};
-
 const copyShareFoodDish = {
 	header:`ШЕРИНГ СОЗДАННЫХ ЕДЫ И БЛЮД`
 	,copyFood:{
@@ -379,7 +369,7 @@ const copyShareFoodDish = {
 			,parameters:`(бжук &gt;&lt; N) название еды`
 			,parameterDescription:`Создается сообщение с кодом вашей созданной еды, которое пересылает другой пользователь в свой чат со мной.`
 			,usageExamples:[
-				`@${process.env.BOT_USERNAME} АБАЛДЕННЫЕ БулАЧкИ`
+				`@${process.env.BOT_USERNAME} б&gt;20 АБАЛДЕННЫЕ БулАЧкИ`
 			]
 		}
 	,copyDish:{
@@ -465,6 +455,7 @@ const commandList = [
 	userFood,
 	userDish,
 	dishProcess,
+
 	projectFD,
 	eatenFD,
 	day,
@@ -473,6 +464,156 @@ const commandList = [
 ];
 
 const HTMLCommandMaker = {};
+Object.defineProperty(HTMLCommandMaker, `fullDescCommandListPerPageCounts`, {
+	value:(function () {
+		let forEveryPageCountOfCommands = [];
+		
+		let str = ``,
+			strg = ``;
+		for(let i = 0, sequence = 0; i < commandList.length; i++){
+			let obj = commandList[i];
+			for(const p in obj){
+				if(p == `header`){
+
+					str += `${HTMLBold(obj[p])}\n\n`;
+					strg += `${HTMLBold(obj[p])}\n\n`;
+				} else {
+					str += `${i}) ${obj[p].commandTitle}\n`;
+					strg += `${i}) ${obj[p].commandTitle}\n`;
+
+					if(obj[p].command){
+						str += `__${HTMLMonospace(obj[p].command)}    `;
+						strg += `__${HTMLMonospace(obj[p].command)}    `;
+					}
+					if(obj[p].parameters){
+						str += `${obj[p].parameters}    `;
+						strg += `${obj[p].parameters}    `;
+					}
+					if(obj[p].parameterDescription){
+						str += obj[p].parameterDescription;
+						strg += obj[p].parameterDescription;
+					}
+					if(obj[p].usageExamples){
+						str += `\n  ${HTMLItalic(obj[p].usageExamples.join('\n  '))}`;
+						strg += `\n  ${HTMLItalic(obj[p].usageExamples.join('\n  '))}`;
+					}
+					str += `\n\n`;
+					strg += `\n\n`;
+				}
+			}
+			
+			sequence++;
+				
+				console.log(`pre`,i, sequence, str.length, strg.length);
+			if(str.length > 2000 && str.length < 2450){
+				console.log(`2100`,i, sequence, str.length);
+				forEveryPageCountOfCommands.push(sequence);
+				sequence = 0;
+				str = ``;
+			} else if (str.length > 2450) {
+				console.log(`else`, i, sequence, str.length);
+				forEveryPageCountOfCommands.push(sequence - 1);
+				i = i - 1;
+				sequence = 0;
+				str = ``;
+			}
+
+			if(i == commandList.length - 1){
+				forEveryPageCountOfCommands.push(sequence);
+				break;
+			}
+
+		}
+
+		return forEveryPageCountOfCommands.concat([]);
+	}())
+});
+
+console.log(HTMLCommandMaker.fullDescCommandListPerPageCounts);
+
+Object.defineProperty(HTMLCommandMaker, `fullDescCommandList`, {
+	get () {
+		const fullCommandList = () => {
+			let str = `${HTMLBold(HTMLUnderline('СПИСОК КОМАНД'))}\n`
+				,i = 1;
+				
+			for (const obj of commandList){
+				let k = 1;
+				for (const p in obj) {
+					if(p == `header`){
+						str += `${HTMLBold(obj[p])}\n\n`;
+					} else {		
+						str += `${i}) ${obj[p].commandTitle}\n`;
+						i++;			
+
+						if(obj[p].command){
+							str += `__${HTMLMonospace(obj[p].command)}    `;
+						}
+						if(obj[p].parameters){
+							str += `${obj[p].parameters}    `;
+						}
+						if(obj[p].parameterDescription){
+							str += obj[p].parameterDescription;
+						}
+						if(obj[p].usageExamples){
+							str += `\n  ${HTMLItalic(obj[p].usageExamples.join('\n  '))}`;
+						}
+						str += `\n\n`;
+					}
+				}
+				i++;
+			}
+
+			return str;
+		};
+
+		if (!this.argLengthOfFullCommandList) {
+
+		} else {
+
+		}
+
+
+
+
+	}
+});
+
+Object.defineProperty(HTMLCommandMaker, `shortCommandList`, {
+	get () {
+		let str = `${HTMLBold(HTMLUnderline('СПИСОК КОМАНД'))}\n`
+			,i = 1;
+		
+		for (const obj of commandList){
+			let k = 1;
+			for (const p in obj) {
+				if(p == `header`){
+					str += `${HTMLBold(i + ' ' + obj.header)}\n`;
+				} else {		
+					str += `${i + '.' + k}) ${obj[p].commandTitle}\n`;
+					k++;
+		
+					if(obj[p].command){
+						str += `__${HTMLMonospace(obj[p].command)}    `;
+					}
+					if(obj[p].parameters){
+						str += `${obj[p].parameters}    `;
+					}
+					if(!obj[p].parameters && obj[p].parameterDescription){
+						str += obj[p].parameterDescription;
+					}
+					str += `\n\n`;
+				}
+			}
+			i++;
+		}
+
+		str += `Используйте кнопки, чтобы посмотреть подробнее.`
+
+		return str;
+	}
+});
+
 Object.defineProperty(HTMLCommandMaker, `help`, {
 	get () { return getHTMLCommandsOfCommandBlock(help);}
 	,enumerable:true
@@ -513,40 +654,6 @@ Object.defineProperty(HTMLCommandMaker, `copyShareFoodDish`, {
 	get () { return getHTMLCommandsOfCommandBlock(copyShareFoodDish);}
 	,enumerable:true
 });
-Object.defineProperty(HTMLCommandMaker, `shortCommandList`, {
-	get () {
-		let str = `${HTMLBold(HTMLUnderline('СПИСОК КОМАНД'))}\n`
-			,i = 1;
-		
-		for (const obj of commandList){
-			let k = 1;
-			for (const p in obj) {
-				if(p == `header`){
-					str += `${HTMLBold(i + ' ' + obj.header)}\n`;
-				} else {		
-					str += `${i + '.' + k}) ${obj[p].commandTitle}\n`;
-					k++;
-		
-					if(obj[p].command){
-						str += `__${HTMLMonospace(obj[p].command)}    `;
-					}
-					if(obj[p].parameters){
-						str += `${obj[p].parameters}    `;
-					}
-					if(!obj[p].parameters && obj[p].parameterDescription){
-						str += obj[p].parameterDescription;
-					}
-					str += `\n\n`;
-				}
-			}
-			i++;
-		}
-
-		str += `Используйте кнопки, чтобы посмотреть подробнее.`
-
-		return str;
-	}
-});
 Object.defineProperty(HTMLCommandMaker, `getCommandByNum`, {
 	value:function (num) {
 		let i = 0;
@@ -559,6 +666,8 @@ Object.defineProperty(HTMLCommandMaker, `getCommandByNum`, {
 		}
 	}
 });
+
+
 
 
 exports.HTMLCommandMaker = HTMLCommandMaker;
