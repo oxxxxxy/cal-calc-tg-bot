@@ -356,6 +356,14 @@ const dayChain = {
 	}
 }
 
+const test = obj => {
+	let str =``;
+
+
+
+
+
+};
 
 const copyShareFoodDish = {
 	header:`ШЕРИНГ СОЗДАННЫХ ЕДЫ И БЛЮД`
@@ -451,6 +459,19 @@ const getHTMLCommandsOfCommandBlock = obj => {
 	return str;
 }
 
+const commandList = [
+	help,
+	settings,
+	userFood,
+	userDish,
+	dishProcess,
+	projectFD,
+	eatenFD,
+	day,
+	dayChain,
+	copyShareFoodDish
+];
+
 const HTMLCommandMaker = {};
 Object.defineProperty(HTMLCommandMaker, `help`, {
 	get () { return getHTMLCommandsOfCommandBlock(help);}
@@ -492,16 +513,52 @@ Object.defineProperty(HTMLCommandMaker, `copyShareFoodDish`, {
 	get () { return getHTMLCommandsOfCommandBlock(copyShareFoodDish);}
 	,enumerable:true
 });
-Object.defineProperty(HTMLCommandMaker, `mainCommandList`, {
+Object.defineProperty(HTMLCommandMaker, `shortCommandList`, {
 	get () {
-		let str = `${HTMLBold(HTMLUnderline('СПИСОК КОМАНД'))}\n`;
-	
-		for (const p in HTMLCommandMaker){
-			str += `\n${this[p]}`;
+		let str = `${HTMLBold(HTMLUnderline('СПИСОК КОМАНД'))}\n`
+			,i = 1;
+		
+		for (const obj of commandList){
+			let k = 1;
+			for (const p in obj) {
+				if(p == `header`){
+					str += `${HTMLBold(i + ' ' + obj.header)}\n`;
+				} else {		
+					str += `${i + '.' + k}) ${obj[p].commandTitle}\n`;
+					k++;
+		
+					if(obj[p].command){
+						str += `__${HTMLMonospace(obj[p].command)}    `;
+					}
+					if(obj[p].parameters){
+						str += `${obj[p].parameters}    `;
+					}
+					if(!obj[p].parameters && obj[p].parameterDescription){
+						str += obj[p].parameterDescription;
+					}
+					str += `\n\n`;
+				}
+			}
+			i++;
 		}
+
+		str += `Используйте кнопки, чтобы посмотреть подробнее.`
 
 		return str;
 	}
 });
+Object.defineProperty(HTMLCommandMaker, `getCommandByNum`, {
+	value:function (num) {
+		let i = 0;
+
+		for (let p in this) {
+			i++;
+			if(num == i){
+				return this[p];
+			}
+		}
+	}
+});
+
 
 exports.HTMLCommandMaker = HTMLCommandMaker;
