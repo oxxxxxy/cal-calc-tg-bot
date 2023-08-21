@@ -47,6 +47,7 @@ const RE_RU_YES = /^д$/u;
 const RE_RU_NO = /^н$/u;
 const RE_RU_COMMAND__DELETE_LAST_ACTION = /^у$/u;
 const RE_RU_COMMAND__CANCEL_LAST_ACTION = /^о$/u;
+const RE_RU_COMMAND__HELP = /^(х|\/h)$/u;
 
 const RE_RU_COMMAND__CREATE_FOOD = /^(се\s+)((([а-яА-Яa-zA-Z0-9]+)(\s+|))+)\./u;
 // /^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\((\s+|)((([а-яА-Яa-zA-Z0-9]+)(\s+|):(\s+|)(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)(\s+|)(г|мкг|мг|ккал)(\s+|))+)\)$/u;
@@ -541,18 +542,18 @@ const extendBJUKnWNOfIngredients = ings => {
 					
 						const completeSubrocessCommand = async (userMessageId, userSubprocess, comment, subCommand, cause) => {
 							// add mark of user valid/invalid input
-							userSubprocess.sequence.push(
-								getSequenceAction(
-									userMessageId ? userMessageId : undefined,
-									subCommand ? subCommand : undefined,
-									cause ? cause : undefined
-								)
-							);
+							userSubprocess.sequence(getSequenceAction(
+								userMessageId ? userMessageId:undefined,
+								subCommand?subCommand:undefined,
+								cause?cause:undefined
+							));
 
 							await deletePreviousBotComment(userSubprocess);
 	
 	 						//use for funny reply if sequence of the same bad user input
-	 						/* if (botPreviousComment && botPreviousComment?.incorrectCause == cause){
+	 						/*
+	 					
+							if (botPreviousComment && botPreviousComment?.incorrectCause == cause){
 	 							let row = {};
 								row.data = userSubprocess.data;
 								row.sequence = userSubprocess.sequence;
@@ -570,7 +571,9 @@ const extendBJUKnWNOfIngredients = ings => {
 								;`;
 								await pgClient.query(paramQuery);
 	 							return;
-							} */
+							}
+
+	*/
 				
 							let res = await sendMessage(
 								userSubprocess.tg_user_id,
@@ -1351,7 +1354,10 @@ bot.on(`message`, async ctx => {
 	
 	if(!userSubprocess){
 
-		if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_LAST_ACTION))) {
+		if(Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__HELP))){
+			console.log(`code me`);
+
+		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_LAST_ACTION))) {
 		
 			const userLastCommand = await getUserLastCommand(DB_CLIENT, userInfo.tg_user_id);
 			console.log(userLastCommand);
@@ -2317,9 +2323,63 @@ return;
 			await deletePreviousUserInput(userSubprocess);
 
 			const userMessageId = ctx.update.message.message_id;
+			const chatId = ctx.update.message.chat.id;
+			const dishSheetMessageId = userSubprocess.state.message_id;
 
 			if (userSubprocess.process_name == `DISH_CREATING` || userSubprocess.process_name == `DISH_EDITING`){
-				if (Array.isArray(re_result = text.toLowerCase().match(RE__RESOLVE_FD_ID_WEIGHT_FROM_InlQuery))){
+				if(Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__HELP))){
+					if (userSubprocess.state.interface == `help`) {
+						userSubprocess.sequence.push(getSequenceAction(userMessageId));
+
+						await updateUserSubprocess(userSubprocess);
+						return;
+					}
+
+					const htmlText = HTMLCommandMaker.dishProcess;
+
+					const inlineKeyboard = telegraf.Markup.inlineKeyboard(
+							[
+								[	
+									telegraf.Markup.button.callback(`Назад`, `i${userSubprocess.tg_user_id}back`)
+								]
+							]
+						);
+
+					inlineKeyboard.parse_mode = `HTML`;
+
+					let res = await editDishSheetMessage(chatId, dishSheetMessageId, htmlText, inlineKeyboard);
+					
+					if(!res){
+						return;
+					}
+					console.log(res)
+
+					userSubprocess.state.message_id = res.message_id;
+					userSubprocess.state.interface = `help`;
+
+					await deletePreviousBotComment(userSubprocess);
+
+					const validComment = `Показываю команды.`;
+
+					res = await sendMessage(
+						userSubprocess.tg_user_id,
+						validComment
+					);
+			
+					if(res){
+						userSubprocess.sequence.push(
+							getSequenceAction(
+								res.message_id,
+								subCommand ? subCommand : undefined,
+								cause ? cause : undefined,
+								true
+							)
+						);
+					}
+	
+					await updateUserSubprocess(userSubprocess);
+
+				} else if (Array.isArray(re_result = text.toLowerCase().match(RE__RESOLVE_FD_ID_WEIGHT_FROM_InlQuery))){
 					const subCommand = `resolveFDIDWeightFromInlQuery`;
 
 					const foodDishType = re_result[1];
@@ -2401,6 +2461,7 @@ return;
 					}
 					
 					userSubprocess.state.message_id = res.message_id;
+					userSubprocess.state.interface = `main`;
 
 					await completeSubrocessCommand(userMessageId, userSubprocess, validComment, subCommand);
 
@@ -2497,6 +2558,7 @@ return;
 					}
 					
 					userSubprocess.state.message_id = res.message_id;
+					userSubprocess.state.interface = `main`;
 
 					await completeSubrocessCommand(userMessageId, userSubprocess, validComment, subCommand);
 
@@ -2559,6 +2621,7 @@ return;
 					}
 					
 					userSubprocess.state.message_id = res.message_id;
+					userSubprocess.state.interface = `main`;
 
 					await completeSubrocessCommand(userMessageId, userSubprocess, validComment, subCommand);
 
@@ -2603,6 +2666,7 @@ return;
 					);
 
 					userSubprocess.data.dish.total_g_weight = totalWeight;
+					userSubprocess.state.interface = `main`;
 
 					const validComment = `Итоговый вес блюда задан.`;
 
@@ -3352,7 +3416,9 @@ console.log(userSubprocess);
 				userSubprocess.state.message_id = res.message_id;
 				userSubprocess.state.interface = `help`;
 
-				await updateUserSubprocess(userSubprocess);
+				const validComment = `Показываю команды.`;
+
+				await completeSubrocessCommand(0, userSubprocess, validComment);
 
 			} else if (Array.isArray(re_result = callbackQuery.data.match(reUserBack))) {
 				const lengthOfIngredients = userSubprocess.data.ingredients.length;
