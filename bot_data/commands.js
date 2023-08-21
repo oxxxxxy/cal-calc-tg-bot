@@ -44,10 +44,10 @@ const userFood = {
 		commandBlockName:`userFood`
 		,commandTitle:`Посмотреть созданную еду`
 		,command:`псе`
-		,parameters:`(бжук >< N в 100 граммах)`
+		,parameters:`(бжук &gt;&lt; N в 100 граммах)`
 		,parameterDescription:`Фильтры опциональны.`
 		,usageExamples:[
-			`псе  ж<10`
+			`псе  ж&lt;10`
 			,`псе`
 		]
 	}
@@ -79,10 +79,10 @@ const userDish = {
 		commandBlockName:`userDish`
 		,commandTitle:`Посмотреть созданные блюда`
 		,command:`псб`
-		,parameters:`(бжук >< N в 100 граммах)`
+		,parameters:`(бжук &gt;&lt; N в 100 граммах)`
 		,parameterDescription:`Фильтры опциональны.`
 		,usageExamples:[
-			`псб  б>33`
+			`псб  б&gt;33`
 			,`псб`
 		]
 	}
@@ -122,9 +122,9 @@ const dishProcess = {
 		subCommandBlockName:`dichProcessCRUD`
 		,commandTitle:`Добавить ингредиент в блюдо`
 		,command:`@${process.env.BOT_USERNAME}`
-		,parameters:`вес  (бжук >< N в 100 граммах)  название ингредиента`
+		,parameters:`вес  (бжук &gt;&lt; N в 100 граммах)  название ингредиента`
 		,usageExamples:[
-			`@${process.env.BOT_USERNAME}  321  ж<10  филе`
+			`@${process.env.BOT_USERNAME}  321  ж&gt;10  филе`
 			,`@${process.env.BOT_USERNAME}  765.4  арбуз`
 		]
 	}
@@ -165,10 +165,10 @@ const projectFD = {
 		commandBlockName:`projectFD`
 		,commandTitle:`Посмотреть еду проекта`
 		,command:`пеп`
-		,parameters:`(бжук >< N в 100 граммах)`
+		,parameters:`(бжук &gt;&lt; N в 100 граммах)`
 		,parameterDescription:`Фильтры опциональны.`
 		,usageExamples:[
-			`пеп  к<444`
+			`пеп  к&gt;444`
 			,`пеп`
 		]
 	}
@@ -176,10 +176,10 @@ const projectFD = {
 		commandBlockName:`projectFD`
 		,commandTitle:`Посмотреть блюда проекта`
 		,command:`пбп`
-		,parameters:`(бжук >< N в 100 граммах)`
+		,parameters:`(бжук &gt;&lt; N в 100 граммах)`
 		,parameterDescription:`Фильтры опциональны.`
 		,usageExamples:[
-			`пбп  к < 333`
+			`пбп  к &gt; 333`
 			,`пбп`
 		]
 	}
@@ -200,7 +200,7 @@ const eatenFD = {
 		commandBlockName:`eatenFD`
 		,commandTitle:`Внести съеденную еду или блюдо`
 		,command:`@${process.env.BOT_USERNAME}`
-		,parameters:`вес  (бжук >< N в 100 граммах)  название блюда/еды`
+		,parameters:`вес  (бжук &gt;&lt; N в 100 граммах)  название блюда/еды`
 		,usageExamples:[
 			`@${process.env.BOT_USERNAME}  234.5  у>50  шоколад`
 			,`@${process.env.BOT_USERNAME}  432.5  плов с бараниной`
@@ -368,7 +368,7 @@ const copyShareFoodDish = {
 			commandBlockName:`copyShareFoodDish`
 			,commandTitle:`Поделиться созданной едой с другими пользователями`
 			,command:`@${process.env.BOT_USERNAME}`
-			,parameters:`(бжук >< N) название еды`
+			,parameters:`(бжук &gt;&lt; N) название еды`
 			,parameterDescription:`Создается сообщение с кодом вашей созданной еды, которое пересылает другой пользователь в свой чат со мной.`
 			,usageExamples:[
 				`@${process.env.BOT_USERNAME} АБАЛДЕННЫЕ БулАЧкИ`
@@ -383,7 +383,7 @@ const copyShareFoodDish = {
 			commandBlockName:`copyShareFoodDish`
 			,commandTitle:`Поделиться созданным блюдом с другими пользователями`
 			,command:`@${process.env.BOT_USERNAME}`
-			,parameters:`(бжук >< N) название блюда`
+			,parameters:`(бжук &gt;&lt; N) название блюда`
 			,parameterDescription:`Создается сообщение с кодом вашего созданного блюда, которое пересылает другой пользователь в свой чат со мной.`
 			,usageExamples:[
 				`@${process.env.BOT_USERNAME} супер протеиновый коктейль ХАНАПОЧКАМ`
@@ -427,7 +427,7 @@ const getHTMLCommandsOfCommandBlock = obj => {
 
 	for (const p in obj) {
 		if(p == `header`){
-			str += `${HTMLBold(obj[p])}\n`;
+			str += `${HTMLBold(obj[p])}\n\n`;
 		} else {		
 			str += `${i}) ${obj[p].commandTitle}\n`;
 			i++;			
@@ -442,11 +442,9 @@ const getHTMLCommandsOfCommandBlock = obj => {
 				str += obj[p].parameterDescription;
 			}
 			if(obj[p].usageExamples){
-				obj[p].usageExamples.forEach(e => {
-					str += `\n  ${HTMLItalic(e)}`;
-				});
+				str += `\n  ${HTMLItalic(obj[p].usageExamples.join('\n  '))}`;
 			}
-			str += `\n`;
+			str += `\n\n`;
 		}
 	}
 
@@ -498,7 +496,6 @@ Object.defineProperty(HTMLCommandMaker, `mainCommandList`, {
 	get () {
 		let str = `${HTMLBold(HTMLUnderline('СПИСОК КОМАНД'))}\n`;
 	
-		console.log(HTMLCommandMaker.settings)
 		for (const p in HTMLCommandMaker){
 			str += `\n${this[p]}`;
 		}
@@ -508,17 +505,3 @@ Object.defineProperty(HTMLCommandMaker, `mainCommandList`, {
 });
 
 exports.HTMLCommandMaker = HTMLCommandMaker;
-
-console.log(HTMLCommandMaker.mainCommandList);
-
-
-
-
-
-
-
-
-
-
-
-

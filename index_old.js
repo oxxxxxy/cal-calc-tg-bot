@@ -22,7 +22,7 @@ const {
 	COMMAND__CREATE_FOOD__YES,
 	COMMAND__CREATE_FOOD__NO
 } = require(`./modules/user_commands/create_food_funcs.js`);
-const HTMLCommandMaker = require(`./bot_data/commands.js`);
+const {HTMLCommandMaker} = require(`./bot_data/commands.js`);
 // const { inlineKeyboard } = require('telegraf/typings/markup.js');
 // const { callback } = require('telegraf/typings/button.js');
 
@@ -2853,7 +2853,7 @@ bot.on(`callback_query`, async ctx => {
 	const reFoodItems = new RegExp(`${tableNames.food_items}(\\d+)i(\\d+)`);
 	
 	const rePreCreatedDishPage = /^i(\d+)p(\d+)$/;
-	const reBack = /back/;
+	const reUserBack = /^i(\d+)back$/;
 
 	const reCreatedDishPage = /^i(\d+)p(\d+)d(\d+)$/;
 
@@ -3135,6 +3135,9 @@ console.log(userSubprocess);
 		console.log(`!userSubprocess, main tree`);
 
 	} else {
+		const chatId = callbackQuery.message.chat.id;
+		const messageId = userSubprocess.state.message_id;
+
 		if(userSubprocess.process_name == `DISH_CREATING__RENAMING`){
 			if(Array.isArray(re_result = callbackQuery.data.match(reCancel))){
 				console.log(re_result);
@@ -3328,11 +3331,47 @@ console.log(userSubprocess);
 				}
 				
 			} else if (Array.isArray(re_result = callbackQuery.data.match(reCommands))) {// redirect if sequence of shit input > 2
+				const htmlText = HTMLCommandMaker.dishProcess;
 
+				const inlineKeyboard = telegraf.Markup.inlineKeyboard(
+						[
+							[	
+								telegraf.Markup.button.callback(`Назад`, `i${userSubprocess.tg_user_id}back`)
+							]
+						]
+					);
+
+				inlineKeyboard.parse_mode = `HTML`;
+
+				const res = await editDishSheetMessage(chatId, messageId, htmlText, inlineKeyboard);
 				
-				console.log(`code me`);
-			}
+				if(!res){
+					return;
+				}
 
+				userSubprocess.state.message_id = res.message_id;
+				userSubprocess.state.interface = `help`;
+
+				await updateUserSubprocess(userSubprocess);
+
+			} else if (Array.isArray(re_result = callbackQuery.data.match(reUserBack))) {
+				const lengthOfIngredients = userSubprocess.data.ingredients.length;
+				const maxNumberOfLines = 20;
+				const selectedPage = getNumberOfPages(lengthOfIngredients, maxNumberOfLines);
+
+				const m = getDishMessage(selectedPage, maxNumberOfLines, userSubprocess);
+
+				const res = await editDishSheetMessage(chatId, messageId, m.text, m.inlineKeyboard);
+
+				if(!res){
+					return;
+				}
+				
+				userSubprocess.state.message_id = res.message_id;
+
+				await updateUserSubprocess(userSubprocess);
+
+			}
 		} else {
 			console.log(`code me`);
 		}
