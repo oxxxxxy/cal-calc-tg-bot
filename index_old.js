@@ -22,6 +22,7 @@ const {
 	COMMAND__CREATE_FOOD__YES,
 	COMMAND__CREATE_FOOD__NO
 } = require(`./modules/user_commands/create_food_funcs.js`);
+const HTMLCommandMaker = require(`./bot_data/commands.js`);
 // const { inlineKeyboard } = require('telegraf/typings/markup.js');
 // const { callback } = require('telegraf/typings/button.js');
 
