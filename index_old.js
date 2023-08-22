@@ -357,7 +357,7 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 					return dishSheet;
 				};
 
-const shortenBJUKnWNOfIngredients = ings => {
+const shortenBJUKnWNOfIngredients = ingredients => {
 		ingredients.forEach((e, i) => {
 			const obj = {};
 			obj.i = e.id;
@@ -609,6 +609,23 @@ const extendBJUKnWNOfIngredients = ings => {
 				};
 
 
+						const getPagesOfHelp = (selectedPage, numberOfPages) => {
+							const pages = {};
+							pages.selected = selectedPage;
+					
+							pages.moveNext = selectedPage + 1;
+							if (pages.moveNext > numberOfPages) {
+								pages.moveNext = numberOfPages;
+							}
+					
+							if (selectedPage > 1) {
+								pages.movePrevious = selectedPage - 1;
+							} else {
+								pages.movePrevious = 1;
+							}
+							return pages;
+						}
+
 							const getNumberOfPages = (lengthOfItems, maxNumberOfLines) => {
 								let numberOfPages = Math.floor(lengthOfItems / maxNumberOfLines) + 1;
 
@@ -638,7 +655,7 @@ const extendBJUKnWNOfIngredients = ings => {
 							return pages;
 						}
 						
-const getButtonTextPagesOfDish = pages => {
+const getButtonTextForThreePageInKey = pages => {
 							const buttonTextPages = {};
 
 							if (pages.movePrevious == pages.selected) {
@@ -658,6 +675,28 @@ const getButtonTextPagesOfDish = pages => {
 							return buttonTextPages;
 						};
 
+					const getHelpMessage = (selectedPage, pageCount, text) => {
+						const message = {};
+
+							const pages = getPagesOfHelp(selectedPage, pageCount);
+							const buttonTextPages = getButtonTextForThreePageInKey(pages);
+
+							message.inlineKeyboard = telegraf.Markup.inlineKeyboard(
+								[
+									[	
+										telegraf.Markup.button.callback(buttonTextPages.left, `help${pages.movePrevious}`),
+										telegraf.Markup.button.callback(buttonTextPages.middle, `help${pages.selected}`),
+										telegraf.Markup.button.callback(buttonTextPages.right, `help${pages.moveNext}`)
+									]
+								]
+							);
+
+						message.text = text;
+		
+						message.inlineKeyboard.parse_mode = 'HTML';
+
+						return message;
+						}
 
 					const getDishMessage = (selectedPage, maxNumberOfLines, userSubprocess) => {
 						const lengthOfIngredients = userSubprocess.data.ingredients.length;
@@ -666,7 +705,7 @@ const getButtonTextPagesOfDish = pages => {
 
 						if (lengthOfIngredients > maxNumberOfLines) {
 							const pages = getPagesOfDish(lengthOfIngredients, maxNumberOfLines, selectedPage);
-							const buttonTextPages = getButtonTextPagesOfDish(pages);
+							const buttonTextPages = getButtonTextForThreePageInKey(pages);
 
 							message.inlineKeyboard = telegraf.Markup.inlineKeyboard(
 								[
@@ -1356,35 +1395,10 @@ bot.on(`message`, async ctx => {
 	if(!userSubprocess){
 
 		if(Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__HELP))){
-
-					const getHelpMessage = (selectedPage, pageCount) => {
-						const message = {};
-
-							const pages = getPagesOfHelp(selectedPage, pageCount);
-							const buttonTextPages = getButtonTextPagesOfHelp(pages);
-
-							message.inlineKeyboard = telegraf.Markup.inlineKeyboard(
-								[
-									[	
-										telegraf.Markup.button.callback(buttonTextPages.left, `help${pages.movePrevious}`),
-										telegraf.Markup.button.callback(buttonTextPages.middle, `help${pages.selected}`),
-										telegraf.Markup.button.callback(buttonTextPages.right, `help${pages.moveNext}`)
-									]
-								]
-							);
-
-						message.text = makeDishSheet(
-							userSubprocess.data.dish,
-							selectedIngredients
-						);
-		
-						message.inlineKeyboard.parse_mode = 'HTML';
-
-						return message;
-						}
-
 			const countOfPages = HTMLCommandMaker.fullDescCommandListPerPageCounts.length;
-
+			const pageNum = 1;
+			const m = getHelpMessage(pageNum, countOfPages, HTMLCommandMaker.getFullDescCommandListPage(pageNum));
+console.log(m)
 			// let res = await sendMessage(userInfo.tg_user_id, HTMLCommandMaker.shortCommandList);
 
 			console.log(`code me`);
