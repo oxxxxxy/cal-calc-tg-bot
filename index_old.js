@@ -543,7 +543,7 @@ const extendBJUKnWNOfIngredients = ings => {
 					
 						const completeSubrocessCommand = async (userMessageId, userSubprocess, comment, subCommand, cause) => {
 							// add mark of user valid/invalid input
-							userSubprocess.sequence(getSequenceAction(
+							userSubprocess.sequence.push(getSequenceAction(
 								userMessageId ? userMessageId:undefined,
 								subCommand?subCommand:undefined,
 								cause?cause:undefined
@@ -1356,7 +1356,35 @@ bot.on(`message`, async ctx => {
 	if(!userSubprocess){
 
 		if(Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__HELP))){
-			console.log(HTMLCommandMaker.shortCommandList.length)	
+
+					const getHelpMessage = (selectedPage, pageCount) => {
+						const message = {};
+
+							const pages = getPagesOfHelp(selectedPage, pageCount);
+							const buttonTextPages = getButtonTextPagesOfHelp(pages);
+
+							message.inlineKeyboard = telegraf.Markup.inlineKeyboard(
+								[
+									[	
+										telegraf.Markup.button.callback(buttonTextPages.left, `help${pages.movePrevious}`),
+										telegraf.Markup.button.callback(buttonTextPages.middle, `help${pages.selected}`),
+										telegraf.Markup.button.callback(buttonTextPages.right, `help${pages.moveNext}`)
+									]
+								]
+							);
+
+						message.text = makeDishSheet(
+							userSubprocess.data.dish,
+							selectedIngredients
+						);
+		
+						message.inlineKeyboard.parse_mode = 'HTML';
+
+						return message;
+						}
+
+			const countOfPages = HTMLCommandMaker.fullDescCommandListPerPageCounts.length;
+
 			// let res = await sendMessage(userInfo.tg_user_id, HTMLCommandMaker.shortCommandList);
 
 			console.log(`code me`);
