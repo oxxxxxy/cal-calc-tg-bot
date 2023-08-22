@@ -4,8 +4,9 @@ const help = {
 	header:`ПОМОЩЬ`
 	,help:{
 		commandBlockName:`help`
-		,commandTitle:`Список команд`
+		,commandTitle:`Получить список команд`
 		,command:`х`
+		,parameters:`или   /h`
 		,usageExamples:[
 			`х`
 		]
@@ -202,7 +203,7 @@ const eatenFD = {
 		,command:`@${process.env.BOT_USERNAME}`
 		,parameters:`вес  (бжук &gt;&lt; N в 100 граммах)  название блюда/еды`
 		,usageExamples:[
-			`@${process.env.BOT_USERNAME}  234.5  у>50  шоколад`
+			`@${process.env.BOT_USERNAME}  234.5  у&lt;50  шоколад`
 			,`@${process.env.BOT_USERNAME}  432.5  плов с бараниной`
 		]
 	}

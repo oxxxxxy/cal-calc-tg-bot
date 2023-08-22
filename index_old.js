@@ -459,6 +459,32 @@ const extendBJUKnWNOfIngredients = ings => {
 			return false;
 		}
 	};
+	
+const editMessage = async (chatId, messageId, text, inlineKeyboard) => {	
+		try {
+			return await bot.telegram.editMessageText(
+				chatId,
+				messageId,
+				``,
+				text,
+				inlineKeyboard
+			);
+		} catch(e) {
+			console.log(chatId, messageId, text, inlineKeyboard, e);
+			if(e.error_code == 400){
+				try{
+					return await bot.telegram.sendMessage(
+						chatId,
+						text,
+						inlineKeyboard
+					);
+				}catch(e){
+					console.log(chatId, messageId, text, inlineKeyboard, e);
+					return false;
+				}
+			}
+		}
+	}
 
 	const editDishSheetMessage = async (chatId, messageId, text, inlineKeyboard) => {	
 		try {
@@ -1244,6 +1270,8 @@ bot.on(`message`, async ctx => {
 	}
 
 	const userSubprocess = await getUserSubProcess(DB_CLIENT, ctx.update.message.from.id);
+
+	const chatId = ctx.update.message.from.id;
 	
 	const reqDate = ctx.update.message.date * 1000;	
 	const creation_date = new Date(reqDate).toISOString();
@@ -1397,11 +1425,18 @@ bot.on(`message`, async ctx => {
 		if(Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__HELP))){
 			const countOfPages = HTMLCommandMaker.fullDescCommandListPerPageCounts.length;
 			const pageNum = 1;
-			const m = getHelpMessage(pageNum, countOfPages, HTMLCommandMaker.getFullDescCommandListPage(pageNum));
-console.log(m)
-			// let res = await sendMessage(userInfo.tg_user_id, HTMLCommandMaker.shortCommandList);
+			const text = HTMLCommandMaker.getFullDescCommandListPage(pageNum);
 
-			console.log(`code me`);
+			const m = getHelpMessage(pageNum, countOfPages, text);
+			
+			await sendMessage(chatId, m.text, m.inlineKeyboard);
+
+			const row = {};
+			row.tg_user_id = userInfo.tg_user_id;
+			row.creation_date = creation_date;
+			row.command = `HELP`;
+
+			await insertIntoTelegramUserSendedCommandsPostgresTable(row);
 
 		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_LAST_ACTION))) {
 		
@@ -2972,8 +3007,11 @@ bot.on(`callback_query`, async ctx => {
 
 	const reCommands = /^i(\d+)commands$/;
 	const reCommandPage = /^i(\d+)cp(\d+)$/;
+	const reHelpPage = /^help(\d+)$/;
 
 
+	const chatId = callbackQuery.from.id;
+	const messageId = callbackQuery.message.message_id;
 
 console.log(userSubprocess);	
 	if(!userSubprocess){
@@ -2982,6 +3020,29 @@ console.log(userSubprocess);
 
 
 
+		} else if (Array.isArray(re_result = callbackQuery.data.match(reHelpPage))) {
+
+			const countOfPages = HTMLCommandMaker.fullDescCommandListPerPageCounts.length;
+			const pageNum = Number(re_result[1]);
+			const text = HTMLCommandMaker.getFullDescCommandListPage(pageNum);
+
+			const m = getHelpMessage(pageNum, countOfPages, text);
+
+			const previousTextOfMessage = callbackQuery.message.text.replaceAll(/\s+|<|>/g, ``);
+			const newTextOfMessage = m.text.replaceAll(/<\w+>|<\/\w+>|\s+|&gt;|&lt;/g, ``);
+			
+			const row = {};
+			row.tg_user_id = userInfo.tg_user_id;
+			row.creation_date = creation_date;
+			row.command = `HELP_PAGE`;
+
+			await insertIntoTelegramUserSendedCommandsPostgresTable(row);
+
+			if (previousTextOfMessage == newTextOfMessage){
+				return;
+			}
+			
+			await editMessage(chatId, messageId, m.text, m.inlineKeyboard);
 
 		} else if (Array.isArray(re_result = callbackQuery.data.match(reFoodItems))) {
 
