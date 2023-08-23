@@ -700,6 +700,109 @@ const getButtonTextForThreePageInKey = pages => {
 
 							return buttonTextPages;
 						};
+				
+				const getCountOfPages = (lengthOfItems, maxNumberOfLinesOnPage) => {
+					let countOfPages = Math.floor(lengthOfItems / maxNumberOfLinesOnPage) + 1;
+
+					if(lengthOfItems > 0 && !(lengthOfItems % maxNumberOfLinesOnPage)) {
+						countOfPages = countOfPages - 1;
+					}
+
+					return countOfPages;
+				};
+
+				const getPagesFor3ButtonInlineKeyboard = (countOfPages, selectedPage = 1) => {
+					if(countOfPages < 2){
+						throw `countOfPages is less than 2, there is no reason to create inlineKeyboard.`;
+					}
+
+					const pages = {};
+					pages.first = {};
+					pages.second = {};
+
+					if(countOfPages == 2) {
+						if(selectedPage == 1) {
+						 pages.first.number = selectedPage;
+						 pages.first.selected = true;
+						 pages.second.number = selectedPage + 1;
+						} else {	
+						 pages.first.number = selectedPage - 1;
+						 pages.second.number = selectedPage;
+						 pages.second.selected = true;
+						}
+						return pages;
+					}
+
+					pages.third = {};
+
+					if(selectedPage == countOfPages) {
+						pages.first.number = selectedPage - 2;
+						pages.second.number = selectedPage - 1;
+						pages.third.number = selectedPage;
+						pages.third.selected = true;
+
+						return pages;
+					}
+
+					if(selectedPage == 1){
+						pages.first.number = selectedPage;
+						pages.first.selected = true;
+						pages.second.number = selectedPage + 1;
+						pages.third.number = selectedPage + 2;
+
+						return pages;
+					}
+
+					pages.first.number = selectedPage - 1;
+					pages.second.number = selectedPage;
+					pages.second.selected = true;
+					pages.third.number = selectedPage + 1;
+
+					return pages;
+				};
+
+				const getButtonsFor3ButtonInlineKeyboard = (pages, dataPart) => {
+					const buttons = {};
+					buttons.first = {};
+					buttons.first.data = dataPart + 'p' + pages.first.number;
+					buttons.second = {};
+					buttons.second.data = dataPart + 'p' + pages.second.number;
+
+					if(pages.first.selected){
+						buttons.first.text = `<<${pages.first.number}>>`;
+						buttons.second.text = `>>${pages.second.number}`;
+
+						if(pages.third){
+							buttons.third = {};
+							buttons.third.text = `>>${pages.third.number}`;
+							buttons.third.data = dataPart + 'p' + pages.third.number;
+						}
+
+						return buttons;
+					} else {
+						buttons.first.text += `<<`;
+					}
+
+					if(pages.second.selected){
+						buttons.first.text = `${pages.first.number}<<`;
+						buttons.second.text = `<<${pages.second.number}>>`;
+
+						if(pages.third){
+							buttons.third = {};
+							buttons.third.text = `>>${pages.third.number}`;
+							buttons.third.data = dataPart + 'p' + pages.third.number;
+						}
+						return  buttons;
+					}
+
+					buttons.third = {};
+					buttons.first.text = `${pages.first.number}<<`;
+					buttons.second.text = `${pages.second.number}<<`;
+					buttons.third.text = `<<${pages.third.number}>>`;
+					buttons.third.data = dataPart + 'p' + pages.third.number;
+
+					return buttons;
+				}
 
 					const getHelpMessage = (selectedPage, pageCount, text) => {
 						const message = {};
@@ -3496,56 +3599,13 @@ console.log(userSubprocess);
 						]
 					);
 			
-				const getCountOfPages = (lengthOfItems, maxNumberOfLinesOnPage) => {
-					let countOfPages = Math.floor(lengthOfItems / maxNumberOfLinesOnPage) + 1;
 
-					if(lengthOfItems > 0 && !(lengthOfItems % maxNumberOfLinesOnPage)) {
-						countOfPages = countOfPages - 1;
-					}
+				if(lengthOfIngredients > maxNumberOfLines){
+					const countOfPages = getCountOfPages(lengthOfIngredients, maxNumberOfLines);
+					const pagesFor3ButtonInlineKeyboard = getPagesFor3ButtonInlineKeyboard(countOfPages, selectedPage);
 
-					return countOfPages;
-				};
+				}
 
-				const getPagesForInlineKeyboard = (countOfPages, selectedPage = 1) => {
-					if(!countOfPages){
-						throw `countOfPages equal to 0. There is no reason to create inlineKeyboard.`;
-					}
-
-					const pages = {};
-					pages.first = {};
-					pages.second = {};
-
-					if(countOfPages == 2) {
-						if(selectedPage == 1) {
-						 pages.first.number = selectedPage;
-						 pages.first.selected = true;
-						 pages.second.number = selectedPage + 1;
-						} else {	
-						 pages.first.number = selectedPage - 1;
-						 pages.second.number = selectedPage;
-						 pages.second.selected = true;
-						}
-
-						return pages;
-					}
-
-					pages.third = {};
-
-
-					
-			
-					pages.moveNext = selectedPage + 1;
-					if (pages.moveNext > countOfPages) {
-						pages.moveNext = countOfPages;
-					}
-			
-					if (selectedPage > 1) {
-						pages.movePrevious = selectedPage - 1;
-					} else {
-								pages.movePrevious = 1;
-							}
-							return pages;
-				};
 
 					const getDishLookingMessage = (maxNumberOfLines, ingredients, diId, selectedPage = 1) => {
 						const lengthOfIngredients = ingredients.length;
