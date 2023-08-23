@@ -98,12 +98,12 @@ const userDish = {
 	}
 	,editCreatedDish:{
 		commandBlockName:`userDish`
-		,commandTitle:`Изменить созданное блюдо`
+		,commandTitle:`Редактировать созданное блюдо`
 		,command:`исб`
 		,parameters:`ID созданного блюда, без аргумента будет изменяться последнее`
 		,parameterDescription:`Инициирует процесс редактирования блюда.`
 		,usageExamples:[
-			`исб 12`
+			`рб  12`
 		]
 	}
 	,deleteCreatedDish:{

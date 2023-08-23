@@ -431,7 +431,7 @@ const extendBJUKnWNOfIngredients = ings => {
 		);
 	};
 	
-	const completeUserSubprocess = async (userSubprocess, obj) => {
+	const completeUserSubprocess = async (userSubprocessId, obj) => {
 		let row = {};
 		if(obj){
 			row = obj;
@@ -442,7 +442,7 @@ const extendBJUKnWNOfIngredients = ings => {
 		row.completed = true;
 
 		await updateTelegramUserSubprocessPostgresTable(
-			userSubprocess.id,
+			userSubprocessId,
 			row
 		);
 	};
@@ -906,11 +906,11 @@ const cleanLimitationOfUCFI = async () => {
 		await DB_CLIENT.query(`
 			UPDATE registered_users
 			SET first_user_created_fidi_time = null,
-			limit_count_of_user_created_fidi = null
+			limit_count_of_user_created_fidi = 0
 			WHERE first_user_created_fidi_time < '${date}'
 		;`);
 
-		await delay(30000);
+		await delay(6000);
 	}
 }
 
@@ -1269,6 +1269,7 @@ bot.on(`message`, async ctx => {
 		return;
 	}
 
+	const userLastCommand = await getUserLastCommand(DB_CLIENT, userInfo.tg_user_id);
 	const userSubprocess = await getUserSubProcess(DB_CLIENT, ctx.update.message.from.id);
 
 	const chatId = ctx.update.message.from.id;
@@ -1303,27 +1304,6 @@ bot.on(`message`, async ctx => {
 					return true;
 				}
 			});
-
-			if (botPreviousComment && botPreviousComment?.incorrectCause == `!ctx.update.message.text`){
-				let row = {};
-				row.data = userSubprocess.data;
-				row.sequence = userSubprocess.sequence;
-				row.state = userSubprocess.state;
-
-				row.data = JSON.stringify(row.data);
-				row.sequence = JSON.stringify(row.sequence);
-				row.state = JSON.stringify(row.state);
-
-				let paramQuery = {};
-				paramQuery.text = `
-					UPDATE telegram_user_subprocesses
-					SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
-					WHERE id = ${userSubprocess.id}
-				;`;
-				await DB_CLIENT.query(paramQuery);
-
-				return;
-			}
 
 			if (botPreviousComment) {
 				let response;
@@ -1404,7 +1384,8 @@ bot.on(`message`, async ctx => {
 			(${objKeysToColumn$IndexesStr(row)})
 		;`;
 		paramQuery.values = getArrOfValuesFromObj(row);
-		await DB_CLIENT.query(paramQuery);
+		let res2 = await DB_CLIENT.query(paramQuery);
+		console.log(res2);
 
 		return;
 	}
@@ -1440,7 +1421,6 @@ bot.on(`message`, async ctx => {
 
 		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_LAST_ACTION))) {
 		
-			const userLastCommand = await getUserLastCommand(DB_CLIENT, userInfo.tg_user_id);
 			console.log(userLastCommand);
 
 			if (!userLastCommand.can_it_be_removed){
@@ -2081,8 +2061,15 @@ return;
  */
 
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__EDIT_DISH))) {
-				ctx.reply(`code me, bitch`);
-				console.log(`code me`);
+				const di_id_for_user = re_result[1];
+
+				//select by di_id_for_user, tg_user_id
+				//extendBJUKnWNOfIngredients from fooddish_gweight_items_json
+				//create process
+				//send message
+				
+
+				console.log(re_result	);
 
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SHOW_CREATED_DISHES))) {
 
@@ -3009,6 +2996,9 @@ bot.on(`callback_query`, async ctx => {
 	const reCommandPage = /^i(\d+)cp(\d+)$/;
 	const reHelpPage = /^help(\d+)$/;
 
+	const reCharsToReplaceFromPreviousTextOfMessage = /\s+|<|>/g;
+	const reCharsToReplaceFromNewTextOfMessage = /<\w+>|<\/\w+>|\s+|&gt;|&lt;/g;
+
 
 	const chatId = callbackQuery.from.id;
 	const messageId = callbackQuery.message.message_id;
@@ -3027,9 +3017,6 @@ console.log(userSubprocess);
 			const text = HTMLCommandMaker.getFullDescCommandListPage(pageNum);
 
 			const m = getHelpMessage(pageNum, countOfPages, text);
-
-			const previousTextOfMessage = callbackQuery.message.text.replaceAll(/\s+|<|>/g, ``);
-			const newTextOfMessage = m.text.replaceAll(/<\w+>|<\/\w+>|\s+|&gt;|&lt;/g, ``);
 			
 			const row = {};
 			row.tg_user_id = userInfo.tg_user_id;
@@ -3037,7 +3024,10 @@ console.log(userSubprocess);
 			row.command = `HELP_PAGE`;
 
 			await insertIntoTelegramUserSendedCommandsPostgresTable(row);
-
+			     
+			const previousTextOfMessage = callbackQuery.message.text.replaceAll(reCharsToReplaceFromPreviousTextOfMessage, ``);
+			const newTextOfMessage = m.text.replaceAll(reCharsToReplaceFromNewTextOfMessage, ``);
+			
 			if (previousTextOfMessage == newTextOfMessage){
 				return;
 			}
@@ -3332,7 +3322,7 @@ console.log(userSubprocess);
 					return;
 				}
 				
-				await completeUserSubprocess(userSubprocess, {
+				await completeUserSubprocess(userSubprocess.id, {
 						canceled: true
 					});
 				
@@ -3368,7 +3358,7 @@ console.log(userSubprocess);
 					return;
 				}
 				
-				await completeUserSubprocess(userSubprocess, {
+				await completeUserSubprocess(userSubprocess.id, {
 						canceled: true
 					});
 				
@@ -3466,40 +3456,146 @@ console.log(userSubprocess);
 
 				//insert telegram_users
 				//perepisat' na telegram_users
+				// fidi limit
 				//registered_users available_count_of_user_created_fi - 1 //add check for all users
-				userInfo.available_count_of_user_created_di = Number(userInfo.available_count_of_user_created_di) + 1;
+
+				row = {};
+
+				if (!userInfo.privilege_type) {
+					if (!userInfo.first_user_created_fidi_time) {
+						row.first_user_created_fidi_time = creation_date;
+					}
+					row.limit_count_of_user_created_fidi= Number(userInfo.limit_count_of_user_created_fidi) + 1;
+				}
+
+				row.available_count_of_user_created_di = Number(userInfo.available_count_of_user_created_di) + 1;
+				row.count_of_user_created_di = userSubprocess.data.dish.di_id_for_user;
+
 				await DB_CLIENT.query(`
 					UPDATE registered_users
-					SET available_count_of_user_created_di = ${userInfo.available_count_of_user_created_di},
-					count_of_user_created_di = ${userSubprocess.data.dish.di_id_for_user}
+					SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
 					WHERE id = ${userInfo.r_user_id};
 				`);
 
 				//update telegram_user_subprocesses  complete clear data state sequence
-				await completeUserSubprocess(userSubprocess);
-
-
+				await completeUserSubprocess(userSubprocess.id);
+	
+				// test is text check needed or changing keyboard is enough
 				//make message with buttons of dishitems id if ings > 20 and send
-				let messageText = makeDishSheet(
-					userSubprocess.data.dish,
-					userSubprocess.data.ingredients
-				);
+				const lengthOfIngredients = userSubprocess.data.ingredients.length;
+				const maxNumberOfLines = 20;
+				const selectedPage = getNumberOfPages(lengthOfIngredients, maxNumberOfLines);
 
-				try{
-					await bot.telegram.editMessageText(
-						callbackQuery.message.chat.id, 
-						userSubprocess.state.message_id,
-						``,
-						messageText,
-						{parse_mode:'HTML'}
+				const getInlineKeyboardForDishLooki2ng = (diId, pages, buttonTextOfPages) => telegraf.Markup.inlineKeyboard(
+						[
+							[
+								telegraf.Markup.button.callback(buttonTextOfPages.left, `di${diId}p${pages.movePrevious}`),
+								telegraf.Markup.button.callback(buttonTextOfPages.middle, `di${diId}p${pages.selected}`),
+								telegraf.Markup.button.callback(buttonTextOfPages.right, `di${diId}p${pages.moveNext}`)
+							]
+						]
 					);
-					await bot.telegram.sendMessage(
-						callbackQuery.message.chat.id, 
-						`SOHRANENO`
-					);
-				}catch(e){
-					console.log(e)
-				}
+			
+				const getCountOfPages = (lengthOfItems, maxNumberOfLinesOnPage) => {
+					let countOfPages = Math.floor(lengthOfItems / maxNumberOfLinesOnPage) + 1;
+
+					if(lengthOfItems > 0 && !(lengthOfItems % maxNumberOfLinesOnPage)) {
+						countOfPages = countOfPages - 1;
+					}
+
+					return countOfPages;
+				};
+
+				const getPagesForInlineKeyboard = (countOfPages, selectedPage = 1) => {
+					if(!countOfPages){
+						throw `countOfPages equal to 0. There is no reason to create inlineKeyboard.`;
+					}
+
+					const pages = {};
+					pages.first = {};
+					pages.second = {};
+
+					if(countOfPages == 2) {
+						if(selectedPage == 1) {
+						 pages.first.number = selectedPage;
+						 pages.first.selected = true;
+						 pages.second.number = selectedPage + 1;
+						} else {	
+						 pages.first.number = selectedPage - 1;
+						 pages.second.number = selectedPage;
+						 pages.second.selected = true;
+						}
+
+						return pages;
+					}
+
+					pages.third = {};
+
+
+					
+			
+					pages.moveNext = selectedPage + 1;
+					if (pages.moveNext > countOfPages) {
+						pages.moveNext = countOfPages;
+					}
+			
+					if (selectedPage > 1) {
+						pages.movePrevious = selectedPage - 1;
+					} else {
+								pages.movePrevious = 1;
+							}
+							return pages;
+				};
+
+					const getDishLookingMessage = (maxNumberOfLines, ingredients, diId, selectedPage = 1) => {
+						const lengthOfIngredients = ingredients.length;
+
+						const message = {};
+
+						if (lengthOfIngredients > maxNumberOfLines) {
+							const pages = getPagingForThree_ButtonInlineKeyboard(lengthOfIngredients, maxNumberOfLines, selectedPage);
+							const buttonTextPages = getButtonTextForThreePageInKey(pages);
+							
+							message.inlineKeyboard = getInlineKeyboardForDishLooking(diId, pages, buttonTextPages);
+
+						} else {
+							message.inlineKeyboard = telegraf.Markup.inlineKeyboard(
+								[
+									[
+										telegraf.Markup.button.callback(`Сохранить`, `i${userSubprocess.tg_user_id}save`),
+										telegraf.Markup.button.callback(`Отменить`, `i${userSubprocess.tg_user_id}cancel`),
+										telegraf.Markup.button.callback(`Команды`, `i${userSubprocess.tg_user_id}commands`)
+									]
+								]
+							);
+						}
+
+						const selectedIngredients = userSubprocess.data.ingredients.slice(
+							(selectedPage - 1) * maxNumberOfLines,
+							selectedPage * maxNumberOfLines
+						);
+						
+						message.text = makeDishSheet(
+							userSubprocess.data.dish,
+							selectedIngredients
+						);
+		
+						message.inlineKeyboard.parse_mode = 'HTML';
+
+						return message;
+
+					};
+				const m = getDishMessage(selectedPage, maxNumberOfLines, userSubprocess);
+
+				await editDishSheetMessage(
+					userSubprocess.tg_user_id,
+					userSubprocess.state.message_id,
+					m.text,
+					m.inlineKeyboard
+				);
+				
+				let comment = `Блюдо сохранено.`;
+				await sendMessage(chatId, comment);
 				
 			} else if (Array.isArray(re_result = callbackQuery.data.match(reCommands))) {// redirect if sequence of shit input > 2
 				const htmlText = HTMLCommandMaker.dishProcess;
