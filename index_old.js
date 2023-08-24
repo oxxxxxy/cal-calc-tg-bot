@@ -23,6 +23,7 @@ const {
 	COMMAND__CREATE_FOOD__NO
 } = require(`./modules/user_commands/create_food_funcs.js`);
 const {HTMLCommandMaker} = require(`./bot_data/commands.js`);
+// const { callback } = require('telegraf/typings/button.js');
 // const { inlineKeyboard } = require('telegraf/typings/markup.js');
 // const { callback } = require('telegraf/typings/button.js');
 
@@ -803,6 +804,21 @@ const getButtonTextForThreePageInKey = pages => {
 
 					return buttons;
 				}
+
+				const make3ButtonInlineKeyboard = buttons => {
+					const inlineKeyboardFirstLine = [
+						telegraf.Markup.button.callback(buttons.first.text, buttons.first.data),
+						telegraf.Markup.button.callback(buttons.second.text, buttons.second.data),
+					];
+
+					if(buttons.third){
+						inlineKeyboardFirstLine.push(
+							telegraf.Markup.button.callback(buttons.third.text, buttons.third.data),
+						);
+					}
+					
+					return telegraf.Markup.inlineKeyboard([inlineKeyboardFirstLine]);
+				};
 
 					const getHelpMessage = (selectedPage, pageCount, text) => {
 						const message = {};
@@ -3114,7 +3130,7 @@ console.log(userSubprocess);
 
 
 		} else if (Array.isArray(re_result = callbackQuery.data.match(reHelpPage))) {
-
+console.log(callbackQuery, JSON.stringify(callbackQuery.message.reply_markup))
 			const countOfPages = HTMLCommandMaker.fullDescCommandListPerPageCounts.length;
 			const pageNum = Number(re_result[1]);
 			const text = HTMLCommandMaker.getFullDescCommandListPage(pageNum);
@@ -3585,67 +3601,49 @@ console.log(userSubprocess);
 	
 				// test is text check needed or changing keyboard is enough
 				//make message with buttons of dishitems id if ings > 20 and send
-				const lengthOfIngredients = userSubprocess.data.ingredients.length;
 				const maxNumberOfLines = 20;
-				const selectedPage = getNumberOfPages(lengthOfIngredients, maxNumberOfLines);
+				const diIdDataPart = `di${idOfCreatedDish}`;
 
-				const getInlineKeyboardForDishLooki2ng = (diId, pages, buttonTextOfPages) => telegraf.Markup.inlineKeyboard(
-						[
-							[
-								telegraf.Markup.button.callback(buttonTextOfPages.left, `di${diId}p${pages.movePrevious}`),
-								telegraf.Markup.button.callback(buttonTextOfPages.middle, `di${diId}p${pages.selected}`),
-								telegraf.Markup.button.callback(buttonTextOfPages.right, `di${diId}p${pages.moveNext}`)
-							]
-						]
+				const getDishLookingMessage = (diIdDataPart, userSubprocess, maxNumberOfLines, selectedPage = 1) => {
+					const message = {};
+
+					const lengthOfIngredients = userSubprocess.data.ingredients.length;
+
+					if(lengthOfIngredients > maxNumberOfLines){
+						const countOfPages = getCountOfPages(
+							lengthOfIngredients,
+							maxNumberOfLines
+						);
+						const pagesFor3ButtonInlineKeyboard = getPagesFor3ButtonInlineKeyboard(
+							countOfPages,
+							selectedPage
+						);
+						const buttonsFor3ButtonInlineKeyboard = getButtonsFor3ButtonInlineKeyboard(
+							pagesFor3ButtonInlineKeyboard,
+							diIdDataPart
+						);
+						const threeButtonInlineKeyboard = make3ButtonInlineKeyboard(
+							buttonsFor3ButtonInlineKeyboard
+						);
+					
+						message.inlineKeyboard = threeButtonInlineKeyboard;
+						message.inlineKeyboard.parse_mode = 'HTML';
+					}
+
+					const selectedIngredients = userSubprocess.data.ingredients.slice(
+						(selectedPage - 1) * maxNumberOfLines,
+						selectedPage * maxNumberOfLines
 					);
-			
 
-				if(lengthOfIngredients > maxNumberOfLines){
-					const countOfPages = getCountOfPages(lengthOfIngredients, maxNumberOfLines);
-					const pagesFor3ButtonInlineKeyboard = getPagesFor3ButtonInlineKeyboard(countOfPages, selectedPage);
-
+					message.text = makeDishSheet(
+						userSubprocess.data.dish,
+						selectedIngredients
+					);
+					
+					return message;
 				}
 
-
-					const getDishLookingMessage = (maxNumberOfLines, ingredients, diId, selectedPage = 1) => {
-						const lengthOfIngredients = ingredients.length;
-
-						const message = {};
-
-						if (lengthOfIngredients > maxNumberOfLines) {
-							const pages = getPagingForThree_ButtonInlineKeyboard(lengthOfIngredients, maxNumberOfLines, selectedPage);
-							const buttonTextPages = getButtonTextForThreePageInKey(pages);
-							
-							message.inlineKeyboard = getInlineKeyboardForDishLooking(diId, pages, buttonTextPages);
-
-						} else {
-							message.inlineKeyboard = telegraf.Markup.inlineKeyboard(
-								[
-									[
-										telegraf.Markup.button.callback(`Сохранить`, `i${userSubprocess.tg_user_id}save`),
-										telegraf.Markup.button.callback(`Отменить`, `i${userSubprocess.tg_user_id}cancel`),
-										telegraf.Markup.button.callback(`Команды`, `i${userSubprocess.tg_user_id}commands`)
-									]
-								]
-							);
-						}
-
-						const selectedIngredients = userSubprocess.data.ingredients.slice(
-							(selectedPage - 1) * maxNumberOfLines,
-							selectedPage * maxNumberOfLines
-						);
-						
-						message.text = makeDishSheet(
-							userSubprocess.data.dish,
-							selectedIngredients
-						);
-		
-						message.inlineKeyboard.parse_mode = 'HTML';
-
-						return message;
-
-					};
-				const m = getDishMessage(selectedPage, maxNumberOfLines, userSubprocess);
+				const m = getDishLookingMessage(diIdDataPart, userSubprocess, maxNumberOfLines);
 
 				await editDishSheetMessage(
 					userSubprocess.tg_user_id,
