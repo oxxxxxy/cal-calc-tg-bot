@@ -546,6 +546,42 @@ const editMessage = async (chatId, messageId, text, inlineKeyboard) => {
 		return action;
 	};
 
+			const isPreviousMessageTextEqualToNewOne = (previous, newText) => {//return true/false
+				const reCharsToReplaceFromPreviousTextOfMessage = /\s+|<|>/g;
+				const reCharsToReplaceFromNewTextOfMessage = /<\w+>|<\/\w+>|\s+|&gt;|&lt;/g;
+
+				previous = previous.replaceAll(reCharsToReplaceFromPreviousTextOfMessage, ``); 
+				newText = newText.replaceAll(reCharsToReplaceFromNewTextOfMessage, ``);
+				
+				if(previous == newText){
+					return true;
+				}
+				return false;
+			};
+
+			const isPreviousInlineKeyboardEqualToNewOne = (previous, newIK) => {//return true/false
+				if(previous.length != newIK.length){
+					return false;
+				}
+
+				return previous.every((e, i) => {
+					if(e.length != newIK[i].length){
+						return false;
+					}
+					
+					const isButtonLinesEqual = e.every((oldE, k) => {
+						const newE = newIK[i][k];
+						const keys = Object.keys(oldE);
+
+						const isButtonsEqual = keys.every(key => oldE[key] === newE[key]);
+						
+						return isButtonsEqual;
+					});
+
+					return isButtonLinesEqual;					
+				});
+			};
+
 					const deletePreviousBotComment = async userSubprocess => {
 						const botPreviousComment = userSubprocess.sequence.findLast(e => e.fromBot && !e.deleted);
 
@@ -3066,7 +3102,11 @@ bot.on(`callback_query`, async ctx => {
 
 	if (Array.isArray(re_result = callbackQuery.data.match(reTGUserId)) && re_result[1] != callbackQuery.from.id) {
 		try{
-			await bot.telegram.answerCbQuery(callbackQuery.id);
+			await bot.telegram.answerCbQuery(
+				callbackQuery.id,
+				`Не твоё сообщение, другалёк...`,
+				{cache_time:60}
+			);
 		} catch(e) {
 			console.log(e)
 		}
@@ -3115,8 +3155,6 @@ bot.on(`callback_query`, async ctx => {
 	const reCommands = /^i(\d+)commands$/;
 	const reHelpPage = /^i(\d+)cp(\d+)$/;
 
-	const reCharsToReplaceFromPreviousTextOfMessage = /\s+|<|>/g;
-	const reCharsToReplaceFromNewTextOfMessage = /<\w+>|<\/\w+>|\s+|&gt;|&lt;/g;
 
 
 	const chatId = callbackQuery.from.id;
@@ -3138,11 +3176,17 @@ console.log(callbackQuery, JSON.stringify(callbackQuery.message.reply_markup))
 			row.command = `HELP_PAGE`;
 
 			await insertIntoTelegramUserSendedCommandsPostgresTable(row);
-			     
-			const previousTextOfMessage = callbackQuery.message.text.replaceAll(reCharsToReplaceFromPreviousTextOfMessage, ``);
-			const newTextOfMessage = m.text.replaceAll(reCharsToReplaceFromNewTextOfMessage, ``);
+
+			const areTextEqual = isPreviousMessageTextEqualToNewOne(
+					callbackQuery.message.text,
+					m.text
+				);
+			const areInlineKeyboardsEqual = isPreviousInlineKeyboardEqualToNewOne(
+					callbackQuery.message.reply_markup.inline_keyboard,
+					m.inlineKeyboard.reply_markup.inline_keyboard
+				);
 			
-			if (previousTextOfMessage == newTextOfMessage){
+			if (areTextEqual && areInlineKeyboardsEqual){
 				return;
 			}
 			
