@@ -820,7 +820,7 @@ const getButtonTextForThreePageInKey = pages => {
 					return telegraf.Markup.inlineKeyboard([inlineKeyboardFirstLine]);
 				};
 
-					const getHelpMessage = (selectedPage, pageCount, text) => {
+					const getHelpMessage = (selectedPage, pageCount, text, tgId) => {
 						const message = {};
 
 							const pages = getPagesOfHelp(selectedPage, pageCount);
@@ -829,9 +829,9 @@ const getButtonTextForThreePageInKey = pages => {
 							message.inlineKeyboard = telegraf.Markup.inlineKeyboard(
 								[
 									[	
-										telegraf.Markup.button.callback(buttonTextPages.left, `help${pages.movePrevious}`),
-										telegraf.Markup.button.callback(buttonTextPages.middle, `help${pages.selected}`),
-										telegraf.Markup.button.callback(buttonTextPages.right, `help${pages.moveNext}`)
+										telegraf.Markup.button.callback(buttonTextPages.left, `i${tgId}cp${pages.movePrevious}`),
+										telegraf.Markup.button.callback(buttonTextPages.middle, `i${tgId}cp${pages.selected}`),
+										telegraf.Markup.button.callback(buttonTextPages.right, `i${tgId}cp${pages.moveNext}`)
 									]
 								]
 							);
@@ -1296,10 +1296,10 @@ bot.use(async (ctx, next) => {
 	} */
 
 	if (!from.is_bot){
-		HZ.checkTelegramUserExistentAndRegistryHimIfNotExists(DB_CLIENT, from.id, from.is_bot);
+		await HZ.checkTelegramUserExistentAndRegistryHimIfNotExists(DB_CLIENT, from.id, from.is_bot);
 
 		if (process.env.TRACKMODE) {
-			HZ.trackTelegramUserAccountDataChanges(DB_CLIENT, from);
+			await HZ.trackTelegramUserAccountDataChanges(DB_CLIENT, from);
 		}
 
 		const userInfo = await HZ.getTelegramUserInfo(DB_CLIENT, from.id);
@@ -1527,7 +1527,7 @@ bot.on(`message`, async ctx => {
 			const pageNum = 1;
 			const text = HTMLCommandMaker.getFullDescCommandListPage(pageNum);
 
-			const m = getHelpMessage(pageNum, countOfPages, text);
+			const m = getHelpMessage(pageNum, countOfPages, text, userInfo.tg_user_id);
 			
 			await sendMessage(chatId, m.text, m.inlineKeyboard);
 
@@ -3063,6 +3063,7 @@ bot.on(`callback_query`, async ctx => {
 	
 	const reTGUserId = /i(\d+)/;
 
+
 	if (Array.isArray(re_result = callbackQuery.data.match(reTGUserId)) && re_result[1] != callbackQuery.from.id) {
 		try{
 			await bot.telegram.answerCbQuery(callbackQuery.id);
@@ -3112,8 +3113,7 @@ bot.on(`callback_query`, async ctx => {
 	const reCancel = /^i(\d+)cancel$/;
 
 	const reCommands = /^i(\d+)commands$/;
-	const reCommandPage = /^i(\d+)cp(\d+)$/;
-	const reHelpPage = /^help(\d+)$/;
+	const reHelpPage = /^i(\d+)cp(\d+)$/;
 
 	const reCharsToReplaceFromPreviousTextOfMessage = /\s+|<|>/g;
 	const reCharsToReplaceFromNewTextOfMessage = /<\w+>|<\/\w+>|\s+|&gt;|&lt;/g;
@@ -3124,18 +3124,13 @@ bot.on(`callback_query`, async ctx => {
 
 console.log(userSubprocess);	
 	if(!userSubprocess){
-		if(Array.isArray(re_result = callbackQuery.data.match(reCommandPage))) {
-			//commands pages
-
-
-
-		} else if (Array.isArray(re_result = callbackQuery.data.match(reHelpPage))) {
+		if (Array.isArray(re_result = callbackQuery.data.match(reHelpPage))) {
 console.log(callbackQuery, JSON.stringify(callbackQuery.message.reply_markup))
 			const countOfPages = HTMLCommandMaker.fullDescCommandListPerPageCounts.length;
-			const pageNum = Number(re_result[1]);
+			const pageNum = Number(re_result[2]);
 			const text = HTMLCommandMaker.getFullDescCommandListPage(pageNum);
 
-			const m = getHelpMessage(pageNum, countOfPages, text);
+			const m = getHelpMessage(pageNum, countOfPages, text, userInfo.tg_user_id);
 			
 			const row = {};
 			row.tg_user_id = userInfo.tg_user_id;
