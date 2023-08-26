@@ -359,21 +359,19 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 				};
 
 const shortenBJUKnWNOfIngredients = ingredients => {
-		ingredients.forEach((e, i) => {
-			const obj = {};
-			obj.i = e.id;
-			obj.ru = e.name__lang_code_ru;
-			obj.p = e.protein;
-			obj.f = e.fat;
-			obj.c = e.carbohydrate;
-			obj.ca = e.caloric_content;
-			obj.t = e.t;
-			obj.w = e.g_weight;
-			ingredients[i] = obj;
-		});
-
-		return ingredients;
-	};
+	return ingredients.map(e => {
+		return {
+			i : e.id
+			,ru : e.name__lang_code_ru
+			,p : e.protein
+			,f : e.fat
+			,c : e.carbohydrate
+			,ca : e.caloric_content
+			,t : e.t
+			,w : e.g_weight
+		};
+	});
+};
 	
 const extendBJUKnWNOfIngredients = ings => {
 		const ingredients = makeCopyOfObjArray(ings);
@@ -930,6 +928,44 @@ const getButtonTextForThreePageInKey = pages => {
 
 					};
 
+				const getDishLookingMessage = (dataPart, dish, ingredients, maxNumberOfLines, selectedPage = 1) => {
+					const message = {};
+
+					const lengthOfIngredients = ingredients.length;
+
+					if(lengthOfIngredients > maxNumberOfLines){
+						const countOfPages = getCountOfPages(
+							lengthOfIngredients,
+							maxNumberOfLines
+						);
+						const pagesFor3ButtonInlineKeyboard = getPagesFor3ButtonInlineKeyboard(
+							countOfPages,
+							selectedPage
+						);
+						const buttonsFor3ButtonInlineKeyboard = getButtonsFor3ButtonInlineKeyboard(
+							pagesFor3ButtonInlineKeyboard,
+							dataPart
+						);
+						const threeButtonInlineKeyboard = make3ButtonInlineKeyboard(
+							buttonsFor3ButtonInlineKeyboard
+						);
+					
+						message.inlineKeyboard = threeButtonInlineKeyboard;
+						message.inlineKeyboard.parse_mode = 'HTML';
+					}
+
+					const selectedIngredients = ingredients.slice(
+						(selectedPage - 1) * maxNumberOfLines,
+						selectedPage * maxNumberOfLines
+					);
+
+					message.text = makeDishSheet(
+						dish,
+						selectedIngredients
+					);
+					
+					return message;
+				}
 
 
 
@@ -3155,8 +3191,6 @@ bot.on(`callback_query`, async ctx => {
 	const reCommands = /^i(\d+)commands$/;
 	const reHelpPage = /^i(\d+)cp(\d+)$/;
 
-
-
 	const chatId = callbackQuery.from.id;
 	const messageId = callbackQuery.message.message_id;
 
@@ -3194,263 +3228,154 @@ console.log(callbackQuery, JSON.stringify(callbackQuery.message.reply_markup))
 
 		} else if (Array.isArray(re_result = callbackQuery.data.match(reFoodItems))) {
 
-		const maxNumberOfLines = 10;//25
+			const maxNumberOfLines = 10;//25
 
-		let selectedPage = Number(re_result[1]);
+			let selectedPage = Number(re_result[1]);
 
-		let numberOfPages = userInfo.available_count_of_user_created_fi / maxNumberOfLines;
-		const numberOfPagesRound = Math.round(numberOfPages);
-		const numberOfPagesFloor = Math.floor(numberOfPages);
-		numberOfPages = numberOfPagesRound > numberOfPagesFloor ? numberOfPagesRound : numberOfPagesFloor + 1;
+			let numberOfPages = userInfo.available_count_of_user_created_fi / maxNumberOfLines;
+			const numberOfPagesRound = Math.round(numberOfPages);
+			const numberOfPagesFloor = Math.floor(numberOfPages);
+			numberOfPages = numberOfPagesRound > numberOfPagesFloor ? numberOfPagesRound : numberOfPagesFloor + 1;
 
-		const pages = {};
-		pages.first = 1;
-		pages.selected = selectedPage;
-		pages.last = numberOfPages;
+			const pages = {};
+			pages.first = 1;
+			pages.selected = selectedPage;
+			pages.last = numberOfPages;
 
-		if (numberOfPages == 1) {
-			pages.movePrevious = 1;
-			pages.movePreviousMinusFive = 1;
-			pages.selected = 1;
-			pages.moveNext = 1;
-			pages.moveNextPlusFive = 1;
-		} else if (numberOfPages > 1) {
-			pages.moveNext = selectedPage + 1;
-			if (pages.moveNext > numberOfPages) {
-				pages.moveNext = numberOfPages;
-			}
-
-			pages.moveNextPlusFive = selectedPage + 6;
-			if (pages.moveNextPlusFive > numberOfPages - 1) {
-				pages.moveNextPlusFive = selectedPage + Math.round((numberOfPages - selectedPage ) / 2);
-			}
-		}
-
-		if (selectedPage > numberOfPages){
-			selectedPage = numberOfPages;
-
-			pages.selected = numberOfPages;
-			pages.moveNext = numberOfPages;
-			pages.moveNextPlusFive = numberOfPages;
-		}
-
-		if (selectedPage > 1) {
-			pages.movePrevious = selectedPage - 1;
-			pages.movePreviousMinusFive = selectedPage - 6;
-			if (pages.movePreviousMinusFive < 1) {
-				pages.movePreviousMinusFive = Math.floor(selectedPage / 2);
-			}
-		} else {
-			pages.movePrevious = 1;
-			pages.movePreviousMinusFive = 1;
-		}
-
-		let ucfi_offset_string = ``;
-		if (selectedPage > 1) {
-			const ucfi_offset = maxNumberOfLines * (selectedPage - 1);
-			ucfi_offset_string = `OFFSET ${ucfi_offset}`;
-		}
-
-
-
-				let message = `<b>Cписок созданной еды.</b> Всего: <b>${userInfo.available_count_of_user_created_fi}</b>.\n<b>ID</b>   БЖУК (на 100г) <b><i>Название еды</i></b>`;
-
-					const res = await DB_CLIENT.query(`
-						SELECT view_json, fi_id_for_user, name__lang_code_ru
-						FROM food_items
-						WHERE tg_user_id = ${userInfo.tg_user_id}
-						AND deleted = false
-						ORDER BY fi_id_for_user DESC
-						LIMIT ${maxNumberOfLines}
-						${ucfi_offset_string}
-					;`);
-
-
-				const addCharBeforeValue = (value, maxLength, charS) => {
-					let str = Number(value).toFixed(1);
-					
-					let result = ``;
-
-					for (let i = 0, diff = maxLength - str.length; i < diff; i++) {
-						result += charS;
-					}
-					result += str;
-
-					return result;
-				};
-		
-					
-
-				res.rows.forEach(e => {
-					message += `\n<code>${e.fi_id_for_user}</code> Б:${
-						addCharBeforeValue(e.view_json.protein ? e.view_json.protein : 0, 4, '_')} Ж:${
-						addCharBeforeValue(e.view_json.fat ? e.view_json.fat : 0, 4, '_')} У:${
-						addCharBeforeValue(e.view_json.carbohydrate ? e.view_json.carbohydrate : 0, 4, '_')} К:${
-						addCharBeforeValue(e.view_json.caloric_content ? e.view_json.caloric_content : 0, 5, '_')} <i>${
-						e.name__lang_code_ru}</i> `
-				});
-
-
-				const makeInlineKeyboard = (pages, tableName, id) => {
-					return telegraf.Markup.inlineKeyboard([[
-							telegraf.Markup.button.callback(`${pages.first}`, `${tableName + pages.first}i${id}`),
-							telegraf.Markup.button.callback(`${pages.movePreviousMinusFive}<<`, `${tableName + pages.movePreviousMinusFive}i${id}`),
-							telegraf.Markup.button.callback(`${pages.movePrevious}<`, `${tableName + pages.movePrevious}i${id}`),
-							telegraf.Markup.button.callback(`${pages.selected}`, `${tableName + pages.selected}i${id}`),
-							telegraf.Markup.button.callback(`>${pages.moveNext}`, `${tableName + pages.moveNext}i${id}`),
-							telegraf.Markup.button.callback(`>>${pages.moveNextPlusFive}`, `${tableName + pages.moveNextPlusFive}i${id}`),
-							telegraf.Markup.button.callback(`${pages.last}`, `${tableName + pages.last}i${id}`)
-					]]);
+			if (numberOfPages == 1) {
+				pages.movePrevious = 1;
+				pages.movePreviousMinusFive = 1;
+				pages.selected = 1;
+				pages.moveNext = 1;
+				pages.moveNextPlusFive = 1;
+			} else if (numberOfPages > 1) {
+				pages.moveNext = selectedPage + 1;
+				if (pages.moveNext > numberOfPages) {
+					pages.moveNext = numberOfPages;
 				}
 
-				const inlineKeyboard = makeInlineKeyboard(pages, `fi`, userInfo.tg_user_id);
-					
-					
-				let response;
-					if ( message.replaceAll(/<\w+>|<\/\w+>|\s+/g, ``) == callbackQuery.message.text.replaceAll(/\s+/g, ``)) {
-						try{
-							response =	await bot.telegram.answerCbQuery(callbackQuery.id);
-						} catch(e) {
-							console.log(e)
+				pages.moveNextPlusFive = selectedPage + 6;
+				if (pages.moveNextPlusFive > numberOfPages - 1) {
+					pages.moveNextPlusFive = selectedPage + Math.round((numberOfPages - selectedPage ) / 2);
+				}
+			}
+
+			if (selectedPage > numberOfPages){
+				selectedPage = numberOfPages;
+
+				pages.selected = numberOfPages;
+				pages.moveNext = numberOfPages;
+				pages.moveNextPlusFive = numberOfPages;
+			}
+
+			if (selectedPage > 1) {
+				pages.movePrevious = selectedPage - 1;
+				pages.movePreviousMinusFive = selectedPage - 6;
+				if (pages.movePreviousMinusFive < 1) {
+					pages.movePreviousMinusFive = Math.floor(selectedPage / 2);
+				}
+			} else {
+				pages.movePrevious = 1;
+				pages.movePreviousMinusFive = 1;
+			}
+
+			let ucfi_offset_string = ``;
+			if (selectedPage > 1) {
+				const ucfi_offset = maxNumberOfLines * (selectedPage - 1);
+				ucfi_offset_string = `OFFSET ${ucfi_offset}`;
+			}
+
+
+
+					let message = `<b>Cписок созданной еды.</b> Всего: <b>${userInfo.available_count_of_user_created_fi}</b>.\n<b>ID</b>   БЖУК (на 100г) <b><i>Название еды</i></b>`;
+
+						const res = await DB_CLIENT.query(`
+							SELECT view_json, fi_id_for_user, name__lang_code_ru
+							FROM food_items
+							WHERE tg_user_id = ${userInfo.tg_user_id}
+							AND deleted = false
+							ORDER BY fi_id_for_user DESC
+							LIMIT ${maxNumberOfLines}
+							${ucfi_offset_string}
+						;`);
+
+
+					const addCharBeforeValue = (value, maxLength, charS) => {
+						let str = Number(value).toFixed(1);
+						
+						let result = ``;
+
+						for (let i = 0, diff = maxLength - str.length; i < diff; i++) {
+							result += charS;
+						}
+						result += str;
+
+						return result;
+					};
+			
+						
+
+					res.rows.forEach(e => {
+						message += `\n<code>${e.fi_id_for_user}</code> Б:${
+							addCharBeforeValue(e.view_json.protein ? e.view_json.protein : 0, 4, '_')} Ж:${
+							addCharBeforeValue(e.view_json.fat ? e.view_json.fat : 0, 4, '_')} У:${
+							addCharBeforeValue(e.view_json.carbohydrate ? e.view_json.carbohydrate : 0, 4, '_')} К:${
+							addCharBeforeValue(e.view_json.caloric_content ? e.view_json.caloric_content : 0, 5, '_')} <i>${
+							e.name__lang_code_ru}</i> `
+					});
+
+
+					const makeInlineKeyboard = (pages, tableName, id) => {
+						return telegraf.Markup.inlineKeyboard([[
+								telegraf.Markup.button.callback(`${pages.first}`, `${tableName + pages.first}i${id}`),
+								telegraf.Markup.button.callback(`${pages.movePreviousMinusFive}<<`, `${tableName + pages.movePreviousMinusFive}i${id}`),
+								telegraf.Markup.button.callback(`${pages.movePrevious}<`, `${tableName + pages.movePrevious}i${id}`),
+								telegraf.Markup.button.callback(`${pages.selected}`, `${tableName + pages.selected}i${id}`),
+								telegraf.Markup.button.callback(`>${pages.moveNext}`, `${tableName + pages.moveNext}i${id}`),
+								telegraf.Markup.button.callback(`>>${pages.moveNextPlusFive}`, `${tableName + pages.moveNextPlusFive}i${id}`),
+								telegraf.Markup.button.callback(`${pages.last}`, `${tableName + pages.last}i${id}`)
+						]]);
+					}
+
+					const inlineKeyboard = makeInlineKeyboard(pages, `fi`, userInfo.tg_user_id);
+						
+						
+					let response;
+						if ( message.replaceAll(/<\w+>|<\/\w+>|\s+/g, ``) == callbackQuery.message.text.replaceAll(/\s+/g, ``)) {
+							try{
+								response =	await bot.telegram.answerCbQuery(callbackQuery.id);
+							} catch(e) {
+								console.log(e)
+							}
+
+			console.log(
+				response
+			);
+							return;
 						}
 
-		console.log(
-			response
-		);
-						return;
-					}
+						inlineKeyboard.parse_mode = 'HTML';
+						inlineKeyboard.protect_content = true;
 
-					inlineKeyboard.parse_mode = 'HTML';
-					inlineKeyboard.protect_content = true;
-
-		try {		
-				 response = await bot.telegram.editMessageText(
-					callbackQuery.message.chat.id,
-					callbackQuery.message.message_id,
-					``,
-					message,
-					 inlineKeyboard
-				); 
-		} catch (e) {
-			console.error(e);
-		}		
-
-		/* console.log(
-			response
-		); */
-
-	} else if(Array.isArray(re_result = callbackQuery.data.match(reSave))){
-		console.log(re_result, callbackQuery);
-
-		//update sended_commands, add data with dish id
-		//update processes, delete data and sequences
-		//
-
-		//get dish
-		let res = await DB_CLIENT.query(`
-			SELECT name__lang_code_ru, protein, fat, caloric_content, carbohydrate, fooddish_gweight_items_json
-			FROM dish_items
-			WHERE id = ${userLastCommand.data.dish_items_ids[0]}
-		;`);
-
-		const dish = res.rows[0];
-
-		//check dish ingredients if no return
-		if (!dish.fooddish_gweight_items_json.length){
-			try{
-				await bot.telegram.answerCbQuery(
-					callbackQuery.id,
-					`Нет ни одного ингредиента.\nОтправь    /help`,
-					{show_alert : true}
-				);
-			} catch(e) {
-				console.log(e);
-			}
-			return;
-		}
-		//insert fooddish_ids_for_meilisearch  get id
-		let row = {};
-		row.dish_items_id = userLastCommand.data.dish_items_ids[0];
-			
-		let paramQuery = {};
-		paramQuery.text = `
-			INSERT INTO fooddish_ids_for_meilisearch
-			(${objKeysToColumnStr(row)})
-			VALUES
-			(${objKeysToColumn$IndexesStr(row)})
-			RETURNING	id
-		;`;
-		paramQuery.values = getArrOfValuesFromObj(row);
-		res = await DB_CLIENT.query(paramQuery);
-
-		const dishIdForMeiliSearch = res.rows[0].id;
-		//insert meilisearch
-		const documents = [];
-		const doc = {};
-		doc.id = Number(dishIdForMeiliSearch);
-		doc.dish_items_id = Number(userLastCommand.data.dish_items_ids[0]);
-		doc.name__lang_code_ru = dish.name__lang_code_ru;
-		doc.tg_user_id = Number(userInfo.tg_user_id);
-		doc.created_by_project = false;
-		doc.protein = dish.protein?Number(dish.protein):0;
-		doc.fat = dish.fat?Number(dish.fat):0;
-		doc.carbohydrate = dish.carbohydrate ?Number(dish.carbohydrate):0;
-		doc.caloric_content = dish.caloric_content ? Number(dish.caloric_content ) : 0;
-		documents.push(doc);
-
-		await MSDB.addDocuments(documents);
-
-		//insert telegram_user_sended_commands
-		row = {};
-		row.creation_date = creation_date;
-		row.command = 'SAVE_DISH';
-		row.tg_user_id = userInfo.tg_user_id;
-
-		row.data = {};
-		row.data.dish_items_ids = [userLastCommand.data.dish_items_ids[0]];
-		row.data = JSON.stringify(row.data);
-
-		paramQuery = {};
-		paramQuery.text = `
-			INSERT INTO telegram_user_sended_commands
-			(${objKeysToColumnStr(row)})
-			VALUES
-			(${objKeysToColumn$IndexesStr(row)})
-		;`;
-		paramQuery.values = getArrOfValuesFromObj(row);
-		await DB_CLIENT.query(paramQuery);
-
-		//make message and send
-		let dishSheetHead = `\n<b><u>|__ID|Б_______|Ж_______|У_______|К______|</u> <i>Название блюда</i></b>`;
-
-		let dishSheetFooter = `\n<u>|${
-			makeDishNumForSheetLine(userInfo.count_of_user_created_di, 4)}|Б:${
-			addCharBeforeValue(dish.protein, 5, '_')} |Ж:${
-			addCharBeforeValue(dish.fat, 5, '_')} |У:${
-			addCharBeforeValue(dish.carbohydrate, 5, '_')} |К:${
-			addCharBeforeValue(dish.caloric_content, 5, '_')}|</u> <i>${
-			dish.name__lang_code_ru}</i>\n\n<b>СОХРАНЕНО.</b>`;
-
-		let messageText = dishSheetHead+dishSheetFooter;
-
-				let response;
-
-				try{
-					response = await bot.telegram.editMessageText(
+			try {		
+					 response = await bot.telegram.editMessageText(
 						callbackQuery.message.chat.id,
-						userLastCommand.data.message_id,
+						callbackQuery.message.message_id,
 						``,
-						messageText,
-						{parse_mode:'HTML'}
-					);
+						message,
+						 inlineKeyboard
+					); 
+			} catch (e) {
+				console.error(e);
+			}		
 
-				}catch(e){
-					console.log(e)
+			/* console.log(
+				response
+			); */
 
-				}
-					console.log(response)
 
 		}
+
 		console.log(`!userSubprocess, main tree`);
 
 	} else {
@@ -3461,7 +3386,7 @@ console.log(callbackQuery, JSON.stringify(callbackQuery.message.reply_markup))
 			if(Array.isArray(re_result = callbackQuery.data.match(reCancel))){
 				console.log(re_result);
 
-				let messageText = `Переимнование блюда отменено.`
+				let messageText = `Создание блюда отменено.`
 
 				let response;
 
@@ -3486,14 +3411,13 @@ console.log(callbackQuery, JSON.stringify(callbackQuery.message.reply_markup))
 				
 				const row = {};
 				row.creation_date = creation_date;
-				row.command = `CANCEL__CREATE_DISH__RENAME`;
+				row.command = `CANCEL__CREATE_DISH`;
 				row.tg_user_id = userSubprocess.tg_user_id;
 				row.process_id = userSubprocess.id;
 
 				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
 
 			}
-
 		} else if(userSubprocess.process_name == `DISH_CREATING`){
 			if(Array.isArray(re_result = callbackQuery.data.match(reCancel))){
 
@@ -3541,10 +3465,7 @@ console.log(callbackQuery, JSON.stringify(callbackQuery.message.reply_markup))
 					return;
 				}
 
-				let ingredients = makeCopyOfObjArray(
-					userSubprocess.data.ingredients
-				);
-				ingredients = shortenBJUKnWNOfIngredients(ingredients);
+				let ingredients = shortenBJUKnWNOfIngredients(userSubprocess.data.ingredients);
 
 				let dish = Object.assign({}, userSubprocess.data.dish);
 				//insert into dish_items
@@ -3604,7 +3525,6 @@ console.log(callbackQuery, JSON.stringify(callbackQuery.message.reply_markup))
 				row.tg_user_id = userSubprocess.tg_user_id;
 				row.can_it_be_removed = true;
 				row.process_id = userSubprocess.id;
-				row.can_it_be_removed = true;
 
 				row.data = {};
 				row.data.dish_items_ids = [dishItemsId];
@@ -3615,7 +3535,6 @@ console.log(callbackQuery, JSON.stringify(callbackQuery.message.reply_markup))
 				//insert telegram_users
 				//perepisat' na telegram_users
 				// fidi limit
-				//registered_users available_count_of_user_created_fi - 1 //add check for all users
 
 				row = {};
 
@@ -3641,48 +3560,15 @@ console.log(callbackQuery, JSON.stringify(callbackQuery.message.reply_markup))
 				// test is text check needed or changing keyboard is enough
 				//make message with buttons of dishitems id if ings > 20 and send
 				const maxNumberOfLines = 20;
-				const diIdDataPart = `di${idOfCreatedDish}`;
+				const dataPart = `i${userSubprocess.tg_user_id}di${dishItemsId}`;
 
-				const getDishLookingMessage = (diIdDataPart, userSubprocess, maxNumberOfLines, selectedPage = 1) => {
-					const message = {};
 
-					const lengthOfIngredients = userSubprocess.data.ingredients.length;
-
-					if(lengthOfIngredients > maxNumberOfLines){
-						const countOfPages = getCountOfPages(
-							lengthOfIngredients,
-							maxNumberOfLines
-						);
-						const pagesFor3ButtonInlineKeyboard = getPagesFor3ButtonInlineKeyboard(
-							countOfPages,
-							selectedPage
-						);
-						const buttonsFor3ButtonInlineKeyboard = getButtonsFor3ButtonInlineKeyboard(
-							pagesFor3ButtonInlineKeyboard,
-							diIdDataPart
-						);
-						const threeButtonInlineKeyboard = make3ButtonInlineKeyboard(
-							buttonsFor3ButtonInlineKeyboard
-						);
-					
-						message.inlineKeyboard = threeButtonInlineKeyboard;
-						message.inlineKeyboard.parse_mode = 'HTML';
-					}
-
-					const selectedIngredients = userSubprocess.data.ingredients.slice(
-						(selectedPage - 1) * maxNumberOfLines,
-						selectedPage * maxNumberOfLines
-					);
-
-					message.text = makeDishSheet(
-						userSubprocess.data.dish,
-						selectedIngredients
-					);
-					
-					return message;
-				}
-
-				const m = getDishLookingMessage(diIdDataPart, userSubprocess, maxNumberOfLines);
+				const m = getDishLookingMessage(
+					dataPart
+					,userSubprocess.data.dish
+					,userSubprocess.data.ingredients
+					,maxNumberOfLines
+				);
 
 				await editDishSheetMessage(
 					userSubprocess.tg_user_id,
@@ -3737,6 +3623,8 @@ console.log(callbackQuery, JSON.stringify(callbackQuery.message.reply_markup))
 
 				await updateUserSubprocess(userSubprocess);
 
+			} else if (Array.isArray(re_result = callbackQuery.data.match(reDishNavigate))) {
+			
 			}
 		} else {
 			console.log(`code me`);
