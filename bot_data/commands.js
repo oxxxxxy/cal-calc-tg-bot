@@ -99,11 +99,21 @@ const userDish = {
 	,editCreatedDish:{
 		commandBlockName:`userDish`
 		,commandTitle:`Редактировать созданное блюдо`
-		,command:`исб`
+		,command:`рб`
 		,parameters:`ID созданного блюда, без аргумента будет изменяться последнее`
 		,parameterDescription:`Инициирует процесс редактирования блюда.`
 		,usageExamples:[
 			`рб  12`
+		]
+	}
+	,renameDish:{
+		commandBlockName:`userDish`
+		,commandTitle:`Переименовать созданное блюдо`
+		,command:`пб`
+		,parameters:`ID созданного блюда, без аргумента будет переименоваться последнее`
+		,parameterDescription:`Инициирует процесс переименования блюда.`
+		,usageExamples:[
+			`пб  12`
 		]
 	}
 	,deleteCreatedDish:{
@@ -113,6 +123,18 @@ const userDish = {
 		,parameters:`ID вашей созданного блюда, можно указать несколько ID, без аргумента удаляет последнее созданное блюдо`
 		,usageExamples:[
 			`уб 13 14`
+		]
+	}
+}
+
+const dishRenaming = {
+	header: `ПРОЦЕСС ПЕРЕИМЕНОВАНИЯ БЛЮДА`
+	,renameDish:{
+		subCommandBlockName:`dichRenaming`
+		,commandTitle:`Переименовать созданное блюдо`
+		,command:`новое название созданного блюда`
+		,usageExamples:[
+			`колбасный фарш с перцем 02.03.23`
 		]
 	}
 }
@@ -156,6 +178,15 @@ const dishProcess = {
 		,parameterDescription:`Например, блюда с испарившейся водой после приготовления.`
 		,usageExamples:[
 			`и  345.2`
+		]
+	}		
+	,renameDish:{
+		subCommandBlockName:`dichProcessCRUD`
+		,commandTitle:`Переименовать созданное блюдо`
+		,command:`п`
+		,parameters:`новое название созданного блюда`
+		,usageExamples:[
+			`п  колбасный фарш с перцем 03.03.23`
 		]
 	}		
 };
@@ -455,6 +486,7 @@ const commandList = [
 	settings,
 	userFood,
 	userDish,
+	dishRenaming,
 	dishProcess,
 	projectFD,
 	eatenFD,

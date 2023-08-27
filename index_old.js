@@ -371,7 +371,7 @@ const shortenBJUKnWNOfIngredients = ingredients => {
 };
 	
 const extendBJUKnWNOfIngredients = ingredients => {
-	return ingredients.map(e => {
+	return ingredients.map((e, i) => {
 		return {
 			id : e.i
 			,name__lang_code_ru : e.ru
@@ -381,6 +381,7 @@ const extendBJUKnWNOfIngredients = ingredients => {
 			,caloric_content : e.ca
 			,t : e.t
 			,g_weight : e.w
+			,n : i + 1
 		};
 	});
 	};
@@ -870,48 +871,50 @@ const getButtonTextForThreePageInKey = pages => {
 						return message;
 						}
 
-					const getDishMessage = (selectedPage, maxNumberOfLines, userSubprocess) => {
-						const lengthOfIngredients = userSubprocess.data.ingredients.length;
+					const getDishMessage = (tgId, dish, ingredients, selectedPage) => {
+						const maxNumberOfLines = 20;
+						const lengthOfIngredients = ingredients.length;
+
+						if(!selectedPage){
+							selectedPage = getCountOfPages(lengthOfIngredients, maxNumberOfLines);
+						}
 
 						const message = {};
+						message.inlineKeyboard = telegraf.Markup.inlineKeyboard([]);
 
 						if (lengthOfIngredients > maxNumberOfLines) {
-							const pages = getPagesOfDish(lengthOfIngredients, maxNumberOfLines, selectedPage);
-							const buttonTextPages = getButtonTextForThreePageInKey(pages);
-
-							message.inlineKeyboard = telegraf.Markup.inlineKeyboard(
-								[
-									[	
-										telegraf.Markup.button.callback(buttonTextPages.left, `i${userSubprocess.tg_user_id}p${pages.movePrevious}`),
-										telegraf.Markup.button.callback(buttonTextPages.middle, `i${userSubprocess.tg_user_id}p${pages.selected}`),
-										telegraf.Markup.button.callback(buttonTextPages.right, `i${userSubprocess.tg_user_id}p${pages.moveNext}`)
-									],
-									[
-										telegraf.Markup.button.callback(`Сохранить`, `i${userSubprocess.tg_user_id}save`),
-										telegraf.Markup.button.callback(`Отменить`, `i${userSubprocess.tg_user_id}cancel`),
-										telegraf.Markup.button.callback(`Команды`, `i${userSubprocess.tg_user_id}commands`)
-									]
-								]
+							const countOfPages = getCountOfPages(
+								lengthOfIngredients,
+								maxNumberOfLines
 							);
-						} else {
-							message.inlineKeyboard = telegraf.Markup.inlineKeyboard(
-								[
-									[
-										telegraf.Markup.button.callback(`Сохранить`, `i${userSubprocess.tg_user_id}save`),
-										telegraf.Markup.button.callback(`Отменить`, `i${userSubprocess.tg_user_id}cancel`),
-										telegraf.Markup.button.callback(`Команды`, `i${userSubprocess.tg_user_id}commands`)
-									]
-								]
+							const pagesFor3ButtonInlineKeyboard = getPagesFor3ButtonInlineKeyboard(
+								countOfPages,
+								selectedPage
+							);
+							const buttonsFor3ButtonInlineKeyboard = getButtonsFor3ButtonInlineKeyboard(
+								pagesFor3ButtonInlineKeyboard,
+								`i${tgId}`
+							);
+							message.inlineKeyboard = make3ButtonInlineKeyboard(
+								buttonsFor3ButtonInlineKeyboard
 							);
 						}
 
-						const selectedIngredients = userSubprocess.data.ingredients.slice(
+						message.inlineKeyboard.reply_markup.inline_keyboard.push(
+								[
+									telegraf.Markup.button.callback(`Сохранить`, `i${tgId}save`),
+									telegraf.Markup.button.callback(`Отменить`, `i${tgId}cancel`),
+									telegraf.Markup.button.callback(`Команды`, `i${tgId}commands`)
+								]
+							);
+
+						const selectedIngredients = ingredients.slice(
 							(selectedPage - 1) * maxNumberOfLines,
 							selectedPage * maxNumberOfLines
 						);
 						
 						message.text = makeDishSheet(
-							userSubprocess.data.dish,
+							dish,
 							selectedIngredients
 						);
 		
@@ -2203,7 +2206,8 @@ bot.on(`message`, async ctx => {
 
 				//select by di_id_for_user, tg_user_id
 				let res = await DB_CLIENT.query(`
-						SELECT id, name__lang_code_ru, protein, fat, carbohydrate, caloric_content, fooddish_gweight_items_json, g_weight, total_g_weight
+						SELECT id, di_id_for_user, name__lang_code_ru, protein, fat,
+						carbohydrate, caloric_content, fooddish_gweight_items_json, g_weight, total_g_weight
 						FROM dish_items
 						WHERE tg_user_id = ${userInfo.tg_user_id}
 						AND di_id_for_user = ${di_id_for_user}
@@ -2214,22 +2218,86 @@ bot.on(`message`, async ctx => {
 
 				if(!res.rowCount){
 
-					console.log(`no dish with this di_id_for_user`);
+					const text = `Созданного блюда с таким ID не существует.`;
+
+					await sendMessage(chatId, text);
+
+					let row = {};
+					row.creation_date = creation_date;
+					row.command = `EDIT_DISH`;
+					row.tg_user_id = userInfo.tg_user_id;
+					row.invalid_command = true;
+					row.invalid_cause = `row with this di_id_for_user doesn't exist or has been removed`;
+
+					await insertIntoTelegramUserSendedCommandsPostgresTable(row);
+
 					return;
 				}
 
 				const dish = res.rows[0];
-				
 				const ingredients = extendBJUKnWNOfIngredients(dish.fooddish_gweight_items_json);
-				// delete dish.fooddish_gweight_items_json;
-				// delete dish.id
-
-				//extendBJUKnWNOfIngredients from fooddish_gweight_items_json
-				//create process
-				//send message
 				
+				const m = getDishMessage(userInfo.tg_user_id, dish, ingredients);
 
-				console.log(re_result	);
+				res = await sendMessage(chatId, m.text, m.inlineKeyboard);
+
+				if(!res){
+					return;
+				}
+
+				const messageId = res.message_id;
+				
+				let row = {};
+				row.creation_date = creation_date;
+				row.command = `EDIT_DISH`;
+				row.tg_user_id = userInfo.tg_user_id;
+				row.is_process_c = true;
+
+				let paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO telegram_user_sended_commands
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+					RETURNING id
+				;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				res = await DB_CLIENT.query(paramQuery);
+
+				const sendedCommandId = res.rows[0].id;
+			
+				row = {};
+				row.creation_date = creation_date;
+				row.tg_user_id = userInfo.tg_user_id;
+				row.sended_command_id = sendedCommandId;
+				row.process_name = `DISH_EDITING`;
+				
+				row.data = {};
+				row.data.dish_items_id = dish.id;
+				row.data.dish = Object.assign({}, dish);
+				delete row.data.dish.id;
+				delete row.data.dish.fooddish_gweight_items_json;
+				row.data.ingredients = ingredients;
+
+				row.sequence = [];
+
+				row.state = {};
+				row.state.message_id = messageId;
+				row.state.interface = `main`;
+				
+				row.data = JSON.stringify(row.data);
+				row.sequence = JSON.stringify(row.sequence);
+				row.state = JSON.stringify(row.state);
+
+				paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO telegram_user_subprocesses
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+				;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				await DB_CLIENT.query(paramQuery);
 
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SHOW_CREATED_DISHES))) {
 
@@ -2670,12 +2738,8 @@ bot.on(`message`, async ctx => {
 						userSubprocess.data.dish,
 						userSubprocess.data.ingredients
 					);
-					
-					const lengthOfIngredients = userSubprocess.data.ingredients.length;
-					const maxNumberOfLines = 20;
-					const selectedPage = getNumberOfPages(lengthOfIngredients, maxNumberOfLines);
 
-					const m = getDishMessage(selectedPage, maxNumberOfLines, userSubprocess);
+					const m = getDishMessage(userSubprocess.tg_user_id, userSubprocess.data.dish, userSubprocess.data.ingredients);
 
 					let res = await editDishSheetMessage(
 						userSubprocess.tg_user_id,
@@ -2772,7 +2836,7 @@ bot.on(`message`, async ctx => {
 					const maxNumberOfLines = 20;
 					const selectedPage = getNumberOfPages(lastDeletedNum, maxNumberOfLines);
 
-					const m = getDishMessage(selectedPage, maxNumberOfLines, userSubprocess);
+					const m = getDishMessage(userSubprocess.tg_user_id, userSubprocess.data.dish, userSubprocess.data.ingredients, selectedPage);
 
 					let res = await editDishSheetMessage(
 						userSubprocess.tg_user_id,
@@ -2835,7 +2899,7 @@ bot.on(`message`, async ctx => {
 					const maxNumberOfLines = 20;
 					const selectedPage = getNumberOfPages(ingredientNum, maxNumberOfLines);
 
-					const m = getDishMessage(selectedPage, maxNumberOfLines, userSubprocess);
+					const m = getDishMessage(userSubprocess.tg_user_id, userSubprocess.data.dish, userSubprocess.data.ingredients, selectedPage);
 
 					let res = await editDishSheetMessage(
 						userSubprocess.tg_user_id,
@@ -2898,11 +2962,7 @@ bot.on(`message`, async ctx => {
 
 					const validComment = `Итоговый вес блюда задан.`;
 
-					const lengthOfIngredients = userSubprocess.data.ingredients.length;
-					const maxNumberOfLines = 20;
-					const selectedPage = getNumberOfPages(lengthOfIngredients, maxNumberOfLines);// COMPABILITY BITCH
-
-					const m = getDishMessage(selectedPage, maxNumberOfLines, userSubprocess);
+					const m = getDishMessage(userSubprocess.tg_user_id, userSubprocess.data.dish, userSubprocess.data.ingredients);
 
 					let res = await editDishSheetMessage(
 						userSubprocess.tg_user_id,
@@ -3575,11 +3635,7 @@ console.log(userSubprocess);
 				await completeSubrocessCommand(0, userSubprocess, validComment);
 
 			} else if (Array.isArray(re_result = callbackQuery.data.match(reUserBack))) {
-				const lengthOfIngredients = userSubprocess.data.ingredients.length;
-				const maxNumberOfLines = 20;
-				const selectedPage = getCountOfPages(lengthOfIngredients, maxNumberOfLines);
-
-				const m = getDishMessage(selectedPage, maxNumberOfLines, userSubprocess);
+				const m = getDishMessage(userSubprocess.tg_user_id, userSubprocess.data.dish, userSubprocess.data.ingredients);
 
 				const res = await editDishSheetMessage(chatId, messageId, m.text, m.inlineKeyboard);
 
@@ -3594,9 +3650,8 @@ console.log(userSubprocess);
 
 			} else if (Array.isArray(re_result = callbackQuery.data.match(reDishSubprocessPage))) {
 				const selectedPageNum = Number(re_result[2]);
-				const maxNumberOfLines = 20;
 
-				const m = getDishMessage(selectedPageNum, maxNumberOfLines, userSubprocess);
+				const m = getDishMessage(userSubprocess.tg_user_id, userSubprocess.data.dish, userSubprocess.data.ingredients, selectedPageNum);
 
 				const res = await editDishSheetMessage(chatId, messageId, m.text, m.inlineKeyboard);
 				
@@ -3777,11 +3832,7 @@ console.log(userSubprocess);
 				await completeSubrocessCommand(0, userSubprocess, validComment);
 
 			} else if (Array.isArray(re_result = callbackQuery.data.match(reUserBack))) {
-				const lengthOfIngredients = userSubprocess.data.ingredients.length;
-				const maxNumberOfLines = 20;
-				const selectedPage = getCountOfPages(lengthOfIngredients, maxNumberOfLines);
-
-				const m = getDishMessage(selectedPage, maxNumberOfLines, userSubprocess);
+				const m = getDishMessage(userSubprocess.tg_user_id, userSubprocess.data.dish, userSubprocess.data.ingredients);
 
 				const res = await editDishSheetMessage(chatId, messageId, m.text, m.inlineKeyboard);
 
@@ -3796,9 +3847,8 @@ console.log(userSubprocess);
 
 			} else if (Array.isArray(re_result = callbackQuery.data.match(reDishSubprocessPage))) {
 				const selectedPageNum = Number(re_result[2]);
-				const maxNumberOfLines = 20;
 
-				const m = getDishMessage(selectedPageNum, maxNumberOfLines, userSubprocess);
+				const m = getDishMessage(userSubprocess.tg_user_id, userSubprocess.data.dish, userSubprocess.data.ingredients, selectedPageNum);
 
 				const res = await editDishSheetMessage(chatId, messageId, m.text, m.inlineKeyboard);
 				
