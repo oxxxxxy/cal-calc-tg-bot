@@ -63,9 +63,6 @@ const RE_RU_COMMAND__EDIT_DISH = /^рб\s+([0-9]+)$/u;
 	const RE_RU_COMMAND__DELETE_INGREDIENTs_FROM_DISH = /^у\s+[0-9]+/u;
 	const RE_RU_COMMAND__EDIT_INGREDIENT_WEIGHT_IN_DISH = /^ви\s+([0-9]+)\s+(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)$/u;
 	const RE_RU_COMMAND__DISH_TOTAL_WEIGHT = /^и\s+(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)$/u;
-/*  кнопками будут епта
-	const RE_RU_COMMAND__SAVE_DISH = /^с$/u; 
-	const RE_RU_COMMAND__CANCEL_CREATEEDIT_DISH = /^о$/u; */
 const RE_RU_COMMAND__DELETE_CREATED_DISH_IDs = /^уб\s+/u; 
 const RE_RU_COMMAND__SHOW_CREATED_DISHES = /^псб$/u;
 
@@ -373,23 +370,19 @@ const shortenBJUKnWNOfIngredients = ingredients => {
 	});
 };
 	
-const extendBJUKnWNOfIngredients = ings => {
-		const ingredients = makeCopyOfObjArray(ings);
-		ingredients.forEach((e, i) => {
-			const obj = {};
-			obj.id = e.i;
-			obj.name__lang_code_ru = e.ru;
-			obj.protein = e.p;
-			obj.fat = e.f;
-			obj.carbohydrate = e.c;
-			obj.caloric_content = e.ca;
-			obj.t = e.t;
-			obj.n = i + 1;
-			obj.g_weight = e.w;
-			ingredients[i] = obj;
-		});
-
-		return ingredients;
+const extendBJUKnWNOfIngredients = ingredients => {
+	return ingredients.map(e => {
+		return {
+			id : e.i
+			,name__lang_code_ru : e.ru
+			,protein : e.p
+			,fat : e.f
+			,carbohydrate : e.c
+			,caloric_content : e.ca
+			,t : e.t
+			,g_weight : e.w
+		};
+	});
 	};
 
 	const insertIntoTelegramUserSendedCommandsPostgresTable = async row => {
@@ -2205,56 +2198,32 @@ bot.on(`message`, async ctx => {
 				paramQuery.values = getArrOfValuesFromObj(row);
 				await DB_CLIENT.query(paramQuery);
 
-
-return;
-		//posle sohraneniya	
-				//update count_of_user_created_di
-				let setFUCFIDITime;
-				let setLimitCOfFIDI;
-
-				if (!userInfo.privilege_type) {
-					if (!userInfo.first_user_created_fidi_time) {
-						setFUCFIDITime = `first_user_created_fidi_time = '${creation_date}'`;
-						userInfo.limit_count_of_user_created_fidi = 0;
-					}
-					setLimitCOfFIDI = `limit_count_of_user_created_fidi= ${Number(userInfo.limit_count_of_user_created_fidi) + 1}`;
-				}
-
-				// perepisat' na telegram_users
-				await DB_CLIENT.query(`
-					UPDATE registered_users
-					SET count_of_user_created_di = ${count_of_user_created_di}
-					${setLimitCOfFIDI ? ', ' + setLimitCOfFIDI : ``}
-					${setFUCFIDITime ? ', ' + setFUCFIDITime : ``}
-					WHERE id = ${userInfo.r_user_id};
-				`);
-
-				/*
-//posle sohraneniya, poluchit' iz process table
-					//
-				//create dish dish_items
-				let row = {};
-				row.creation_date = creation_date;
-				row.name__lang_code_ru = dishName;
-				row.di_id_for_user = count_of_user_created_di;
-				row.tg_user_id = userInfo.tg_user_id;
-
-				let paramQuery = {};
-				paramQuery.text = `
-					INSERT INTO dish_items
-					(${objKeysToColumnStr(row)})
-					VALUES
-					(${objKeysToColumn$IndexesStr(row)})
-					RETURNING	id
-				;`;
-				paramQuery.values = getArrOfValuesFromObj(row);
-				const res = await DB_CLIENT.query(paramQuery);
- */
-
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__EDIT_DISH))) {
 				const di_id_for_user = re_result[1];
 
 				//select by di_id_for_user, tg_user_id
+				let res = await DB_CLIENT.query(`
+						SELECT id, name__lang_code_ru, protein, fat, carbohydrate, caloric_content, fooddish_gweight_items_json, g_weight, total_g_weight
+						FROM dish_items
+						WHERE tg_user_id = ${userInfo.tg_user_id}
+						AND di_id_for_user = ${di_id_for_user}
+						AND deleted = false
+						ORDER BY id DESC
+						LIMIT 1
+					;`);
+
+				if(!res.rowCount){
+
+					console.log(`no dish with this di_id_for_user`);
+					return;
+				}
+
+				const dish = res.rows[0];
+				
+				const ingredients = extendBJUKnWNOfIngredients(dish.fooddish_gweight_items_json);
+				// delete dish.fooddish_gweight_items_json;
+				// delete dish.id
+
 				//extendBJUKnWNOfIngredients from fooddish_gweight_items_json
 				//create process
 				//send message
@@ -2585,7 +2554,7 @@ return;
 			const chatId = ctx.update.message.chat.id;
 			const dishSheetMessageId = userSubprocess.state.message_id;
 
-			if (userSubprocess.process_name == `DISH_CREATING` || userSubprocess.process_name == `DISH_EDITING`){
+			if (userSubprocess.process_name == `DISH_CREATING`){
 				if(Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__HELP))){
 					if (userSubprocess.state.interface == `help`) {
 						userSubprocess.sequence.push(getSequenceAction(userMessageId));
@@ -3110,6 +3079,9 @@ return;
 				;`;
 				paramQuery.values = getArrOfValuesFromObj(row);
 				await DB_CLIENT.query(paramQuery);
+			}	else if (userSubprocess.process_name == `DISH_EDITING`){
+				console.log(`DISH_EDITING`);
+
 			} else {
 				console.log(`main tree`);
 			}
@@ -3180,7 +3152,7 @@ bot.on(`callback_query`, async ctx => {
 	
 	const reFoodItems = new RegExp(`${tableNames.food_items}(\\d+)i(\\d+)`);
 	
-	const rePreCreatedDishPage = /^i(\d+)p(\d+)$/;
+	const reDishSubprocessPage = /^i(\d+)p(\d+)$/;
 	const reUserBack = /^i(\d+)back$/;
 
 	const reCreatedDishPage = /^i(\d+)p(\d+)d(\d+)$/;
@@ -3191,26 +3163,18 @@ bot.on(`callback_query`, async ctx => {
 	const reCommands = /^i(\d+)commands$/;
 	const reHelpPage = /^i(\d+)cp(\d+)$/;
 
-	const chatId = callbackQuery.from.id;
+	const chatId = callbackQuery.message.chat.id;
 	const messageId = callbackQuery.message.message_id;
 
 console.log(userSubprocess);	
 	if(!userSubprocess){
 		if (Array.isArray(re_result = callbackQuery.data.match(reHelpPage))) {
-console.log(callbackQuery, JSON.stringify(callbackQuery.message.reply_markup))
 			const countOfPages = HTMLCommandMaker.fullDescCommandListPerPageCounts.length;
 			const pageNum = Number(re_result[2]);
 			const text = HTMLCommandMaker.getFullDescCommandListPage(pageNum);
 
 			const m = getHelpMessage(pageNum, countOfPages, text, userInfo.tg_user_id);
 			
-			const row = {};
-			row.tg_user_id = userInfo.tg_user_id;
-			row.creation_date = creation_date;
-			row.command = `HELP_PAGE`;
-
-			await insertIntoTelegramUserSendedCommandsPostgresTable(row);
-
 			const areTextEqual = isPreviousMessageTextEqualToNewOne(
 					callbackQuery.message.text,
 					m.text
@@ -3225,6 +3189,13 @@ console.log(callbackQuery, JSON.stringify(callbackQuery.message.reply_markup))
 			}
 			
 			await editMessage(chatId, messageId, m.text, m.inlineKeyboard);
+			
+			const row = {};
+			row.tg_user_id = userInfo.tg_user_id;
+			row.creation_date = creation_date;
+			row.command = `HELP_PAGE`;
+
+			await insertIntoTelegramUserSendedCommandsPostgresTable(row);
 
 		} else if (Array.isArray(re_result = callbackQuery.data.match(reFoodItems))) {
 
@@ -3379,9 +3350,6 @@ console.log(callbackQuery, JSON.stringify(callbackQuery.message.reply_markup))
 		console.log(`!userSubprocess, main tree`);
 
 	} else {
-		const chatId = callbackQuery.message.chat.id;
-		const messageId = userSubprocess.state.message_id;
-
 		if(userSubprocess.process_name == `DISH_CREATING__RENAMING`){
 			if(Array.isArray(re_result = callbackQuery.data.match(reCancel))){
 				console.log(re_result);
@@ -3609,7 +3577,7 @@ console.log(callbackQuery, JSON.stringify(callbackQuery.message.reply_markup))
 			} else if (Array.isArray(re_result = callbackQuery.data.match(reUserBack))) {
 				const lengthOfIngredients = userSubprocess.data.ingredients.length;
 				const maxNumberOfLines = 20;
-				const selectedPage = getNumberOfPages(lengthOfIngredients, maxNumberOfLines);
+				const selectedPage = getCountOfPages(lengthOfIngredients, maxNumberOfLines);
 
 				const m = getDishMessage(selectedPage, maxNumberOfLines, userSubprocess);
 
@@ -3620,11 +3588,227 @@ console.log(callbackQuery, JSON.stringify(callbackQuery.message.reply_markup))
 				}
 				
 				userSubprocess.state.message_id = res.message_id;
+				userSubprocess.state.interface = `main`;
 
 				await updateUserSubprocess(userSubprocess);
 
-			} else if (Array.isArray(re_result = callbackQuery.data.match(reDishNavigate))) {
-			
+			} else if (Array.isArray(re_result = callbackQuery.data.match(reDishSubprocessPage))) {
+				const selectedPageNum = Number(re_result[2]);
+				const maxNumberOfLines = 20;
+
+				const m = getDishMessage(selectedPageNum, maxNumberOfLines, userSubprocess);
+
+				const res = await editDishSheetMessage(chatId, messageId, m.text, m.inlineKeyboard);
+				
+				if(!res){
+					return;
+				}
+				
+				userSubprocess.state.message_id = res.message_id;
+
+				await updateUserSubprocess(userSubprocess);
+			}
+		} else if(userSubprocess.process_name == `DISH_EDITING`){
+			if(Array.isArray(re_result = callbackQuery.data.match(reCancel))){
+
+				let messageText = `Редактирование блюда отменено.`
+
+				let response;
+
+				try {
+ 					response = await bot.telegram.editMessageText(
+						callbackQuery.message.chat.id,
+						userSubprocess.state.message_id,
+						``,
+						messageText
+					);
+				} catch(e) {
+					console.log(e);
+				}
+
+				if(!response){
+					return;
+				}
+				
+				await completeUserSubprocess(userSubprocess.id, {
+						canceled: true
+					});
+				
+				const row = {};
+				row.creation_date = creation_date;
+				row.command = `CANCEL__EDIT_DISH`;
+				row.tg_user_id = userInfo.tg_user_id;
+				row.process_id = userSubprocess.id;
+				
+				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
+
+			} else if (Array.isArray(re_result = callbackQuery.data.match(reSave))){
+				const subCommand = `callbackSaveDish`;
+				//check ingredients
+				//check dish ingredients if no return
+				if (!userSubprocess.data.ingredients.length){
+					const invalidComment = `Блюдо не содержит ингредиентов. Не могу сохранить.`;
+					const cause = `!userSubprocess.data.ingredients`;
+
+					await completeSubrocessCommand (0, userSubprocess, invalidComment, subCommand, cause);
+
+					return;
+				}
+
+				console.log(`recode me`);
+				return;
+				let ingredients = shortenBJUKnWNOfIngredients(userSubprocess.data.ingredients);
+
+				let dish = Object.assign({}, userSubprocess.data.dish);
+				//insert into dish_items
+				let row = dish;
+				row.creation_date = creation_date;
+				row.fooddish_gweight_items_json = JSON.stringify(ingredients);
+				row.tg_user_id = userSubprocess.tg_user_id;
+				
+				let paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO dish_items
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+					RETURNING	id
+				;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				let res = await DB_CLIENT.query(paramQuery);
+				const dishItemsId = res.rows[0].id;
+
+				//insert into fooddish_ids_for_meilisearch
+				row = {};
+				row.dish_items_id = dishItemsId;
+					
+				paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO fooddish_ids_for_meilisearch
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)})
+					RETURNING	id
+				;`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				res = await DB_CLIENT.query(paramQuery);
+				const fdIdsForMSId = res.rows[0].id;
+
+				//insert into meilisearch
+				dish = Object.assign({}, userSubprocess.data.dish);
+				delete dish.di_id_for_user;
+				delete dish.g_weight;
+				delete dish.total_g_weight;
+				
+				const documents = [];
+				const doc = dish;
+				doc.id = Number(fdIdsForMSId);
+				doc.dish_items_id = Number(dishItemsId);
+				doc.tg_user_id = Number(userSubprocess.tg_user_id);
+				doc.created_by_project = false;
+				documents.push(doc);
+
+				await MSDB.addDocuments(documents);
+
+				//insert telegram_user_sended_commands
+				row = {};
+				row.creation_date = creation_date;
+				row.command = 'SAVE_DISH';
+				row.tg_user_id = userSubprocess.tg_user_id;
+				row.can_it_be_canceled = true;
+				row.process_id = userSubprocess.id;
+
+				row.data = {};
+				row.data.dish_items_ids = [dishItemsId];
+				row.data = JSON.stringify(row.data);
+
+				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
+
+				//update telegram_user_subprocesses  complete clear data state sequence
+				await completeUserSubprocess(userSubprocess.id);
+	
+				// test is text check needed or changing keyboard is enough
+				//make message with buttons of dishitems id if ings > 20 and send
+				const maxNumberOfLines = 20;
+				const dataPart = `i${userSubprocess.tg_user_id}di${dishItemsId}`;
+
+
+				const m = getDishLookingMessage(
+					dataPart
+					,userSubprocess.data.dish
+					,userSubprocess.data.ingredients
+					,maxNumberOfLines
+				);
+
+				await editDishSheetMessage(
+					userSubprocess.tg_user_id,
+					userSubprocess.state.message_id,
+					m.text,
+					m.inlineKeyboard
+				);
+				
+				let comment = `Блюдо сохранено.`;
+				await sendMessage(chatId, comment);
+
+			} else if (Array.isArray(re_result = callbackQuery.data.match(reCommands))) {// redirect if sequence of shit input > 2
+				const htmlText = HTMLCommandMaker.dishProcess;
+
+				const inlineKeyboard = telegraf.Markup.inlineKeyboard(
+						[
+							[	
+								telegraf.Markup.button.callback(`Назад`, `i${userSubprocess.tg_user_id}back`)
+							]
+						]
+					);
+
+				inlineKeyboard.parse_mode = `HTML`;
+
+				const res = await editDishSheetMessage(chatId, messageId, htmlText, inlineKeyboard);
+				
+				if(!res){
+					return;
+				}
+
+				userSubprocess.state.message_id = res.message_id;
+				userSubprocess.state.interface = `help`;
+
+				const validComment = `Показываю команды.`;
+
+				await completeSubrocessCommand(0, userSubprocess, validComment);
+
+			} else if (Array.isArray(re_result = callbackQuery.data.match(reUserBack))) {
+				const lengthOfIngredients = userSubprocess.data.ingredients.length;
+				const maxNumberOfLines = 20;
+				const selectedPage = getCountOfPages(lengthOfIngredients, maxNumberOfLines);
+
+				const m = getDishMessage(selectedPage, maxNumberOfLines, userSubprocess);
+
+				const res = await editDishSheetMessage(chatId, messageId, m.text, m.inlineKeyboard);
+
+				if(!res){
+					return;
+				}
+				
+				userSubprocess.state.message_id = res.message_id;
+				userSubprocess.state.interface = `main`;
+
+				await updateUserSubprocess(userSubprocess);
+
+			} else if (Array.isArray(re_result = callbackQuery.data.match(reDishSubprocessPage))) {
+				const selectedPageNum = Number(re_result[2]);
+				const maxNumberOfLines = 20;
+
+				const m = getDishMessage(selectedPageNum, maxNumberOfLines, userSubprocess);
+
+				const res = await editDishSheetMessage(chatId, messageId, m.text, m.inlineKeyboard);
+				
+				if(!res){
+					return;
+				}
+				
+				userSubprocess.state.message_id = res.message_id;
+
+				await updateUserSubprocess(userSubprocess);
 			}
 		} else {
 			console.log(`code me`);
@@ -3868,55 +4052,6 @@ bot.on(`inline_query`, async ctx => {
 			
 		}
 	}
-
-	return;	
-
-	if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_BOT_AND_INLINE_COMMAND__GET_STATS))) {	
-		console.log(re_result);
-	} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH))) {
-		console.log(re_result);
-		console.log(re_result);
-		
-		//search in db
-		const re_str_arr = re_result[3].split(/\s+/);
-
-		
-		// const res = await DB_CLIENT.query();
-
-		// searchBuiltinUserFoodAndDishes()//str arr([str, str], 50/*limit*/) and str, str etc, 50
-
-		//make results
-		//send response
-
-
-		
-
-		console.log(re_result);
-	} else {
-		//nichego ne naydeno ili komanda ne raspoznana //ssilka
-		//ctx.answerInlineQuery(results);
-	}
-	
-	/* const res = await DB_CLIENT.query(`
-			SELECT * from food_images as fi where fi.id = 55;
-		`);
-	
-	const InputTextMessageContent = {
-		message_text: `message text`,
-	}
-
-	const article = {
-		type: `article`,
-		id: `sasiher`,
-		title: `Title`,
-		input_message_content: InputTextMessageContent,
-		description: `description 1t23f3 gg5e desc .`,
-	}
-	result.push(Object.assign({}, article));
-	article.id = `8heog`;
-	result.push(article);
-
-	ctx.answerInlineQuery(results); */
 	
 });
 bot.launch()
