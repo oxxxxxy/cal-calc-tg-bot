@@ -285,75 +285,79 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 		return dish;
 	};
 
+const makeDishSheetHeader = dish => {
+	if (dish.di_id_for_user) {
+		return `<b><u>|__ID| Название блюда пользователя</u></b>\n|${
+			makeDishNumForSheetLine(dish.di_id_for_user, 4)}| ${
+			dish.name__lang_code_ru}\n\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм)| <i>Ингредиент и его название</i></b></u>`;
+	}
+	return `<b><u>|__ID| Название блюда проекта</u></b>\n|${
+		makeDishNumForSheetLine(dish.id, 4)}| ${
+		dish.name__lang_code_ru}\n\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм)| <i>Ингредиент и его название</i></b></u>`;
+};
 
-				const makeDishSheetHeader = dish => {
-					return `<b><u>|__ID| Название блюда</u></b>\n|${
-						makeDishNumForSheetLine(dish.di_id_for_user, 4)}| ${
-						dish.name__lang_code_ru}\n\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм)| <i>Ингредиент и его название</i></b></u>`;
-				};
+const makeDishSheetFooter = dish => {
+	let dishSheetFooter = `\n<u>|<b>И__|Б:${
+		addCharBeforeValue(dish.protein, 6, '_')} |Ж:${
+		addCharBeforeValue(dish.fat, 6, '_')} |У:${
+		addCharBeforeValue(dish.carbohydrate, 6, '_')} |К:${
+		addCharBeforeValue(dish.caloric_content, 7, '_')} |В:_100.0|</b></u> Итого на 100 грамм.`;
 
-				const makeDishSheetFooter = dish => {
-					let dishSheetFooter = `\n<u>|<b>И__|Б:${
-						addCharBeforeValue(dish.protein, 6, '_')} |Ж:${
-						addCharBeforeValue(dish.fat, 6, '_')} |У:${
-						addCharBeforeValue(dish.carbohydrate, 6, '_')} |К:${
-						addCharBeforeValue(dish.caloric_content, 7, '_')} |В:_100.0|</b></u> Итого на 100 грамм.`;
+	let totalWeight = `__н/д__`;
+	let difference = `__н/д__`;
+	if (dish.total_g_weight) {
+		let diff = dish.g_weight - dish.total_g_weight;
+		totalWeight = addCharBeforeValue(dish.total_g_weight, 6, '_') + ' ';
+		difference = addCharBeforeValue(diff, 6, '_') + ' ';
+	}
 
-					let totalWeight = `__н/д__`;
-					let difference = `__н/д__`;
-					if (dish.total_g_weight) {
-						let diff = dish.g_weight - dish.total_g_weight;
-						totalWeight = addCharBeforeValue(dish.total_g_weight, 6, '_') + ' ';
-						difference = addCharBeforeValue(diff, 6, '_') + ' ';
-					}
+	dishSheetFooter += `\n<b><u>|Вес:${
+		addCharBeforeValue(dish.g_weight, 6, '_')} |Итоговый вес:${
+		totalWeight}|Разница:${
+		difference}|</u></b>`;
 
-					dishSheetFooter += `\n<b><u>|Вес:${
-						addCharBeforeValue(dish.g_weight, 6, '_')} |Итоговый вес:${
-						totalWeight}|Разница:${
-						difference}|</u></b>`;
-
-					return dishSheetFooter;
-				};
+	return dishSheetFooter;
+};
 			
-	const makeDishSheetLine = (ingreNum, protein, fat, carb, cal, weight, name) => {
-				return `\n|${
-					makeDishNumForSheetLine(ingreNum)} <u>|Б:${
-					addCharBeforeValue(protein, 6, '_')} |Ж:${
-					addCharBeforeValue(fat, 6, '_')} |У:${
-					addCharBeforeValue(carb, 6, '_')} |К:${
-					addCharBeforeValue(cal, 7, '_')} |В:${
-					addCharBeforeValue(weight, 6, '_')}</u> <i>${
-					name}</i>`
-			};
+const makeDishSheetLine = (ingreNum, protein, fat, carb, cal, weight, name) => {
+		return `\n|${
+			makeDishNumForSheetLine(ingreNum)} <u>|Б:${
+			addCharBeforeValue(protein, 6, '_')} |Ж:${
+			addCharBeforeValue(fat, 6, '_')} |У:${
+			addCharBeforeValue(carb, 6, '_')} |К:${
+			addCharBeforeValue(cal, 7, '_')} |В:${
+			addCharBeforeValue(weight, 6, '_')}</u> <i>${
+			name}</i>`
+	};
 
-				const makeDishSheet = (d, ings) => {
-					let dish = Object.assign({}, d);
-					const ingredients = makeCopyOfObjArray(ings);
+const makeDishSheet = (d, ings) => {
+	let dish = Object.assign({}, d);
+	const ingredients = makeCopyOfObjArray(ings);
 
-					let dishSheet = ``;
+	let dishSheet = ``;
 
-					dishSheet += makeDishSheetHeader(dish);
+	dishSheet += makeDishSheetHeader(dish);
 
-					ingredients.forEach(e => {
-						e = bjukToNum(
-							bjukToFixedNum(
-								bjukValueToWC(e, e.g_weight)
-							)
-						);
-						dishSheet += makeDishSheetLine(
-							e.n,
-							e.protein,
-							e.fat,
-							e.carbohydrate,
-							e.caloric_content,
-							e.g_weight,
-							e.name__lang_code_ru);
-					});
+	ingredients.forEach(e => {
+		e = bjukToNum(
+			bjukToFixedNum(
+				bjukValueToWC(e, e.g_weight)
+			)
+		);
+		dishSheet += makeDishSheetLine(
+			e.n,
+			e.protein,
+			e.fat,
+			e.carbohydrate,
+			e.caloric_content,
+			e.g_weight,
+			e.name__lang_code_ru);
+	});
 
-					dishSheet += makeDishSheetFooter(dish);
-					
-					return dishSheet;
-				};
+	dishSheet += makeDishSheetFooter(dish);
+	
+	return dishSheet;
+};
 
 const shortenBJUKnWNOfIngredients = ingredients => {
 	return ingredients.map(e => {
@@ -479,7 +483,7 @@ const editMessage = async (chatId, messageId, text, inlineKeyboard) => {
 		}
 	}
 
-	const editDishSheetMessage = async (chatId, messageId, text, inlineKeyboard) => {	
+	const editPanelMessage = async (chatId, messageId, text, inlineKeyboard) => {	
 		try {
 			return await bot.telegram.editMessageText(
 				chatId,
@@ -924,7 +928,8 @@ const getButtonTextForThreePageInKey = pages => {
 
 					};
 
-				const getDishLookingMessage = (dataPart, dish, ingredients, maxNumberOfLines, selectedPage = 1) => {
+				const getDishLookingPanelMessage = (dataPart, dish, ingredients, selectedPage = 1) => {
+					const maxNumberOfLines = 20;
 					const message = {};
 
 					const lengthOfIngredients = ingredients.length;
@@ -2119,7 +2124,7 @@ bot.on(`message`, async ctx => {
 
 				let messageText = makeDishSheet(dish, []);
 
-				let dishReminder = `\n\n—Перед добавлением ингредиента его нужно создать.\n—Если в блюде больше 20 ингредиентов, то блюдо придется разделить на два блюда. Создать первое блюдо и добавить его как ингредиент в создоваемое второе.\n\nНужна помощь? Нажми "<b>Команды</b>"`;
+				let dishReminder = `\n\n—Перед добавлением ингредиента его нужно создать.\n—Если в блюде больше 100 ингредиентов, то блюдо придется разделить на два блюда. Создать первое блюдо и добавить его как ингредиент в создоваемое второе.\n—Вес ингредиента ограничен 9999.9 граммами.\n\nНужна помощь? Нажми "<b>Команды</b>"`;
 
 				messageText += dishReminder;
 
@@ -2643,7 +2648,7 @@ bot.on(`message`, async ctx => {
 
 					inlineKeyboard.parse_mode = `HTML`;
 
-					let res = await editDishSheetMessage(chatId, dishSheetMessageId, htmlText, inlineKeyboard);
+					let res = await editPanelMessage(chatId, dishSheetMessageId, htmlText, inlineKeyboard);
 					
 					if(!res){
 						return;
@@ -2741,7 +2746,7 @@ bot.on(`message`, async ctx => {
 
 					const m = getDishMessage(userSubprocess.tg_user_id, userSubprocess.data.dish, userSubprocess.data.ingredients);
 
-					let res = await editDishSheetMessage(
+					let res = await editPanelMessage(
 						userSubprocess.tg_user_id,
 						userSubprocess.state.message_id,
 						m.text,
@@ -2838,7 +2843,7 @@ bot.on(`message`, async ctx => {
 
 					const m = getDishMessage(userSubprocess.tg_user_id, userSubprocess.data.dish, userSubprocess.data.ingredients, selectedPage);
 
-					let res = await editDishSheetMessage(
+					let res = await editPanelMessage(
 						userSubprocess.tg_user_id,
 						userSubprocess.state.message_id,
 						m.text,
@@ -2901,7 +2906,7 @@ bot.on(`message`, async ctx => {
 
 					const m = getDishMessage(userSubprocess.tg_user_id, userSubprocess.data.dish, userSubprocess.data.ingredients, selectedPage);
 
-					let res = await editDishSheetMessage(
+					let res = await editPanelMessage(
 						userSubprocess.tg_user_id,
 						userSubprocess.state.message_id,
 						m.text,
@@ -2964,7 +2969,7 @@ bot.on(`message`, async ctx => {
 
 					const m = getDishMessage(userSubprocess.tg_user_id, userSubprocess.data.dish, userSubprocess.data.ingredients);
 
-					let res = await editDishSheetMessage(
+					let res = await editPanelMessage(
 						userSubprocess.tg_user_id,
 						userSubprocess.state.message_id,
 						m.text,
@@ -3211,7 +3216,8 @@ bot.on(`callback_query`, async ctx => {
 		`)).rows[0];
 	
 	const reFoodItems = new RegExp(`${tableNames.food_items}(\\d+)i(\\d+)`);
-	
+
+	const reDishLookingPage = /^i(\d+)di(\d+)p(\d+)$/;
 	const reDishSubprocessPage = /^i(\d+)p(\d+)$/;
 	const reUserBack = /^i(\d+)back$/;
 
@@ -3254,6 +3260,59 @@ console.log(userSubprocess);
 			row.tg_user_id = userInfo.tg_user_id;
 			row.creation_date = creation_date;
 			row.command = `HELP_PAGE`;
+
+			await insertIntoTelegramUserSendedCommandsPostgresTable(row);
+
+		} else if (Array.isArray(re_result = callbackQuery.data.match(reDishLookingPage))) {
+			console.log(`code me`, re_result);
+			const dish_items_id = re_result[2];
+			const selectedPageNum = Number(re_result[3]);
+
+			//select dish_items
+			const dish = (await DB_CLIENT.query(`
+					SELECT id, di_id_for_user,
+					name__lang_code_ru,
+					protein, fat,	carbohydrate, caloric_content, g_weight, total_g_weight,
+					fooddish_gweight_items_json 
+					FROM dish_items
+					WHERE id = ${dish_items_id}
+					ORDER BY id DESC
+					LIMIT 1
+				;`)).rows[0];
+
+			//extendBJUKnWNOfIngredients
+			const ingredients = extendBJUKnWNOfIngredients(dish.fooddish_gweight_items_json);
+
+			//make text & inlineKeyboard and editPanelMessage
+			const dataPart = `i${userInfo.tg_user_id}di${dish.id}`;
+
+			const m = getDishLookingPanelMessage(
+				dataPart
+				,dish
+				,ingredients
+				,selectedPageNum
+			);
+
+			const areTextEqual = isPreviousMessageTextEqualToNewOne(
+					callbackQuery.message.text,
+					m.text
+				);
+			const areInlineKeyboardsEqual = isPreviousInlineKeyboardEqualToNewOne(
+					callbackQuery.message.reply_markup.inline_keyboard,
+					m.inlineKeyboard.reply_markup.inline_keyboard
+				);
+			
+			if (areTextEqual && areInlineKeyboardsEqual){
+				return;
+			}
+			
+			await editMessage(chatId, messageId, m.text, m.inlineKeyboard);
+
+			//add telegram_user_sended_commands
+			const row = {};
+			row.tg_user_id = userInfo.tg_user_id;
+			row.creation_date = creation_date;
+			row.command = `DISH_LOOKING_PAGE`;
 
 			await insertIntoTelegramUserSendedCommandsPostgresTable(row);
 
@@ -3532,6 +3591,7 @@ console.log(userSubprocess);
 
 				//insert into meilisearch
 				dish = Object.assign({}, userSubprocess.data.dish);
+				dish = bjukToNum(dish);
 				delete dish.di_id_for_user;
 				delete dish.g_weight;
 				delete dish.total_g_weight;
@@ -3591,14 +3651,14 @@ console.log(userSubprocess);
 				const dataPart = `i${userSubprocess.tg_user_id}di${dishItemsId}`;
 
 
-				const m = getDishLookingMessage(
+				const m = getDishLookingPanelMessage(
 					dataPart
 					,userSubprocess.data.dish
 					,userSubprocess.data.ingredients
 					,maxNumberOfLines
 				);
 
-				await editDishSheetMessage(
+				await editPanelMessage(
 					userSubprocess.tg_user_id,
 					userSubprocess.state.message_id,
 					m.text,
@@ -3621,7 +3681,7 @@ console.log(userSubprocess);
 
 				inlineKeyboard.parse_mode = `HTML`;
 
-				const res = await editDishSheetMessage(chatId, messageId, htmlText, inlineKeyboard);
+				const res = await editPanelMessage(chatId, messageId, htmlText, inlineKeyboard);
 				
 				if(!res){
 					return;
@@ -3637,7 +3697,7 @@ console.log(userSubprocess);
 			} else if (Array.isArray(re_result = callbackQuery.data.match(reUserBack))) {
 				const m = getDishMessage(userSubprocess.tg_user_id, userSubprocess.data.dish, userSubprocess.data.ingredients);
 
-				const res = await editDishSheetMessage(chatId, messageId, m.text, m.inlineKeyboard);
+				const res = await editPanelMessage(chatId, messageId, m.text, m.inlineKeyboard);
 
 				if(!res){
 					return;
@@ -3652,8 +3712,21 @@ console.log(userSubprocess);
 				const selectedPageNum = Number(re_result[2]);
 
 				const m = getDishMessage(userSubprocess.tg_user_id, userSubprocess.data.dish, userSubprocess.data.ingredients, selectedPageNum);
+		
+				const areTextEqual = isPreviousMessageTextEqualToNewOne(
+						callbackQuery.message.text,
+						m.text
+					);
+				const areInlineKeyboardsEqual = isPreviousInlineKeyboardEqualToNewOne(
+						callbackQuery.message.reply_markup.inline_keyboard,
+						m.inlineKeyboard.reply_markup.inline_keyboard
+					);
+				
+				if (areTextEqual && areInlineKeyboardsEqual){
+					return;
+				}
 
-				const res = await editDishSheetMessage(chatId, messageId, m.text, m.inlineKeyboard);
+				const res = await editPanelMessage(chatId, messageId, m.text, m.inlineKeyboard);
 				
 				if(!res){
 					return;
@@ -3710,71 +3783,52 @@ console.log(userSubprocess);
 					return;
 				}
 
-				console.log(`recode me`);
-				return;
 				let ingredients = shortenBJUKnWNOfIngredients(userSubprocess.data.ingredients);
 
 				let dish = Object.assign({}, userSubprocess.data.dish);
+
 				//insert into dish_items
 				let row = dish;
 				row.creation_date = creation_date;
 				row.fooddish_gweight_items_json = JSON.stringify(ingredients);
-				row.tg_user_id = userSubprocess.tg_user_id;
 				
-				let paramQuery = {};
-				paramQuery.text = `
-					INSERT INTO dish_items
-					(${objKeysToColumnStr(row)})
-					VALUES
-					(${objKeysToColumn$IndexesStr(row)})
-					RETURNING	id
-				;`;
-				paramQuery.values = getArrOfValuesFromObj(row);
-				let res = await DB_CLIENT.query(paramQuery);
-				const dishItemsId = res.rows[0].id;
+				await DB_CLIENT.query(`
+					UPDATE dish_items
+					SET	${getStrOfColumnNamesAndTheirSettedValues(row)}
+					WHERE id = ${userSubprocess.data.dish_items_id};
+				;`);
 
-				//insert into fooddish_ids_for_meilisearch
-				row = {};
-				row.dish_items_id = dishItemsId;
-					
-				paramQuery = {};
-				paramQuery.text = `
-					INSERT INTO fooddish_ids_for_meilisearch
-					(${objKeysToColumnStr(row)})
-					VALUES
-					(${objKeysToColumn$IndexesStr(row)})
-					RETURNING	id
-				;`;
-				paramQuery.values = getArrOfValuesFromObj(row);
-				res = await DB_CLIENT.query(paramQuery);
-				const fdIdsForMSId = res.rows[0].id;
+				//update meilisearch bjuk
+				const fdIdsForMSId = (await DB_CLIENT.query(`
+						SELECT *
+						FROM fooddish_ids_for_meilisearch
+						WHERE dish_items_id = ${userSubprocess.data.dish_items_id}
+						ORDER BY id DESC
+						LIMIT 1;
+					`)).rows[0].id;
 
 				//insert into meilisearch
 				dish = Object.assign({}, userSubprocess.data.dish);
+				dish = bjukToNum(dish);
 				delete dish.di_id_for_user;
 				delete dish.g_weight;
 				delete dish.total_g_weight;
 				
-				const documents = [];
 				const doc = dish;
 				doc.id = Number(fdIdsForMSId);
-				doc.dish_items_id = Number(dishItemsId);
-				doc.tg_user_id = Number(userSubprocess.tg_user_id);
-				doc.created_by_project = false;
-				documents.push(doc);
 
-				await MSDB.addDocuments(documents);
+				await MSDB.updateDocuments([doc]);
 
 				//insert telegram_user_sended_commands
 				row = {};
 				row.creation_date = creation_date;
 				row.command = 'SAVE_DISH';
 				row.tg_user_id = userSubprocess.tg_user_id;
-				row.can_it_be_canceled = true;
+				row.can_it_be_removed = true;
 				row.process_id = userSubprocess.id;
 
 				row.data = {};
-				row.data.dish_items_ids = [dishItemsId];
+				row.data.dish_items_ids = [userSubprocess.data.dish_items_id];
 				row.data = JSON.stringify(row.data);
 
 				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
@@ -3785,25 +3839,24 @@ console.log(userSubprocess);
 				// test is text check needed or changing keyboard is enough
 				//make message with buttons of dishitems id if ings > 20 and send
 				const maxNumberOfLines = 20;
-				const dataPart = `i${userSubprocess.tg_user_id}di${dishItemsId}`;
+				const dataPart = `i${userSubprocess.tg_user_id}di${userSubprocess.data.dish_items_id}`;
 
-
-				const m = getDishLookingMessage(
+				const m = getDishLookingPanelMessage(
 					dataPart
 					,userSubprocess.data.dish
 					,userSubprocess.data.ingredients
 					,maxNumberOfLines
 				);
 
-				await editDishSheetMessage(
+				await editPanelMessage(
 					userSubprocess.tg_user_id,
 					userSubprocess.state.message_id,
 					m.text,
 					m.inlineKeyboard
 				);
 				
-				let comment = `Блюдо сохранено.`;
-				await sendMessage(chatId, comment);
+				const commandComment = `Блюдо сохранено.`;
+				await sendMessage(chatId, commandComment);
 
 			} else if (Array.isArray(re_result = callbackQuery.data.match(reCommands))) {// redirect if sequence of shit input > 2
 				const htmlText = HTMLCommandMaker.dishProcess;
@@ -3818,7 +3871,7 @@ console.log(userSubprocess);
 
 				inlineKeyboard.parse_mode = `HTML`;
 
-				const res = await editDishSheetMessage(chatId, messageId, htmlText, inlineKeyboard);
+				const res = await editPanelMessage(chatId, messageId, htmlText, inlineKeyboard);
 				
 				if(!res){
 					return;
@@ -3834,7 +3887,7 @@ console.log(userSubprocess);
 			} else if (Array.isArray(re_result = callbackQuery.data.match(reUserBack))) {
 				const m = getDishMessage(userSubprocess.tg_user_id, userSubprocess.data.dish, userSubprocess.data.ingredients);
 
-				const res = await editDishSheetMessage(chatId, messageId, m.text, m.inlineKeyboard);
+				const res = await editPanelMessage(chatId, messageId, m.text, m.inlineKeyboard);
 
 				if(!res){
 					return;
@@ -3849,8 +3902,21 @@ console.log(userSubprocess);
 				const selectedPageNum = Number(re_result[2]);
 
 				const m = getDishMessage(userSubprocess.tg_user_id, userSubprocess.data.dish, userSubprocess.data.ingredients, selectedPageNum);
+				
+				const areTextEqual = isPreviousMessageTextEqualToNewOne(
+						callbackQuery.message.text,
+						m.text
+					);
+				const areInlineKeyboardsEqual = isPreviousInlineKeyboardEqualToNewOne(
+						callbackQuery.message.reply_markup.inline_keyboard,
+						m.inlineKeyboard.reply_markup.inline_keyboard
+					);
+				
+				if (areTextEqual && areInlineKeyboardsEqual){
+					return;
+				}
 
-				const res = await editDishSheetMessage(chatId, messageId, m.text, m.inlineKeyboard);
+				const res = await editPanelMessage(chatId, messageId, m.text, m.inlineKeyboard);
 				
 				if(!res){
 					return;
@@ -4096,11 +4162,15 @@ bot.on(`inline_query`, async ctx => {
 					],
 					{is_personal:true}
 				);
-			}			
+			}
 		} else if (userSubprocess.process_name == 'DAY_CREATION') {
 
 			
+		} else {
+
+			console.log(`code me`);
 		}
+
 	}
 	
 });
