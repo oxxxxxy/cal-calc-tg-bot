@@ -59,10 +59,12 @@ const RE_RU_COMMAND__DELETE_CREATED_FOOD_IDs = /^уе/u;//(([0-9]+(\s+|)|[0-9]+)
 
 const RE_RU_COMMAND__CREATE_DISH = /^(сб\s+)((([а-яА-Яa-zA-Z0-9]+)(\s+|))+)$/u;
 const RE_RU_COMMAND__EDIT_DISH = /^рб\s+([0-9]+)$/u;
+const RE_RU_COMMAND__RENAME_DISH = /^пб(\s+)(\d+)\s+(.*)/u;
+	const RE_RU_SUBCOMMAND__RENAME_DISH = /^п\s+(.*)/u;
 	const RE__RESOLVE_FD_ID_WEIGHT_FROM_InlQuery = /(f|d)([0-9]+)w(.*)/;
-	const RE_RU_COMMAND__DELETE_INGREDIENTs_FROM_DISH = /^у\s+[0-9]+/u;
-	const RE_RU_COMMAND__EDIT_INGREDIENT_WEIGHT_IN_DISH = /^ви\s+([0-9]+)\s+(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)$/u;
-	const RE_RU_COMMAND__DISH_TOTAL_WEIGHT = /^и\s+(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)$/u;
+	const RE_RU_SUBCOMMAND__DELETE_INGREDIENTs_FROM_DISH = /^у\s+[0-9]+/u;
+	const RE_RU_SUBCOMMAND__EDIT_INGREDIENT_WEIGHT_IN_DISH = /^ви\s+([0-9]+)\s+(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)$/u;
+	const RE_RU_SUBCOMMAND__DISH_TOTAL_WEIGHT = /^и\s+(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)$/u;
 const RE_RU_COMMAND__DELETE_CREATED_DISH_IDs = /^уб\s+/u; 
 const RE_RU_COMMAND__SHOW_CREATED_DISHES = /^псб$/u;
 
@@ -2629,8 +2631,29 @@ bot.on(`message`, async ctx => {
 
 			if (userSubprocess.process_name == `DISH_CREATING`){
 				if(Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__HELP))){
+					const subCommand = `get help`;
 					if (userSubprocess.state.interface == `help`) {
 						userSubprocess.sequence.push(getSequenceAction(userMessageId));
+
+						await deletePreviousBotComment(userSubprocess);
+
+						const validComment = `Уже показываю команды.`;
+
+						let res = await sendMessage(
+							userSubprocess.tg_user_id,
+							validComment
+						);
+			
+						if(res){
+							userSubprocess.sequence.push(
+								getSequenceAction(
+									res.message_id,
+									subCommand ? subCommand : undefined,
+									undefined,
+									true
+								)
+							);
+						}
 
 						await updateUserSubprocess(userSubprocess);
 						return;
@@ -2672,7 +2695,7 @@ bot.on(`message`, async ctx => {
 							getSequenceAction(
 								res.message_id,
 								subCommand ? subCommand : undefined,
-								cause ? cause : undefined,
+								undefined,
 								true
 							)
 						);
@@ -2762,14 +2785,11 @@ bot.on(`message`, async ctx => {
 
 					await completeSubrocessCommand(userMessageId, userSubprocess, validComment, subCommand);
 
-				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_INGREDIENTs_FROM_DISH))) {
+				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_SUBCOMMAND__DELETE_INGREDIENTs_FROM_DISH))) {
 					const subCommand = `deleteIngrFromDish`;
 
 					//row.data.action = {delete ingredient, ingredients}
-					let listNums = [];
-					[...re_result.input.matchAll(/[0-9]+/g)].forEach(el => {
-						listNums.push(Number(el[0]));
-					});
+					let listNums = [...re_result.input.matchAll(/[0-9]+/g)].map(e => e);
 					
 					console.log(listNums);
 
@@ -2859,7 +2879,7 @@ bot.on(`message`, async ctx => {
 
 					await completeSubrocessCommand(userMessageId, userSubprocess, validComment, subCommand);
 
-				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__EDIT_INGREDIENT_WEIGHT_IN_DISH))) {
+				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_SUBCOMMAND__EDIT_INGREDIENT_WEIGHT_IN_DISH))) {
 					const subCommand = `deleteIngrFromDish`;
 
 					const ingredientNum = Number(re_result[1]);
@@ -2922,7 +2942,7 @@ bot.on(`message`, async ctx => {
 
 					await completeSubrocessCommand(userMessageId, userSubprocess, validComment, subCommand);
 
-				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DISH_TOTAL_WEIGHT))) {
+				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_SUBCOMMAND__DISH_TOTAL_WEIGHT))) {
 					const subCommand = `dishTotalWeight`;
 
 					const totalWeight = Number(re_result[1].replace(/\,/, '.'));
@@ -3146,6 +3166,389 @@ bot.on(`message`, async ctx => {
 				await DB_CLIENT.query(paramQuery);
 			}	else if (userSubprocess.process_name == `DISH_EDITING`){
 				console.log(`DISH_EDITING`);
+				if(Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__HELP))){
+					const subCommand = `get help`;
+					if (userSubprocess.state.interface == `help`) {
+						userSubprocess.sequence.push(getSequenceAction(userMessageId));
+
+						await deletePreviousBotComment(userSubprocess);
+
+						const validComment = `Уже показываю команды.`;
+
+						let res = await sendMessage(
+							userSubprocess.tg_user_id,
+							validComment
+						);
+			
+						if(res){
+							userSubprocess.sequence.push(
+								getSequenceAction(
+									res.message_id,
+									subCommand ? subCommand : undefined,
+									undefined,
+									true
+								)
+							);
+						}
+
+						await updateUserSubprocess(userSubprocess);
+						return;
+					}
+
+					const htmlText = HTMLCommandMaker.dishProcess;
+
+					const inlineKeyboard = telegraf.Markup.inlineKeyboard(
+							[
+								[	
+									telegraf.Markup.button.callback(`Назад`, `i${userSubprocess.tg_user_id}back`)
+								]
+							]
+						);
+
+					inlineKeyboard.parse_mode = `HTML`;
+
+					let res = await editPanelMessage(chatId, dishSheetMessageId, htmlText, inlineKeyboard);
+					
+					if(!res){
+						return;
+					}
+					console.log(res)
+
+					userSubprocess.state.message_id = res.message_id;
+					userSubprocess.state.interface = `help`;
+
+					await deletePreviousBotComment(userSubprocess);
+
+					const validComment = `Показываю команды.`;
+
+					res = await sendMessage(
+						userSubprocess.tg_user_id,
+						validComment
+					);
+			
+					if(res){
+						userSubprocess.sequence.push(
+							getSequenceAction(
+								res.message_id,
+								subCommand ? subCommand : undefined,
+								undefined,
+								true
+							)
+						);
+					}
+	
+					await updateUserSubprocess(userSubprocess);
+
+				} else if (Array.isArray(re_result = text.toLowerCase().match(RE__RESOLVE_FD_ID_WEIGHT_FROM_InlQuery))){
+					const subCommand = `resolveFDIDWeightFromInlQuery`;
+
+					const foodDishType = re_result[1];
+					const id = Number(re_result[2]);
+					const g_weight = Number(Number(re_result[3]).toFixed(1));
+					
+					if(userSubprocess.data.ingredients.length >= 100){
+ 						const invalidComment = `Больше 100 ингредиентов в одном блюде? Не шутишь?\nТогда придётся сохранить текущее блюдо, создать второе блюдо и добавить в него текущее.\nТакие дела, чо...`;
+						const cause = `userSubprocess.data.ingredients.length >= 100`;
+						
+						await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, subCommand, cause);
+						return;
+					}
+
+					let newIngredient;
+
+					if ( foodDishType == 'f') {
+						let res = await pgClient.query(`
+							SELECT id, name__lang_code_ru, protein, fat, carbohydrate, caloric_content
+							FROM food_items
+							WHERE id = ${id}
+						;`);
+						newIngredient = res.rows[0];
+						newIngredient.t = 'f';
+					} else {
+						let res = await pgClient.query(`
+							SELECT id, name__lang_code_ru, protein, fat, carbohydrate, caloric_content
+							FROM dish_items
+							WHERE id = ${id}
+						;`);
+						newIngredient = res.rows[0];
+						newIngredient.t = 'd';
+					}
+					
+					newIngredient.id = Number(newIngredient.id);
+
+					const identicalIngredient = userSubprocess.data.ingredients.find(e => e.id == newIngredient.id && e.t == newIngredient.t);
+
+					if (identicalIngredient) {
+						
+						const invalidComment = `Ingredient "${newIngredient.name__lang_code_ru}" uje dobavlen pod nomerom ${identicalIngredient.n}.`;
+						const cause = `identicalIngredient`;
+
+						await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, subCommand, cause);
+
+						return;
+					}
+
+					newIngredient.n = userSubprocess.data.ingredients.length + 1;
+					newIngredient.g_weight = g_weight;
+					newIngredient = bjukToNum(newIngredient);
+
+					const validComment = `Добавлен ингредиент.\n\n${
+						newIngredient.name__lang_code_ru
+					}`;
+
+					userSubprocess.data.ingredients.push(newIngredient);
+
+					userSubprocess.data.dish = calcDishBJUKnW(
+						userSubprocess.data.dish,
+						userSubprocess.data.ingredients
+					);
+
+					const m = getDishMessage(userSubprocess.tg_user_id, userSubprocess.data.dish, userSubprocess.data.ingredients);
+
+					let res = await editPanelMessage(
+						userSubprocess.tg_user_id,
+						userSubprocess.state.message_id,
+						m.text,
+						m.inlineKeyboard
+					);
+
+					if(!res){
+						return;
+					}
+					
+					userSubprocess.state.message_id = res.message_id;
+					userSubprocess.state.interface = `main`;
+
+					await completeSubrocessCommand(userMessageId, userSubprocess, validComment, subCommand);
+
+				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_SUBCOMMAND__DELETE_INGREDIENTs_FROM_DISH))) {
+					const subCommand = `deleteIngrFromDish`;
+
+					//row.data.action = {delete ingredient, ingredients}
+					let listNums = [];
+					[...re_result.input.matchAll(/[0-9]+/g)].forEach(el => {
+						listNums.push(Number(el[0]));
+					});
+					
+					console.log(listNums);
+
+					if (!userSubprocess.data.ingredients.length) {
+						const invalidComment = `nechego udalyat'`;
+						const cause = `!userSubprocess.data.ingredients.length`;
+
+						await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, subCommand, cause);
+
+						return;
+					} else {
+						let absentNums = [];
+						listNums.forEach(el => {
+							if ( el < 1 || el > userSubprocess.data.ingredients.length){
+								absentNums.push(el);
+							}
+						});
+
+						if(absentNums.length) {
+							const invalidComment = `igredientov s ${absentNums.length>1?'nomerami':'nomerom'} ${absentNums.join()} net`;
+							const cause = `absentNums.length`;
+
+							await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, subCommand, cause);
+
+							return;
+						}
+					}
+
+
+					const getStrListOfDeletedIngreditents = (deletedNums, ingredients) => {
+						let strList = ``;
+						
+						deletedNums.forEach(e => {
+							console.log(e, ingredients)
+							strList += `\n${ingredients[e - 1].name__lang_code_ru}`;
+						});
+
+						return strList;
+					}
+
+					const validComment = `Ингредиент${
+						listNums.length > 1 ? 'ы' : ''
+					} удален${
+						listNums.length > 1 ? 'ы' : ''
+					}:\n${getStrListOfDeletedIngreditents(listNums, userSubprocess.data.ingredients)}`;
+
+					listNums.sort();
+					const lastDeletedNum = listNums[listNums.length - 1];
+
+					for(let i = 0; i < userSubprocess.data.ingredients.length; i++){
+						for (let k = 0; k < listNums.length; k++) {
+							if(listNums[k] == userSubprocess.data.ingredients[i].n){
+								listNums.splice(k, 1);
+								userSubprocess.data.ingredients.splice(i, 1);
+								k = -1;
+							}
+						}
+					}
+
+					userSubprocess.data.ingredients.forEach((e, i) => {
+						userSubprocess.data.ingredients[i].n = i + 1;
+					});
+
+					userSubprocess.data.dish = calcDishBJUKnW(
+						userSubprocess.data.dish,
+						userSubprocess.data.ingredients
+					);
+					
+					const maxNumberOfLines = 20;
+					const selectedPage = getNumberOfPages(lastDeletedNum, maxNumberOfLines);
+
+					const m = getDishMessage(userSubprocess.tg_user_id, userSubprocess.data.dish, userSubprocess.data.ingredients, selectedPage);
+
+					let res = await editPanelMessage(
+						userSubprocess.tg_user_id,
+						userSubprocess.state.message_id,
+						m.text,
+						m.inlineKeyboard
+					);
+
+					if(!res){
+						return;
+					}
+					
+					userSubprocess.state.message_id = res.message_id;
+					userSubprocess.state.interface = `main`;
+
+					await completeSubrocessCommand(userMessageId, userSubprocess, validComment, subCommand);
+
+				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_SUBCOMMAND__EDIT_INGREDIENT_WEIGHT_IN_DISH))) {
+					const subCommand = `deleteIngrFromDish`;
+
+					const ingredientNum = Number(re_result[1]);
+					const newWeight = Number(re_result[2].replace(/\,/, '.'));
+					
+					if (!userSubprocess.data.ingredients.length) {
+						const invalidComment = `nechego izmenyat''`;
+						const cause = `!userSubprocess.data.ingredients.length edit w`;
+
+						await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, subCommand, cause);
+
+						return;
+					}
+
+					if ( ingredientNum < 1 || ingredientNum > userSubprocess.data.ingredients.length) {
+						const invalidComment = `igredienta s nomerom ${ingredientNum} net`;
+						const cause = `ingredientNum < 1 || ingredientNum > userSubprocess.data.ingredients.length`;
+
+						await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, subCommand, cause);
+
+						return;
+					}
+
+					if (userSubprocess.data.ingredients[ingredientNum - 1].g_weight == newWeight){
+						const invalidComment = `Зачем задавать точно такой же вес ингредиенту???`;
+						const cause = `userSubprocess.data.ingredients[ingredientNum].g_weight == newWeight`;
+
+						await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, subCommand, cause);
+
+						return;
+					}
+
+					userSubprocess.data.ingredients[ingredientNum - 1].g_weight = newWeight;
+
+					userSubprocess.data.dish = calcDishBJUKnW(
+						userSubprocess.data.dish,
+						userSubprocess.data.ingredients
+					);
+
+					const validComment = `Изменен вес ингредиента:\n\n${userSubprocess.data.ingredients[ingredientNum - 1].name__lang_code_ru}`;
+					
+					const maxNumberOfLines = 20;
+					const selectedPage = getNumberOfPages(ingredientNum, maxNumberOfLines);
+
+					const m = getDishMessage(userSubprocess.tg_user_id, userSubprocess.data.dish, userSubprocess.data.ingredients, selectedPage);
+
+					let res = await editPanelMessage(
+						userSubprocess.tg_user_id,
+						userSubprocess.state.message_id,
+						m.text,
+						m.inlineKeyboard
+					);
+
+					if(!res){
+						return;
+					}
+					
+					userSubprocess.state.message_id = res.message_id;
+					userSubprocess.state.interface = `main`;
+
+					await completeSubrocessCommand(userMessageId, userSubprocess, validComment, subCommand);
+
+				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_SUBCOMMAND__DISH_TOTAL_WEIGHT))) {
+					const subCommand = `dishTotalWeight`;
+
+					const totalWeight = Number(re_result[1].replace(/\,/, '.'));
+
+					//check more than actual weight
+					//
+					if (!userSubprocess.data.ingredients.length) {
+
+						const invalidComment = `Blyudo ne imeet ingredientov. Nechemu zadavat' itogoviy ves.`;
+						const cause = `!userSubprocess.data.ingredients.length itog ves`;
+
+						await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, subCommand, cause);
+
+						return;
+					}
+
+					if (totalWeight > userSubprocess.data.dish.g_weight){
+
+						const invalidComment = `Itogoviy ves ne mojet bit' bolshe vesa summi vseh ingredientov. Dobavlena voda? Zanesi ee togda.`;
+						const cause = `totalWeight > userSubprocess.data.dish.g_weight)`;
+
+						await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, subCommand, cause);
+
+						return;
+					}
+
+					userSubprocess.data.dish = calcDishBJUKnW(
+						userSubprocess.data.dish,
+						userSubprocess.data.ingredients
+					);
+
+					const emptyIngredient = setZeroBJUKnW({});
+					emptyIngredient.g_weight = totalWeight - userSubprocess.data.dish.g_weight;
+
+					userSubprocess.data.dish = addIngredientInDish(
+						userSubprocess.data.dish,
+						emptyIngredient
+					);
+
+					userSubprocess.data.dish.total_g_weight = totalWeight;
+					userSubprocess.state.interface = `main`;
+
+					const validComment = `Итоговый вес блюда задан.`;
+
+					const m = getDishMessage(userSubprocess.tg_user_id, userSubprocess.data.dish, userSubprocess.data.ingredients);
+
+					let res = await editPanelMessage(
+						userSubprocess.tg_user_id,
+						userSubprocess.state.message_id,
+						m.text,
+						m.inlineKeyboard
+					);
+
+					if(!res){
+						return;
+					}
+					
+					userSubprocess.state.message_id = res.message_id;
+
+					await completeSubrocessCommand(userMessageId, userSubprocess, validComment, subCommand);
+
+				} else {
+					const invalidComment = `Ne ponimayu komandu.`;
+					const cause = `Ne ponimayu komandu`;
+
+					await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, 'undefined', cause);
+				}
 
 			} else {
 				console.log(`main tree`);
@@ -3233,7 +3636,6 @@ bot.on(`callback_query`, async ctx => {
 	const messageId = callbackQuery.message.message_id;
 
 console.log(userSubprocess);	
-	if(!userSubprocess){
 		if (Array.isArray(re_result = callbackQuery.data.match(reHelpPage))) {
 			const countOfPages = HTMLCommandMaker.fullDescCommandListPerPageCounts.length;
 			const pageNum = Number(re_result[2]);
@@ -3468,7 +3870,7 @@ console.log(userSubprocess);
 
 		console.log(`!userSubprocess, main tree`);
 
-	} else {
+	if(userSubprocess){
 		if(userSubprocess.process_name == `DISH_CREATING__RENAMING`){
 			if(Array.isArray(re_result = callbackQuery.data.match(reCancel))){
 				console.log(re_result);
@@ -3647,7 +4049,6 @@ console.log(userSubprocess);
 	
 				// test is text check needed or changing keyboard is enough
 				//make message with buttons of dishitems id if ings > 20 and send
-				const maxNumberOfLines = 20;
 				const dataPart = `i${userSubprocess.tg_user_id}di${dishItemsId}`;
 
 
@@ -3655,7 +4056,6 @@ console.log(userSubprocess);
 					dataPart
 					,userSubprocess.data.dish
 					,userSubprocess.data.ingredients
-					,maxNumberOfLines
 				);
 
 				await editPanelMessage(
@@ -3706,7 +4106,9 @@ console.log(userSubprocess);
 				userSubprocess.state.message_id = res.message_id;
 				userSubprocess.state.interface = `main`;
 
-				await updateUserSubprocess(userSubprocess);
+				const validComment = `Показываю панель редактирования блюда.`;
+
+				await completeSubrocessCommand(0, userSubprocess, validComment);
 
 			} else if (Array.isArray(re_result = callbackQuery.data.match(reDishSubprocessPage))) {
 				const selectedPageNum = Number(re_result[2]);
@@ -3838,14 +4240,12 @@ console.log(userSubprocess);
 	
 				// test is text check needed or changing keyboard is enough
 				//make message with buttons of dishitems id if ings > 20 and send
-				const maxNumberOfLines = 20;
 				const dataPart = `i${userSubprocess.tg_user_id}di${userSubprocess.data.dish_items_id}`;
 
 				const m = getDishLookingPanelMessage(
 					dataPart
 					,userSubprocess.data.dish
 					,userSubprocess.data.ingredients
-					,maxNumberOfLines
 				);
 
 				await editPanelMessage(
@@ -3895,8 +4295,10 @@ console.log(userSubprocess);
 				
 				userSubprocess.state.message_id = res.message_id;
 				userSubprocess.state.interface = `main`;
+				
+				const validComment = `Показываю панель редактирования блюда.`;
 
-				await updateUserSubprocess(userSubprocess);
+				await completeSubrocessCommand(0, userSubprocess, validComment);
 
 			} else if (Array.isArray(re_result = callbackQuery.data.match(reDishSubprocessPage))) {
 				const selectedPageNum = Number(re_result[2]);

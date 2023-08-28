@@ -110,10 +110,9 @@ const userDish = {
 		commandBlockName:`userDish`
 		,commandTitle:`Переименовать созданное блюдо`
 		,command:`пб`
-		,parameters:`ID созданного блюда, без аргумента будет переименоваться последнее`
-		,parameterDescription:`Инициирует процесс переименования блюда.`
+		,parameters:`ID созданного блюда   новое название блюда`
 		,usageExamples:[
-			`пб  12`
+			`пб  12  блинчики по другому рецепту`
 		]
 	}
 	,deleteCreatedDish:{
@@ -123,18 +122,6 @@ const userDish = {
 		,parameters:`ID вашей созданного блюда, можно указать несколько ID, без аргумента удаляет последнее созданное блюдо`
 		,usageExamples:[
 			`уб 13 14`
-		]
-	}
-}
-
-const dishRenaming = {
-	header: `ПРОЦЕСС ПЕРЕИМЕНОВАНИЯ БЛЮДА`
-	,renameDish:{
-		subCommandBlockName:`dichRenaming`
-		,commandTitle:`Переименовать созданное блюдо`
-		,command:`новое название созданного блюда`
-		,usageExamples:[
-			`колбасный фарш с перцем 02.03.23`
 		]
 	}
 }
@@ -486,7 +473,6 @@ const commandList = [
 	settings,
 	userFood,
 	userDish,
-	dishRenaming,
 	dishProcess,
 	projectFD,
 	eatenFD,
