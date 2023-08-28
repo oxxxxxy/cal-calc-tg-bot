@@ -19,10 +19,10 @@ const settings = {
 		commandBlockName:`utils`
 		,commandTitle:`Задать текущее время в 24ч формате`
 		,command:`зв`
-		,parameters:`N часов : N минут`
-		,parameterDescription:`Необходимо задать для подсчета съеденного. По умолчанию задано время по Мск.`
+		,parameters:`N месяца : N часов : N минут`
+		,parameterDescription:`Необходимо задать для подсчета съеденного. По умолчанию задано время по МСК (UTC+3). На примере ниже 28 августа 13 часов 37 минут.`
 		,usageExamples:[
-			`зв  13:37`
+			`зв  28:13:37`
 		]
 	}
 }
@@ -109,10 +109,10 @@ const userDish = {
 	,renameDish:{
 		commandBlockName:`userDish`
 		,commandTitle:`Переименовать созданное блюдо`
-		,command:`пб`
+		,command:`перб`
 		,parameters:`ID созданного блюда   новое название блюда`
 		,usageExamples:[
-			`пб  12  блинчики по другому рецепту`
+			`перб  12  блинчики по другому рецепту`
 		]
 	}
 	,deleteCreatedDish:{

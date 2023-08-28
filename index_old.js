@@ -44,11 +44,35 @@ const RE_RU_NUTRIENTS = [];
 	(у|угли|углевод|углеводы)(\\s+|)(\\d+(\\s+|)(,|\\.)(\\s+|)\\d+|\\d+)(\\s+|)(/u  //г|мкг|мг|ккал|)/u, 
 	*/
 
+/////////100% necessary START
+const RE_RU_COMMAND__HELP = /^(х|\/h)$/u;
+
+const RE_RU_COMMAND__SET_USER_LOCAL_TIME = /^зв(\s+|)([0-3][0-9])(\s+|):([0-1][0-9]|2[0-3])(\s+|):(\s+|)([0-5][0-9])$/u;
+
+
+
+const RE_RU_COMMAND__CREATE_DISH = /^(сб\s+)((([а-яА-Яa-zA-Z0-9]+)(\s+|))+)$/u;
+const RE_RU_COMMAND__EDIT_DISH = /^рб\s+([0-9]+)$/u;
+const RE_RU_COMMAND__RENAME_DISH = /^перб(\s+)(\d+)\s+(.*)/u;
+	const RE_RU_SUBCOMMAND__RENAME_DISH = /^п\s+(.*)/u;
+	const RE__RESOLVE_FD_ID_WEIGHT_FROM_InlQuery = /(f|d)([0-9]+)w(.*)/;
+	const RE_RU_SUBCOMMAND__DELETE_INGREDIENTs_FROM_DISH = /^у\s+[0-9]+/u;
+	const RE_RU_SUBCOMMAND__EDIT_INGREDIENT_WEIGHT_IN_DISH = /^ви\s+([0-9]+)\s+(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)$/u;
+	const RE_RU_SUBCOMMAND__DISH_TOTAL_WEIGHT = /^и\s+(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)$/u;
+
+
+
+
+
+/////////100% necessary END
+
+
+
 const RE_RU_YES = /^д$/u;
 const RE_RU_NO = /^н$/u;
 const RE_RU_COMMAND__DELETE_LAST_ACTION = /^у$/u;
 const RE_RU_COMMAND__CANCEL_LAST_ACTION = /^о$/u;
-const RE_RU_COMMAND__HELP = /^(х|\/h)$/u;
+
 
 const RE_RU_COMMAND__CREATE_FOOD = /^(се\s+)((([а-яА-Яa-zA-Z0-9]+)(\s+|))+)\./u;
 // /^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\((\s+|)((([а-яА-Яa-zA-Z0-9]+)(\s+|):(\s+|)(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)(\s+|)(г|мкг|мг|ккал)(\s+|))+)\)$/u;
@@ -57,14 +81,6 @@ const RE_RU_COMMAND__CREATE_FOOD = /^(се\s+)((([а-яА-Яa-zA-Z0-9]+)(\s+|))+
 const RE_RU_COMMAND__SHOW_CREATED_FOOD = /^псе$/u;
 const RE_RU_COMMAND__DELETE_CREATED_FOOD_IDs = /^уе/u;//(([0-9]+(\s+|)|[0-9]+)+)$/u;
 
-const RE_RU_COMMAND__CREATE_DISH = /^(сб\s+)((([а-яА-Яa-zA-Z0-9]+)(\s+|))+)$/u;
-const RE_RU_COMMAND__EDIT_DISH = /^рб\s+([0-9]+)$/u;
-const RE_RU_COMMAND__RENAME_DISH = /^пб(\s+)(\d+)\s+(.*)/u;
-	const RE_RU_SUBCOMMAND__RENAME_DISH = /^п\s+(.*)/u;
-	const RE__RESOLVE_FD_ID_WEIGHT_FROM_InlQuery = /(f|d)([0-9]+)w(.*)/;
-	const RE_RU_SUBCOMMAND__DELETE_INGREDIENTs_FROM_DISH = /^у\s+[0-9]+/u;
-	const RE_RU_SUBCOMMAND__EDIT_INGREDIENT_WEIGHT_IN_DISH = /^ви\s+([0-9]+)\s+(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)$/u;
-	const RE_RU_SUBCOMMAND__DISH_TOTAL_WEIGHT = /^и\s+(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)$/u;
 const RE_RU_COMMAND__DELETE_CREATED_DISH_IDs = /^уб\s+/u; 
 const RE_RU_COMMAND__SHOW_CREATED_DISHES = /^псб$/u;
 
@@ -78,9 +94,6 @@ const RE_RU_COMMAND__EDIT_WEIGHT_OF_EATEN_IN_DAY_Num = /^ивд\s+/u;// num of e
 const RE_RU_COMMAND__DELETE_EATEN_TODAY_Num = /^ус\s+/u;
 const RE_RU_COMMAND__DELETE_EATEN_YESTODAY_Num = /^усв\s+/u;
 const RE_RU_COMMAND__DELETE_EATEN_IN_DAY_Num = /^усд\s+/u;
-
-const RE_RU_COMMAND__SHOW_FOOD_BY_PARAMs = /^пе/u; //if no param prost eda proekta
-const RE_RU_COMMAND__SHOW_DISH_BY_PARAMs = /^пб/u; //if no param prost blyuda proekta
 
 const RE_RU_INLINE_COMMAND__WILL_EAT = /^([0-9]+)г\s+/u;//([0-9]+)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){2,})$/u; //в поиске выдавать с подсчитанным БЖУКом 
 	const RE_RU_INLINE_COMMAND__ADD_INGREDIENT_TO_DISH = /^(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)\s+(((б|ж|у|к)(\s+|)(>|<)(\s+|)(\d+))|)/u;
@@ -1110,7 +1123,7 @@ const cleanLimitationOfUCFI = async () => {
 
 const cleanSubprocessesAfter1H = async () => {
 	while (true) {
-		const date = (new Date(Date.now() - 1000*60*120)).toISOString();
+		const date = (new Date(Date.now() - 1000*60*60)).toISOString();
 		
 		let response = await DB_CLIENT.query(`
 			SELECT *
@@ -1128,6 +1141,8 @@ const cleanSubprocessesAfter1H = async () => {
 
 				if( userSubprocess.process_name == `DISH_CREATING` ){
 					messageText = `Создание блюда отменено.`
+				}	else if ( userSubprocess.process_name == `DISH_EDITING` ){
+					messageText = `Редактирование блюда отменено.`
 				}	else if ( userSubprocess.process_name == `DISH_CREATING__RENAMING` ){
 					messageText = `Переимнование блюда отменено`;
 				}
@@ -1180,7 +1195,7 @@ const cleanSubprocessesAfter1H = async () => {
 				paramQuery.values = getArrOfValuesFromObj(row);
 				await DB_CLIENT.query(paramQuery);
 
-				await delay(300);
+				await delay(150);
 			}
 
 		}
@@ -1189,7 +1204,7 @@ const cleanSubprocessesAfter1H = async () => {
 	}
 }
 
-// cleanSubprocessesAfter1H();
+cleanSubprocessesAfter1H();
 
 const cleanTGInlineKeyboards = async () => {
 	while (true) {
@@ -1613,12 +1628,95 @@ bot.on(`message`, async ctx => {
 
 			await insertIntoTelegramUserSendedCommandsPostgresTable(row);
 
+		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SET_USER_LOCAL_TIME))) {
+			console.log(re_result);
+			const monthDay = Number(re_result[2]);
+			const hours = Number(re_result[4]);
+			const minutes = Number(re_result[7]);
+
+
+			const months = [
+				{
+					name: `January`
+					,dayLength:31
+				}
+				,{
+					name: `February`
+					,dayLength:28
+				}
+				,{
+					name: `March`
+					,dayLength:31
+				}
+				,{
+					name: `April`
+					,dayLength:30
+				}
+				,{
+					name: `May`
+					,dayLength:31
+				}
+				,{
+					name: `June`
+					,dayLength:30
+				}
+				,{
+					name: `July`
+					,dayLength:31
+				}
+				,{
+					name: `August`
+					,dayLength:31
+				}
+				,{
+					name: `September`
+					,dayLength:30
+				}
+				,{
+					name: `October`
+					,dayLength:31
+				}
+				,{
+					name: `November`
+					,dayLength:30
+				}
+				,{
+					name: `December`
+					,dayLength:31
+				}
+			];
+
+			const isLeapYear = (y) => {
+				if(!(y % 4)){
+					return true;
+				}
+
+				if(!(y % 100)) {
+					return true;
+				}
+
+				if(!(y % 400)) {
+					return true;
+				}
+
+				return false;
+			};
+
+
+
+
+			console.log(monthDay, hours, minutes);
+			
+
+
+
+
 		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_LAST_ACTION))) {
 		
 			console.log(userLastCommand);
 
 			if (!userLastCommand.can_it_be_removed){
-				ctx.reply(`Последняя команда ничего не создавала, чтобы это удалить.`);
+				ctx.reply(`Последняя команда ничего не создавала, чтобы что-то удалить.`);
 				return;
 			}
 			
@@ -2703,6 +2801,64 @@ bot.on(`message`, async ctx => {
 	
 					await updateUserSubprocess(userSubprocess);
 
+				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_SUBCOMMAND__RENAME_DISH))){
+					const subCommand = `rename dish`;
+					console.log(re_result);
+						
+					let dishName = re_result[1].slice(0, 128).replaceAll(/['"\\]/ug, ``).trim();
+
+	 				if (dishName.length < 4) {
+	 					let invalidComment = `Название блюда должно иметь хотя бы 4 символа.`;
+	 					let cause = `dishName.length < 4`;
+						
+						await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, subCommand, cause);
+
+						return;
+					}
+
+
+	 				let findIdenticalNameResponse = await MSDB.search(dishName, {
+						filter: `name__lang_code_ru = '${dishName}' AND tg_user_id = ${userInfo.tg_user_id}`
+					});
+
+	 				if (findIdenticalNameResponse?.hits?.length) {
+	 					let invalidComment;
+	 					let cause = `findIdenticalNameResponse?.hits?.length`;
+	 					if(userSubprocess.data.dish.name__lang_code_ru == dishName) {//not the same with precreate dish renaming
+							invalidComment = `Ты чо там, прикалываешься??? Зачем то же самое название кидаешь? Ты чо ебан? *диджей ебан туц-туц-туц*`;
+							cause += `1`;
+						} else {
+							invalidComment = `Везунчик, блюдо с названием <b>"${dishName}"</b> уже тоже есть. Давай, ёпта, завязывай клоунаду свою и оригинальное название выдай или отредактируй существующее блюдо, додик.`;
+							cause += `2`;
+						}
+						
+						await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, subCommand, cause);
+						
+						return;
+					}
+
+					userSubprocess.data.dish.name__lang_code_ru = dishName;
+					
+					const validComment = `Название блюда изменено.`;
+
+					const m = getDishMessage(userSubprocess.tg_user_id, userSubprocess.data.dish, userSubprocess.data.ingredients);
+
+					let res = await editPanelMessage(
+						userSubprocess.tg_user_id,
+						userSubprocess.state.message_id,
+						m.text,
+						m.inlineKeyboard
+					);
+
+					if(!res){
+						return;
+					}
+					
+					userSubprocess.state.message_id = res.message_id;
+					userSubprocess.state.interface = `main`;
+
+					await completeSubrocessCommand(userMessageId, userSubprocess, validComment, subCommand);
+
 				} else if (Array.isArray(re_result = text.toLowerCase().match(RE__RESOLVE_FD_ID_WEIGHT_FROM_InlQuery))){
 					const subCommand = `resolveFDIDWeightFromInlQuery`;
 
@@ -3015,10 +3171,10 @@ bot.on(`message`, async ctx => {
 				let dishName = text.slice(0, 128).replaceAll(/['"\\]/ug, ``).trim();
 
  				if (dishName.length < 4) {
- 					let message = `Название блюда должно иметь хотя бы 4 символа.`;
+ 					let invalidComment = `Название блюда должно иметь хотя бы 4 символа.`;
  					let cause = `dishName.length < 4`;
 					
-					await commentUserInvalidInput(ctx, userSubprocess, cause, message);
+					await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, 'undefined', cause);
 
 					return;
 				}
@@ -3029,17 +3185,17 @@ bot.on(`message`, async ctx => {
 				});
 
  				if (findIdenticalNameResponse?.hits?.length) {
- 					let message;
+ 					let invalidComment;
  					let cause = `findIdenticalNameResponse?.hits?.length`;
  					if(userSubprocess.data.name__lang_code_ru == dishName) {
-						message = `Ты чо там, прикалываешься??? Зачем то же самое название кидаешь? Ты чо ебан? *диджей ебан туц-туц-туц*`;
+						invalidComment = `Ты чо там, прикалываешься??? Зачем то же самое название кидаешь? Ты чо ебан? *диджей ебан туц-туц-туц*`;
 						cause += `1`;
 					} else {
-						message = `Везунчик, блюдо с названием <b>"${dishName}"</b> уже тоже есть. Давай, ёпта, завязывай клоунаду свою и оригинальное название выдай или отредактируй существующее блюдо, додик.`;
+						invalidComment = `Везунчик, блюдо с названием <b>"${dishName}"</b> уже тоже есть. Давай, ёпта, завязывай клоунаду свою и оригинальное название выдай или отредактируй существующее блюдо, додик.`;
 						cause += `2`;
 					}
 					
-					await commentUserInvalidInput(ctx, userSubprocess, cause, message);
+					await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, 'undefined', cause);
 					
 					return;
 				}
@@ -3238,6 +3394,64 @@ bot.on(`message`, async ctx => {
 					}
 	
 					await updateUserSubprocess(userSubprocess);
+				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_SUBCOMMAND__RENAME_DISH))){
+					const subCommand = `rename dish`;
+					console.log(re_result);
+						
+					let dishName = re_result[1].slice(0, 128).replaceAll(/['"\\]/ug, ``).trim();
+
+	 				if (dishName.length < 4) {
+	 					let invalidComment = `Название блюда должно иметь хотя бы 4 символа.`;
+	 					let cause = `dishName.length < 4`;
+						
+						await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, subCommand, cause);
+
+						return;
+					}
+
+
+	 				let findIdenticalNameResponse = await MSDB.search(dishName, {
+						filter: `name__lang_code_ru = '${dishName}' AND tg_user_id = ${userInfo.tg_user_id}`
+					});
+
+	 				if (findIdenticalNameResponse?.hits?.length) {
+	 					let invalidComment;
+	 					let cause = `findIdenticalNameResponse?.hits?.length`;
+	 					if(userSubprocess.data.dish.name__lang_code_ru == dishName) {//not the same with precreate dish renaming
+							invalidComment = `Ты чо там, прикалываешься??? Зачем то же самое название кидаешь? Ты чо ебан? *диджей ебан туц-туц-туц*`;
+							cause += `1`;
+						} else {
+							invalidComment = `Везунчик, блюдо с названием <b>"${dishName}"</b> уже тоже есть. Давай, ёпта, завязывай клоунаду свою и оригинальное название выдай или отредактируй существующее блюдо, додик.`;
+							cause += `2`;
+						}
+						
+						await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, subCommand, cause);
+						
+						return;
+					}
+
+					userSubprocess.data.dish.name__lang_code_ru = dishName;
+					
+					const validComment = `Название блюда изменено.`;
+
+					const m = getDishMessage(userSubprocess.tg_user_id, userSubprocess.data.dish, userSubprocess.data.ingredients);
+
+					let res = await editPanelMessage(
+						userSubprocess.tg_user_id,
+						userSubprocess.state.message_id,
+						m.text,
+						m.inlineKeyboard
+					);
+
+					if(!res){
+						return;
+					}
+					
+					userSubprocess.state.message_id = res.message_id;
+					userSubprocess.state.interface = `main`;
+
+					await completeSubrocessCommand(userMessageId, userSubprocess, validComment, subCommand);
+
 
 				} else if (Array.isArray(re_result = text.toLowerCase().match(RE__RESOLVE_FD_ID_WEIGHT_FROM_InlQuery))){
 					const subCommand = `resolveFDIDWeightFromInlQuery`;
@@ -4452,18 +4666,6 @@ bot.on(`inline_query`, async ctx => {
 					]
 				});
 				
-				const addCharBeforeValue = (value, maxLength, charS) => {
-					let str = Number(value).toFixed(1);
-					
-					let result = ``;
-
-					for (let i = 0, diff = maxLength - str.length; i < diff; i++) {
-						result += charS;
-					}
-					result += str;
-
-					return result;
-				};
 
 				if(res.results[0].hits.length || res.results[1].hits.length) {
 					let inlineQueryResultArticles = [];
@@ -4513,7 +4715,7 @@ bot.on(`inline_query`, async ctx => {
 						inlineQueryResultArticles,
 						{
 							is_personal:true,
-							cache_time:60
+							cache_time:90
 						}
 					);
 					return;
@@ -4565,6 +4767,165 @@ bot.on(`inline_query`, async ctx => {
 					{is_personal:true}
 				);
 			}
+		} else if (userSubprocess.process_name == 'DISH_EDITING') {
+			if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_INLINE_COMMAND__ADD_INGREDIENT_TO_DISH))) {
+				console.log(re_result);
+
+				const userInputWeight = Number(re_result[1].replaceAll(/,/g, '.'));
+				const userInputIngredientName = text.slice(re_result[0].length).replaceAll(/['"\\]/ug, ``).slice(0, 128).trim();
+				console.log(userInputIngredientName);
+				
+				let articleIdPart = Date.now().toString();
+				articleIdPart = articleIdPart.slice(articleIdPart.length-6);
+
+				let filter_NutrientName, filter_lessMore;
+				let noRes_BJUK, noRes_lessMore;
+				if (re_result[7] == `б`) {
+					filter_NutrientName = `protein`;
+					noRes_BJUK = `БЕЛКОВ`;
+				} else if (re_result[7] == `ж`) {
+					filter_NutrientName = `fat`;
+					noRes_BJUK = `ЖИРОВ`;
+				} else if (re_result[7] == `у`) {
+					filter_NutrientName = `carbohydrate`;
+					noRes_BJUK = `УГЛЕВОДОВ`;
+				} else if (re_result[7] == `к`) {
+					filter_NutrientName = `caloric_content`;
+					noRes_BJUK = `КАЛОРИЙ`;
+				}
+				if (re_result[9] == `<`) {
+					filter_lessMore = '<=';
+					noRes_lessMore = `МЕНЕЕ`;
+				} else if (re_result[9] == `>`) {
+					filter_lessMore = '>=';
+					noRes_lessMore = `БОЛЕЕ`;
+				}
+
+				let userAdditionFilter = ``;
+				if (filter_NutrientName) {
+					userAdditionFilter += ` AND ${filter_NutrientName} ${filter_lessMore} ${re_result[11]}`;
+				}
+
+				//search in MSDB
+				const res = await meiliSClient.multiSearch({
+					queries:[
+						{
+							indexUid: 'foodDishNames',
+							q: userInputIngredientName,
+							filter: `tg_user_id = ${userInfo.tg_user_id} OR created_by_project = true AND dish_items_id IS NULL${userAdditionFilter}`,
+							limit: 25
+						},
+						{
+							indexUid: `foodDishNames`,
+							q: userInputIngredientName,
+							filter:	`tg_user_id = ${userInfo.tg_user_id} OR created_by_project = true AND food_items_id IS NULL${userAdditionFilter}`,
+							limit: 25
+						}
+					]
+				});
+				
+
+				if(res.results[0].hits.length || res.results[1].hits.length) {
+					let inlineQueryResultArticles = [];
+
+					res.results.forEach(r => {
+						r.hits.forEach(el => {
+							let inputMessageContent;
+							if (el.food_items_id){
+								inputMessageContent = makeInputMessageContent(`f${el.food_items_id}w${userInputWeight}`)
+							} else {
+								inputMessageContent = makeInputMessageContent(`d${el.dish_items_id}w${userInputWeight}`)
+							}
+							let description = `Б:${
+								addCharBeforeValue(el.protein, 6, '_')} Ж:${
+								addCharBeforeValue(el.fat, 6, '_')} У:${
+								addCharBeforeValue(el.carbohydrate, 6, '_')} К:${
+								addCharBeforeValue(el.caloric_content, 7, '_')} на 100 грамм\nБ:${
+								addCharBeforeValue(el.protein * userInputWeight / 100, 6, '_')} Ж:${
+								addCharBeforeValue(el.fat * userInputWeight / 100, 6, '_')} У:${
+								addCharBeforeValue(el.carbohydrate * userInputWeight / 100, 6, '_')} К:${
+								addCharBeforeValue(el.caloric_content * userInputWeight / 100, 7, '_')} на ${userInputWeight} грамм`;
+
+							inlineQueryResultArticles.push(
+								makeInlineQueryResultArticle(
+										`cDishItem${userInfo.tg_user_id}${articleIdPart}${el.id}`,
+										el.name__lang_code_ru,
+										inputMessageContent,
+										description	
+									)
+							);
+						});
+					});
+
+					console.log(inlineQueryResultArticles)
+
+					for (let i = 0; i < inlineQueryResultArticles.length; i++) {
+						for (let k = i + 1; k < inlineQueryResultArticles.length; k++) {
+							if (inlineQueryResultArticles[i]?.id == inlineQueryResultArticles[k].id) {
+								inlineQueryResultArticles.splice(k, 1);
+								k--;
+								i--;
+							}
+						}
+					}
+
+					ctx.answerInlineQuery(
+						inlineQueryResultArticles,
+						{
+							is_personal:true,
+							cache_time:90
+						}
+					);
+					return;
+				}
+
+				let description = `с `;
+				
+				if (noRes_BJUK){
+					description += `количеством   ${noRes_BJUK} ${noRes_lessMore} ${re_result[11]}   на 100 грамм\nи `;
+				}
+
+				description += `именем "${userInputIngredientName}"`;
+
+				ctx.answerInlineQuery([
+					makeInlineQueryResultArticle(
+							`cDishNoItem${userInfo.tg_user_id}${articleIdPart}`,
+							`Ингредиент не найден`,
+							makeInputMessageContent(`Вы в процессе создания блюда.`),
+							description
+						)
+					],
+					{
+						is_personal:true,
+						cache_time:60
+					}
+				);
+			} else {
+				if (!ctx.update.inline_query.query) {
+					ctx.answerInlineQuery([
+						makeInlineQueryResultArticle(
+								`cDishEmptyQ${userInfo.tg_user_id}`,
+								`Вы в процессе создания блюда.`,
+								makeInputMessageContent(`Вы в процессе создания блюда.`),
+								`Поиск и добавление ингредиента:\n@edac_bot 123 ж>10 филе\n@edac_bot 321.4 арбуз`
+							)
+						],
+						{is_personal:true}
+					);
+					return;
+				}
+				ctx.answerInlineQuery([
+					makeInlineQueryResultArticle(
+							`cDishNoMatch${userInfo.tg_user_id}`,
+							`Не понимаю команду.`,
+							makeInputMessageContent(`Вы в процессе создания блюда.`),
+							`Поиск и добавление ингредиента:\n@edac_bot 123 ж>10 филе\n@edac_bot 321.4 арбуз`
+					)
+					],
+					{is_personal:true}
+				);
+			}
+
 		} else if (userSubprocess.process_name == 'DAY_CREATION') {
 
 			
