@@ -23,6 +23,7 @@ const {
 	COMMAND__CREATE_FOOD__NO
 } = require(`./modules/user_commands/create_food_funcs.js`);
 const {HTMLCommandMaker} = require(`./bot_data/commands.js`);
+const {UTCHandler} = require(`./utils/UTCHandler.js`);
 // const { callback } = require('telegraf/typings/button.js');
 // const { inlineKeyboard } = require('telegraf/typings/markup.js');
 // const { callback } = require('telegraf/typings/button.js');
@@ -1635,72 +1636,6 @@ bot.on(`message`, async ctx => {
 			const minutes = Number(re_result[7]);
 
 
-			const months = [
-				{
-					name: `January`
-					,dayLength:31
-				}
-				,{
-					name: `February`
-					,dayLength:28
-				}
-				,{
-					name: `March`
-					,dayLength:31
-				}
-				,{
-					name: `April`
-					,dayLength:30
-				}
-				,{
-					name: `May`
-					,dayLength:31
-				}
-				,{
-					name: `June`
-					,dayLength:30
-				}
-				,{
-					name: `July`
-					,dayLength:31
-				}
-				,{
-					name: `August`
-					,dayLength:31
-				}
-				,{
-					name: `September`
-					,dayLength:30
-				}
-				,{
-					name: `October`
-					,dayLength:31
-				}
-				,{
-					name: `November`
-					,dayLength:30
-				}
-				,{
-					name: `December`
-					,dayLength:31
-				}
-			];
-
-			const isLeapYear = (y) => {
-				if(!(y % 4)){
-					return true;
-				}
-
-				if(!(y % 100)) {
-					return true;
-				}
-
-				if(!(y % 400)) {
-					return true;
-				}
-
-				return false;
-			};
 
 
 
