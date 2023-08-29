@@ -102,10 +102,13 @@ const getMonthByNum = (n) => {
 const getUserDayOffset = (dayOfMonth, currentDate) => {
 	const UTCDate = currentDate.getUTCDate();
 	const UTCMonth = currentDate.getUTCMonth();
-
+	//ud 31  cd 1
+	if(dayOfMonth > UTCDate + 1 && dayOfMonth == getMonthByNum(UTCMonth - 1).dayLength){
+		return `yesterday`;
+	}
 	//ud 1  cd 31
 	if(UTCDate == getMonthByNum(UTCMonth).dayLength && dayOfMonth < UTCDate - 1 && dayOfMonth == 1){
-		return `yesterday`;
+		return `tomorrow`;
 	}
 	//ud = cd - 1   cd 2-31
 	if(dayOfMonth == UTCDate - 1){
@@ -113,10 +116,6 @@ const getUserDayOffset = (dayOfMonth, currentDate) => {
 	}
 	//ud = cd + 1   cd 1-30
 	if(dayOfMonth == UTCDate + 1){
-		return `tomorrow`;
-	}
-	//ud 31  cd 1
-	if(dayOfMonth > UTCDate + 1 && dayOfMonth == getMonthByNum(UTCMonth - 1).dayLength){
 		return `tomorrow`;
 	}
 	//ud = cd = 1-31
@@ -137,7 +136,7 @@ const calcUserUTCOffsetWhenUHoursOffsetPositive = (userUTCHoursOffset, userMinut
 	let userUTCMinutesOffset = userMinutes - UTCMinutes;
 
 	if(userUTCMinutesOffset < 0){
-		userUTCMinutesOffset = 60 - userUTCMinutesOffset;
+		userUTCMinutesOffset = 60 + userUTCMinutesOffset;
 		userUTCHoursOffset = userUTCHoursOffset - 1;
 	}
 			
@@ -196,11 +195,9 @@ const getUserUTCOffset = (userDayOfMonth, userHours, userMinutes, currentDate) =
 	};
 
 	if(userDayOffset == `tomorrow`){
-
 		let userUTCHoursOffset = 24 - UTCHours + userHours;
 		
 		userUTCOffset = calcUserUTCOffsetWhenUHoursOffsetPositive(userUTCHoursOffset, userMinutes, UTCMinutes);
-
 	} else if (userDayOffset == `today`) {
 		if(userHours > UTCHours){
 			let userUTCHoursOffset = userHours - UTCHours;
@@ -222,7 +219,7 @@ const getUserUTCOffset = (userDayOfMonth, userHours, userMinutes, currentDate) =
 		}
 	} else if (userDayOffset == `yesterday`) {
 		let userUTCHoursOffset = 24 - userHours + UTCHours;
-		
+
 		userUTCOffset = calcUserUTCOffsetWhenUHoursOffsetNegative(userUTCHoursOffset, userMinutes, UTCMinutes);
 	}
 
@@ -233,73 +230,4 @@ const getUserUTCOffset = (userDayOfMonth, userHours, userMinutes, currentDate) =
 	return userUTCOffset;
 }
 
-/*
-
-
-
-
-	*/ 
-console.log(
-getUserUTCOffset(
-	13
-	,13, 37,
-	new Date(`Mon Dec 31 2023 04:15:10 GMT`)
-)
-,getUserUTCOffset(
-	33
-	,13, 37,
-	new Date(`Mon Dec 31 2023 04:15:10 GMT`)
-)
-,getUserUTCOffset(
-	30, 13, 37,
-	new Date(`Mon Dec 31 2023 04:15:10 GMT`)
-)
-,getUserUTCOffset(
-	1, 13, 37,
-	new Date(`Mon Dec 31 2023 04:15:10 GMT`)
-)
-,getUserUTCOffset(
-	(new Date(`Mon Dec 31 2023 04:15:10 GMT+0300`)).getDate()
-	,13, 37,
-	new Date(`Mon Dec 31 2023 04:15:10 GMT`)
-)
-,getUserUTCOffset(
-	(new Date(`Mon Dec 30 2023 04:15:10 GMT+0300`)).getDate()
-	,13, 37,
-	new Date(`Mon Dec 31 2023 04:15:10 GMT`)
-)
-
-,getUserUTCOffset(
-	(new Date(`Mon Jan 1 2023 04:15:10 GMT+0300`)).getDate()
-	,13, 37,
-	new Date(`Mon Jan 2 2023 04:15:10 GMT`)
-) 
-,getUserUTCOffset(
-	(new Date(`Mon Jan 3 2023 04:15:10 GMT+0300`)).getDate()
-	,13, 37,
-	new Date(`Mon Jan 2 2023 04:15:10 GMT`)
-) 
-,getUserUTCOffset(
-	(new Date(`Mon Jan 2 2023 04:15:10 GMT+0300`)).getDate()
-	,13, 37,
-	new Date(`Mon Jan 1 2023 04:15:10 GMT`)
-) 
-,getUserUTCOffset(
-	(new Date(`Mon Dec 31 2023 04:15:10 GMT+0300`)).getDate()
-	,13, 37,
-	new Date(`Mon Jan 1 2023 04:15:10 GMT`)
-) 
-,getUserUTCOffset(
-	(new Date(`Mon Dec 30 2023 04:15:10 GMT+0300`)).getDate()
-	,13, 37,
-	new Date(`Mon Jan 1 2023 04:15:10 GMT`)
-) 
-);
-
-const UTCHandler = {};
-
-
-
-
-exports.UTCHandler = UTCHandler;
-
+exports.getUserUTCOffset = getUserUTCOffset;
