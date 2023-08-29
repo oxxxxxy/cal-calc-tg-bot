@@ -1632,6 +1632,13 @@ bot.on(`message`, async ctx => {
 		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SET_USER_LOCAL_TIME))) {
 			console.log(re_result);
 			const monthDay = Number(re_result[2]);
+
+			if(!monthDay){//zero
+
+
+				return;
+			}
+
 			const hours = Number(re_result[4]);
 			const minutes = Number(re_result[7]);
 
