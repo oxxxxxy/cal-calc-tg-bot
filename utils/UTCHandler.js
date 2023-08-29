@@ -99,50 +99,72 @@ const getMonthByNum = (n) => {
 	return months[n];
 };
 
-console.log(
-	getMonthByNum(-1)
-	,getMonthByNum(-11)
-	,getMonthByNum(-12)
-	,getMonthByNum(-13)
-	,getMonthByNum(13)
-);
-
-const makeThatSHIT = (day, hours, minutes) => {
+const makeThatSHIT = (dayOfMonth, hours, minutes, date) => {
 	const offsetArr = [];
 
-	const inputState = {};
+	const userDateInfo = {};
 
-	const currentDate = new Date();
-	const currentMonth = currentDate.getUTCMonth();
+	// const date = new Date();
+	const UTCDate = date.getUTCDate();
+	const UTCMonth = date.getUTCMonth();
 
-	if(day == 0){
+	if(dayOfMonth == 0){
 		//bad
 		return false;
 	}
 
 
-
 	//ud 31  cd 1
-		
+	if(dayOfMonth > UTCDate + 1 && dayOfMonth == getMonthByNum(UTCMonth - 1).dayLength){
+		console.log(
+			`//ud 31  cd 1`
+			,dayOfMonth
+		);
+	
+		return;
+	}
 	//ud 1  cd 31
+	if(UTCDate == getMonthByNum(UTCMonth).dayLength && dayOfMonth < UTCDate - 1 && dayOfMonth == 1){
+		console.log(
+			`//ud 1  cd 31`
+			,dayOfMonth
+		);
+		
+		return;
+	}
+	//ud = cd - 1   cd 2-31
+	if(dayOfMonth == UTCDate - 1){
+		console.log(
+			`//ud = cd - 1   cd 2-31`
+			,dayOfMonth
+		);
+		
+		return;
+	}
+	//ud = cd + 1   cd 1-30
+	if(dayOfMonth == UTCDate + 1){
+		console.log(
+			`//ud = cd + 1   cd 1-30`
+			,dayOfMonth
+		);
+		
+		return;
+	}
 	//ud = cd = 1-31
-	//ud 1 cd 2
-	//ud 2 cd 1
+	if(dayOfMonth == UTCDate){
+		console.log(
+			`//ud = cd = 1-31`
+			,dayOfMonth
+		);
 
-	if(day < currentDate.getUTCDay() && day == currentDate.getUTCDay() - 1){
-
-		//good
-	}
-	if(day > currentDate.getUTCDay() && day == currentDate.getUTCDay() + 1){
-
-		//good
+		return;
 	}
 
-	if(day ==  currentDate.getUTCDay()){
+	//bad for dayOfMonth
+	console.log(`invalid day input`, dayOfMonth);
+	
 
-		//good
-	}
-
+	
 
 	
 
@@ -152,7 +174,70 @@ const makeThatSHIT = (day, hours, minutes) => {
 	return offsetArr;
 }
 
-makeThatSHIT(28, 13, 37)
+/*
+
+
+
+
+	*/ 
+
+makeThatSHIT(
+	13
+	,13, 37,
+	new Date(`Mon Dec 31 2023 04:15:10 GMT`)
+)
+makeThatSHIT(
+	33
+	,13, 37,
+	new Date(`Mon Dec 31 2023 04:15:10 GMT`)
+)
+makeThatSHIT(
+	(new Date(`Mon Jan 2 2023 04:15:10 GMT+0300`)).getDate()
+	,13, 37,
+	new Date(`Mon Dec 31 2023 04:15:10 GMT`)
+)
+makeThatSHIT(
+	(new Date(`Mon Jan 1 2023 04:15:10 GMT+0300`)).getDate()
+	,13, 37,
+	new Date(`Mon Dec 31 2023 04:15:10 GMT`)
+)
+makeThatSHIT(
+	(new Date(`Mon Dec 31 2023 04:15:10 GMT+0300`)).getDate()
+	,13, 37,
+	new Date(`Mon Dec 31 2023 04:15:10 GMT`)
+)
+makeThatSHIT(
+	(new Date(`Mon Dec 30 2023 04:15:10 GMT+0300`)).getDate()
+	,13, 37,
+	new Date(`Mon Dec 31 2023 04:15:10 GMT`)
+)
+
+makeThatSHIT(
+	(new Date(`Mon Jan 1 2023 04:15:10 GMT+0300`)).getDate()
+	,13, 37,
+	new Date(`Mon Jan 2 2023 04:15:10 GMT`)
+) 
+makeThatSHIT(
+	(new Date(`Mon Jan 3 2023 04:15:10 GMT+0300`)).getDate()
+	,13, 37,
+	new Date(`Mon Jan 2 2023 04:15:10 GMT`)
+) 
+makeThatSHIT(
+	(new Date(`Mon Jan 2 2023 04:15:10 GMT+0300`)).getDate()
+	,13, 37,
+	new Date(`Mon Jan 1 2023 04:15:10 GMT`)
+) 
+makeThatSHIT(
+	(new Date(`Mon Dec 31 2023 04:15:10 GMT+0300`)).getDate()
+	,13, 37,
+	new Date(`Mon Jan 1 2023 04:15:10 GMT`)
+) 
+makeThatSHIT(
+	(new Date(`Mon Dec 30 2023 04:15:10 GMT+0300`)).getDate()
+	,13, 37,
+	new Date(`Mon Jan 1 2023 04:15:10 GMT`)
+) 
+
 
 const UTCHandler = {};
 
