@@ -30,6 +30,10 @@ const {
 	,minifyPropNamesOfUserUTCOffset
 	,extendPropNamesOfUserUTCOffset
 } = require(`./utils/userUTCOffset.js`);
+const {
+	addCharBeforeValue
+	,addCharBeforeDecimalValue
+} = require(`./utils/textFormatting.js`);
 
 const TG_USERS_LAST_ACTION_TIME = {};
 
@@ -212,28 +216,6 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 				result += `<code>${str}</code>`;
 
 				return result;
-			};
-			const addCharBeforeValue = (value, maxLength, charS) => {
-				let str = '' + value;
-
-				let result = ``;
-				const diff = maxLength - str.length;
-				if ( diff >= 0) {
-					for (let i = 0; i < diff; i++) {
-						result += charS;
-					}
-				} else {
-					str = str.slice(Math.abs(diff));
-				}
-				result += str;
-
-				return result;
-			};
-
-			const addCharBeforeDecimalValue = (value, maxLength, charS) => {
-				let str = Number(value).toFixed(1);
-
-				return addCharBeforeValue(str, maxLength, charS);
 			};
 
 
@@ -676,36 +658,7 @@ const editMessage = async (chatId, messageId, text, inlineKeyboard) => {
 							await updateUserSubprocess(userSubprocess);
 						};
 
-				const makeUnderlineIDOfUserCreatedFI = id => {
-					const str = String(id);
-					const maxStrIDLength = 4;
-					
-					let result = ``;
 
-					for (let i = 0, diff = maxStrIDLength - str.len; i < diff; i++) {
-						result += `_`;
-					}
-
-					return result;
-				};
-
-
-						const getPagesOfHelp = (selectedPage, numberOfPages) => {
-							const pages = {};
-							pages.selected = selectedPage;
-					
-							pages.moveNext = selectedPage + 1;
-							if (pages.moveNext > numberOfPages) {
-								pages.moveNext = numberOfPages;
-							}
-					
-							if (selectedPage > 1) {
-								pages.movePrevious = selectedPage - 1;
-							} else {
-								pages.movePrevious = 1;
-							}
-							return pages;
-						}
 
 							const getNumberOfPages = (lengthOfItems, maxNumberOfLines) => {
 								let numberOfPages = Math.floor(lengthOfItems / maxNumberOfLines) + 1;
@@ -717,44 +670,6 @@ const editMessage = async (chatId, messageId, text, inlineKeyboard) => {
 								return numberOfPages;
 							};
 
-						const getPagesOfDish = (lengthOfItems, maxNumberOfLines, selectedPage) => {
-							const numberOfPages = getNumberOfPages(lengthOfItems, maxNumberOfLines);
-					
-							const pages = {};
-							pages.selected = selectedPage;
-					
-							pages.moveNext = selectedPage + 1;
-							if (pages.moveNext > numberOfPages) {
-								pages.moveNext = numberOfPages;
-							}
-					
-							if (selectedPage > 1) {
-								pages.movePrevious = selectedPage - 1;
-							} else {
-								pages.movePrevious = 1;
-							}
-							return pages;
-						}
-						
-const getButtonTextForThreePageInKey = pages => {
-							const buttonTextPages = {};
-
-							if (pages.movePrevious == pages.selected) {
-								buttonTextPages.left = `<<${pages.movePrevious}>>`;
-							} else {
-								buttonTextPages.left = `${pages.movePrevious}<<`;
-							}
-
-							buttonTextPages.middle = `<<${pages.selected}>>`;
-
-							if (pages.moveNext == pages.selected) {
-								buttonTextPages.right = `<<${pages.moveNext}>>`;
-							} else {
-								buttonTextPages.right = `>>${pages.moveNext}`;
-							}
-
-							return buttonTextPages;
-						};
 				
 				const getCountOfPages = (lengthOfItems, maxNumberOfLinesOnPage) => {
 					let countOfPages = Math.floor(lengthOfItems / maxNumberOfLinesOnPage) + 1;
@@ -874,28 +789,30 @@ const getButtonTextForThreePageInKey = pages => {
 					return telegraf.Markup.inlineKeyboard([inlineKeyboardFirstLine]);
 				};
 
-					const getHelpMessage = (selectedPage, pageCount, text, tgId) => {
-						const message = {};
 
-							const pages = getPagesOfHelp(selectedPage, pageCount);
-							const buttonTextPages = getButtonTextForThreePageInKey(pages);
+const getHelpMessage = (selectedPage, pageCount, text, tgId) => {
+	const message = {};
+	
+	message.text = text;
+	message.inlineKeyboard = {};
 
-							message.inlineKeyboard = telegraf.Markup.inlineKeyboard(
-								[
-									[	
-										telegraf.Markup.button.callback(buttonTextPages.left, `i${tgId}cp${pages.movePrevious}`),
-										telegraf.Markup.button.callback(buttonTextPages.middle, `i${tgId}cp${pages.selected}`),
-										telegraf.Markup.button.callback(buttonTextPages.right, `i${tgId}cp${pages.moveNext}`)
-									]
-								]
-							);
+	if (pageCount > 1) {
+		const pagesFor3ButtonInlineKeyboard = getPagesFor3ButtonInlineKeyboard(pageCount, selectedPage);
 
-						message.text = text;
+		const buttonsFor3ButtonInlineKeyboard = getButtonsFor3ButtonInlineKeyboard(
+			pagesFor3ButtonInlineKeyboard,
+			`i${tgId}c`
+		);
 		
-						message.inlineKeyboard.parse_mode = 'HTML';
+		message.inlineKeyboard = make3ButtonInlineKeyboard(
+			buttonsFor3ButtonInlineKeyboard
+		);
+	}
+	
+	message.inlineKeyboard.parse_mode = 'HTML';
 
-						return message;
-						}
+	return message;
+}
 
 					const getDishMessage = (tgId, dish, ingredients, selectedPage) => {
 						const maxNumberOfLines = 20;
@@ -1489,6 +1406,7 @@ bot.on(`message`, async ctx => {
 	const userSubprocess = await getUserSubProcess(DB_CLIENT, ctx.update.message.from.id);
 
 	const chatId = ctx.update.message.from.id;
+	const gotUserMessageId = ctx.update.message.message_id;
 	
 	const reqDate = ctx.update.message.date * 1000;	
 	const creation_date = new Date(reqDate).toISOString();
@@ -1589,7 +1507,6 @@ bot.on(`message`, async ctx => {
 		let row = {};
 		row.creation_date = creation_date;
 		row.invalid_command = true;
-		row.invalid_cause = `!ctx.update.message.text`;
 		row.tg_user_id = userInfo.tg_user_id;
 //add return last 20, find sequences and reply funny shit
 		let paramQuery = {};
@@ -1619,6 +1536,8 @@ bot.on(`message`, async ctx => {
 	
 	if(!userSubprocess){
 
+		//delete last invalid user message and bot reply
+
 		if(Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__HELP))){
 			const countOfPages = HTMLCommandMaker.fullDescCommandListPerPageCounts.length;
 			const pageNum = 1;
@@ -1639,11 +1558,23 @@ bot.on(`message`, async ctx => {
 
 			const dayOfMonth = Number(re_result[2]);
 
-			if (!dayOfMonth)	{
+			if(!dayOfMonth){
 
 				const invalidReply = `Некорректное число месяца.`;
 
-				await sendMessage(chatId, invalidReply);
+				const res = await sendMessage(chatId, invalidReply);
+
+				const row = {};
+				row.tg_user_id = userInfo.tg_user_id;
+				row.creation_date = creation_date;
+				row.invalid_command = true;
+				
+				row.data = {};
+				row.data.u = gotUserMessageId;
+				row.data.b = res.message_id;
+				row.data = JSON.stringify(row.data);
+
+				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
 
 				return;
 			}
@@ -2631,18 +2562,6 @@ bot.on(`message`, async ctx => {
 					return result;
 				};
 
-				const addCharBeforeDecimalValue = (value, maxLength, charS) => {
-					let str = Number(value).toFixed(1);
-					
-					let result = ``;
-
-					for (let i = 0, diff = maxLength - str.length; i < diff; i++) {
-						result += charS;
-					}
-					result += str;
-
-					return result;
-				};
 
 				updateFIRes.rows.forEach(e => {
 					deletedMessage += `\n<b>${makeUnderlineIDOfUserCreatedFI(e.fi_id_for_user)}</b> Б:${
@@ -3956,18 +3875,6 @@ console.log(userSubprocess);
 						;`);
 
 
-					const addCharBeforeDecimalValue = (value, maxLength, charS) => {
-						let str = Number(value).toFixed(1);
-						
-						let result = ``;
-
-						for (let i = 0, diff = maxLength - str.length; i < diff; i++) {
-							result += charS;
-						}
-						result += str;
-
-						return result;
-					};
 			
 						
 

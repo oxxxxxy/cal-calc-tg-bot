@@ -1,3 +1,8 @@
+const {
+	addCharBeforeValue
+} = require(`./textFormatting.js`);
+
+
 const months = [
 	{
 		name: `January`
