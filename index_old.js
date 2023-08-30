@@ -23,12 +23,12 @@ const {
 	COMMAND__CREATE_FOOD__NO
 } = require(`./modules/user_commands/create_food_funcs.js`);
 const {HTMLCommandMaker} = require(`./bot_data/commands.js`);
-const {UTCHandler} = require(`./utils/UTCHandler.js`);
-// const { callback } = require('telegraf/typings/button.js');
-// const { inlineKeyboard } = require('telegraf/typings/markup.js');
-// const { callback } = require('telegraf/typings/button.js');
 
-
+const {
+	getUserUTCOffset
+	,minifyPropNamesOfUserUTCOffset
+	,extendPropNamesOfUserUTCOffset
+} = require(`./utils/userUTCOffset.js`);
 
 const TG_USERS_LAST_ACTION_TIME = {};
 
@@ -48,7 +48,7 @@ const RE_RU_NUTRIENTS = [];
 /////////100% necessary START
 const RE_RU_COMMAND__HELP = /^(х|\/h)$/u;
 
-const RE_RU_COMMAND__SET_USER_LOCAL_TIME = /^зв(\s+|)([0-3][0-9])(\s+|):([0-1][0-9]|2[0-3])(\s+|):(\s+|)([0-5][0-9])$/u;
+const RE_RU_COMMAND__SET_USER_LOCAL_TIME = /^зв(\s+|)([0-3][0-9])\s+([0-1][0-9]|2[0-3])\s+([0-5][0-9])$/u;
 
 
 
@@ -375,7 +375,7 @@ const makeDishSheet = (d, ings) => {
 	return dishSheet;
 };
 
-const shortenBJUKnWNOfIngredients = ingredients => {
+const minifyBJUKnWNOfIngredients = ingredients => {
 	return ingredients.map(e => {
 		return {
 			i : e.id
@@ -1630,28 +1630,33 @@ bot.on(`message`, async ctx => {
 			await insertIntoTelegramUserSendedCommandsPostgresTable(row);
 
 		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SET_USER_LOCAL_TIME))) {
-			console.log(re_result);
-			const monthDay = Number(re_result[2]);
 
-			if(!monthDay){//zero
+			const dayOfMonth = Number(re_result[2]);
+
+			if (!dayOfMonth)	{
 
 
 				return;
 			}
 
-			const hours = Number(re_result[4]);
-			const minutes = Number(re_result[7]);
+			const hours = Number(re_result[3]);
+			const minutes = Number(re_result[4]);
 
+			let userUTCOffset = getUserUTCOffset(dayOfMonth, hours, minutes, new Date(reqDate));
 
-
-
-
-
-			console.log(monthDay, hours, minutes);
+			if (!userUTCOffset) {
 			
 
+				return;
+			}
 
-
+			userUTCOffset = minifyPropNamesOfUserUTCOffset(userUTCOffset);
+			
+			await pgClient.query(`
+				UPDATE telegram_users
+				SET s__utc_s_h_m = '${JSON.stringify(userUTCOffset)}'
+				WHERE tg_user_id = ${userInfo.tg_user_id}
+			;`);
 
 		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_LAST_ACTION))) {
 		
@@ -4110,7 +4115,7 @@ console.log(userSubprocess);
 					return;
 				}
 
-				let ingredients = shortenBJUKnWNOfIngredients(userSubprocess.data.ingredients);
+				let ingredients = minifyBJUKnWNOfIngredients(userSubprocess.data.ingredients);
 
 				let dish = Object.assign({}, userSubprocess.data.dish);
 				//insert into dish_items
@@ -4341,7 +4346,7 @@ console.log(userSubprocess);
 					return;
 				}
 
-				let ingredients = shortenBJUKnWNOfIngredients(userSubprocess.data.ingredients);
+				let ingredients = minifyBJUKnWNOfIngredients(userSubprocess.data.ingredients);
 
 				let dish = Object.assign({}, userSubprocess.data.dish);
 
