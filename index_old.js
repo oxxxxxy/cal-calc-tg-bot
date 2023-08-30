@@ -909,7 +909,32 @@ const getHelpMessage = (selectedPage, pageCount, text, tgId) => {
 
 
 
+const memoizeOneArgument = a => {
+	return () => {
+		return a;
+	};
+};
 
+const makeFnSendMessageToChat = chatId => {
+	return async (...args) => {
+		await sendMessage(chatId, ...args);
+	};
+};
+
+const makeFnCompleteInvalidCommandHandling = (sendMessageToChatFn, getPredefinedRowFn, insertFn, gotUserMessageId) => 
+	async invalidReply => {
+		const res = await sendMessageToChatFn(invalidReply);
+				
+		row = getPredefinedRowFn();
+		row.invalid_command = true;
+				
+		row.data = {};
+		row.data.u = gotUserMessageId;
+		row.data.b = res.message_id;
+		row.data = JSON.stringify(row.data);
+
+		await insertFn(row);
+	};
 
 
 
@@ -1411,6 +1436,21 @@ bot.on(`message`, async ctx => {
 	const reqDate = ctx.update.message.date * 1000;	
 	const creation_date = new Date(reqDate).toISOString();
 
+	const row = {};
+	row.tg_user_id = userInfo.tg_user_id;
+	row.creation_date = creation_date;
+
+	const getPredefinedRowForTelegramUserSendedCommands = memoizeOneArgument(row);
+	
+	const sendMessageToChat = makeFnSendMessageToChat(chatId);
+
+	const completeInvalidCommandHandling = makeFnCompleteInvalidCommandHandling(
+		sendMessageToChat
+		,getPredefinedRowForTelegramUserSendedCommands
+		,insertIntoTelegramUserSendedCommandsPostgresTable
+		,gotUserMessageId
+	);
+
 	if(!ctx.update.message.text){
 		if (userSubprocess) {
 		
@@ -1564,23 +1604,8 @@ bot.on(`message`, async ctx => {
 			const dayOfMonth = Number(re_result[2]);
 
 			if(!dayOfMonth){
-
 				const invalidReply = `Некорректное число месяца.`;
-
-				const res = await sendMessage(chatId, invalidReply);
-
-				const row = {};
-				row.tg_user_id = userInfo.tg_user_id;
-				row.creation_date = creation_date;
-				row.invalid_command = true;
-				
-				row.data = {};
-				row.data.u = gotUserMessageId;
-				row.data.b = res.message_id;
-				row.data = JSON.stringify(row.data);
-
-				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
-
+				await completeInvalidCommandHandling(invalidReply);
 				return;
 			}
 
@@ -1590,23 +1615,8 @@ bot.on(`message`, async ctx => {
 			let userUTCOffset = getUserUTCOffset(dayOfMonth, hours, minutes, new Date(reqDate));
 
 			if (!userUTCOffset) {
-
 				const invalidReply = `Некорректные данные.`;
-
-				const res = await sendMessage(chatId, invalidReply);
-
-				const row = {};
-				row.tg_user_id = userInfo.tg_user_id;
-				row.creation_date = creation_date;
-				row.invalid_command = true;
-				
-				row.data = {};
-				row.data.u = gotUserMessageId;
-				row.data.b = res.message_id;
-				row.data = JSON.stringify(row.data);
-
-				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
-
+				await completeInvalidCommandHandling(invalidReply);
 				return;
 			}
 
@@ -1620,7 +1630,7 @@ bot.on(`message`, async ctx => {
 				WHERE tg_user_id = ${userInfo.tg_user_id}
 			;`);
 
-			await sendMessage(chatId, reply);
+			await sendMessageToChat(reply);
 
 		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_LAST_ACTION))) {
 		
