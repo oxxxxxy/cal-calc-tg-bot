@@ -26,6 +26,7 @@ const {HTMLCommandMaker} = require(`./bot_data/commands.js`);
 
 const {
 	getUserUTCOffset
+	,getUTCOffsetStr
 	,minifyPropNamesOfUserUTCOffset
 	,extendPropNamesOfUserUTCOffset
 } = require(`./utils/userUTCOffset.js`);
@@ -212,10 +213,9 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 
 				return result;
 			};
-
 			const addCharBeforeValue = (value, maxLength, charS) => {
-				let str = Number(value).toFixed(1);
-				
+				let str = '' + value;
+
 				let result = ``;
 				const diff = maxLength - str.length;
 				if ( diff >= 0) {
@@ -228,6 +228,12 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 				result += str;
 
 				return result;
+			};
+
+			const addCharBeforeDecimalValue = (value, maxLength, charS) => {
+				let str = Number(value).toFixed(1);
+
+				return addCharBeforeValue(str, maxLength, charS);
 			};
 
 
@@ -314,21 +320,21 @@ const makeDishSheetHeader = dish => {
 
 const makeDishSheetFooter = dish => {
 	let dishSheetFooter = `\n<u>|<b>И__|Б:${
-		addCharBeforeValue(dish.protein, 6, '_')} |Ж:${
-		addCharBeforeValue(dish.fat, 6, '_')} |У:${
-		addCharBeforeValue(dish.carbohydrate, 6, '_')} |К:${
-		addCharBeforeValue(dish.caloric_content, 7, '_')} |В:_100.0|</b></u> Итого на 100 грамм.`;
+		addCharBeforeDecimalValue(dish.protein, 6, '_')} |Ж:${
+		addCharBeforeDecimalValue(dish.fat, 6, '_')} |У:${
+		addCharBeforeDecimalValue(dish.carbohydrate, 6, '_')} |К:${
+		addCharBeforeDecimalValue(dish.caloric_content, 7, '_')} |В:_100.0|</b></u> Итого на 100 грамм.`;
 
 	let totalWeight = `__н/д__`;
 	let difference = `__н/д__`;
 	if (dish.total_g_weight) {
 		let diff = dish.g_weight - dish.total_g_weight;
-		totalWeight = addCharBeforeValue(dish.total_g_weight, 6, '_') + ' ';
-		difference = addCharBeforeValue(diff, 6, '_') + ' ';
+		totalWeight = addCharBeforeDecimalValue(dish.total_g_weight, 6, '_') + ' ';
+		difference = addCharBeforeDecimalValue(diff, 6, '_') + ' ';
 	}
 
 	dishSheetFooter += `\n<b><u>|Вес:${
-		addCharBeforeValue(dish.g_weight, 6, '_')} |Итоговый вес:${
+		addCharBeforeDecimalValue(dish.g_weight, 6, '_')} |Итоговый вес:${
 		totalWeight}|Разница:${
 		difference}|</u></b>`;
 
@@ -338,11 +344,11 @@ const makeDishSheetFooter = dish => {
 const makeDishSheetLine = (ingreNum, protein, fat, carb, cal, weight, name) => {
 		return `\n|${
 			makeDishNumForSheetLine(ingreNum)} <u>|Б:${
-			addCharBeforeValue(protein, 6, '_')} |Ж:${
-			addCharBeforeValue(fat, 6, '_')} |У:${
-			addCharBeforeValue(carb, 6, '_')} |К:${
-			addCharBeforeValue(cal, 7, '_')} |В:${
-			addCharBeforeValue(weight, 6, '_')}</u> <i>${
+			addCharBeforeDecimalValue(protein, 6, '_')} |Ж:${
+			addCharBeforeDecimalValue(fat, 6, '_')} |У:${
+			addCharBeforeDecimalValue(carb, 6, '_')} |К:${
+			addCharBeforeDecimalValue(cal, 7, '_')} |В:${
+			addCharBeforeDecimalValue(weight, 6, '_')}</u> <i>${
 			name}</i>`
 	};
 
@@ -1635,6 +1641,9 @@ bot.on(`message`, async ctx => {
 
 			if (!dayOfMonth)	{
 
+				const invalidReply = `Некорректное число месяца.`;
+
+				await sendMessage(chatId, invalidReply);
 
 				return;
 			}
@@ -1645,10 +1654,15 @@ bot.on(`message`, async ctx => {
 			let userUTCOffset = getUserUTCOffset(dayOfMonth, hours, minutes, new Date(reqDate));
 
 			if (!userUTCOffset) {
-			
+
+				const invalidReply = `Некорректные данные.`;
+
+				await sendMessage(chatId, invalidReply);
 
 				return;
 			}
+
+			const reply = `Часовой пояс задан успешно. UTC ${getUTCOffsetStr(userUTCOffset)}`;
 
 			userUTCOffset = minifyPropNamesOfUserUTCOffset(userUTCOffset);
 			
@@ -1657,6 +1671,8 @@ bot.on(`message`, async ctx => {
 				SET s__utc_s_h_m = '${JSON.stringify(userUTCOffset)}'
 				WHERE tg_user_id = ${userInfo.tg_user_id}
 			;`);
+
+			await sendMessage(chatId, reply);
 
 		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_LAST_ACTION))) {
 		
@@ -2450,27 +2466,14 @@ bot.on(`message`, async ctx => {
 					LIMIT ${maxNumberOfLines};
 				`);
 
-
-				const addCharBeforeValue = (value, maxLength, charS) => {
-					let str = Number(value).toFixed(1);
-					
-					let result = ``;
-
-					for (let i = 0, diff = maxLength - str.length; i < diff; i++) {
-						result += charS;
-					}
-					result += str;
-
-					return result;
-				};
 				let message = `<b>Cписок созданной еды.</b> Всего: <b>${userInfo.available_count_of_user_created_fi}</b>.\n<b>ID</b>   БЖУК (на 100г) <b><i>Название еды</i></b>`;
 
 				res.rows.forEach(e => {
 					message += `\n<code>${e.fi_id_for_user}</code> Б:${
-						addCharBeforeValue(e.view_json.protein ? e.view_json.protein : 0, 4, '_')} Ж:${
-						addCharBeforeValue(e.view_json.fat ? e.view_json.fat : 0, 4, '_')} У:${
-						addCharBeforeValue(e.view_json.carbohydrate ? e.view_json.carbohydrate : 0, 4, '_')} К:${
-						addCharBeforeValue(e.view_json.caloric_content ? e.view_json.caloric_content : 0, 5, '_')} <i>${
+						addCharBeforeDecimalValue(e.view_json.protein ? e.view_json.protein : 0, 4, '_')} Ж:${
+						addCharBeforeDecimalValue(e.view_json.fat ? e.view_json.fat : 0, 4, '_')} У:${
+						addCharBeforeDecimalValue(e.view_json.carbohydrate ? e.view_json.carbohydrate : 0, 4, '_')} К:${
+						addCharBeforeDecimalValue(e.view_json.caloric_content ? e.view_json.caloric_content : 0, 5, '_')} <i>${
 						e.name__lang_code_ru}</i> `
 				});
 
@@ -2628,7 +2631,7 @@ bot.on(`message`, async ctx => {
 					return result;
 				};
 
-				const addCharBeforeValue = (value, maxLength, charS) => {
+				const addCharBeforeDecimalValue = (value, maxLength, charS) => {
 					let str = Number(value).toFixed(1);
 					
 					let result = ``;
@@ -2643,10 +2646,10 @@ bot.on(`message`, async ctx => {
 
 				updateFIRes.rows.forEach(e => {
 					deletedMessage += `\n<b>${makeUnderlineIDOfUserCreatedFI(e.fi_id_for_user)}</b> Б:${
-						addCharBeforeValue(e.view_json.protein ? e.view_json.protein : 0, 4, '_')} Ж:${
-						addCharBeforeValue(e.view_json.fat ? e.view_json.fat : 0, 4, '_')} У:${
-						addCharBeforeValue(e.view_json.carbohydrate ? e.view_json.carbohydrate : 0, 4, '_')} К:${
-						addCharBeforeValue(e.view_json.caloric_content ? e.view_json.caloric_content : 0, 5, '_')} <i>${
+						addCharBeforeDecimalValue(e.view_json.protein ? e.view_json.protein : 0, 4, '_')} Ж:${
+						addCharBeforeDecimalValue(e.view_json.fat ? e.view_json.fat : 0, 4, '_')} У:${
+						addCharBeforeDecimalValue(e.view_json.carbohydrate ? e.view_json.carbohydrate : 0, 4, '_')} К:${
+						addCharBeforeDecimalValue(e.view_json.caloric_content ? e.view_json.caloric_content : 0, 5, '_')} <i>${
 						e.name__lang_code_ru}</i> `
 				});
 
@@ -3953,7 +3956,7 @@ console.log(userSubprocess);
 						;`);
 
 
-					const addCharBeforeValue = (value, maxLength, charS) => {
+					const addCharBeforeDecimalValue = (value, maxLength, charS) => {
 						let str = Number(value).toFixed(1);
 						
 						let result = ``;
@@ -3970,10 +3973,10 @@ console.log(userSubprocess);
 
 					res.rows.forEach(e => {
 						message += `\n<code>${e.fi_id_for_user}</code> Б:${
-							addCharBeforeValue(e.view_json.protein ? e.view_json.protein : 0, 4, '_')} Ж:${
-							addCharBeforeValue(e.view_json.fat ? e.view_json.fat : 0, 4, '_')} У:${
-							addCharBeforeValue(e.view_json.carbohydrate ? e.view_json.carbohydrate : 0, 4, '_')} К:${
-							addCharBeforeValue(e.view_json.caloric_content ? e.view_json.caloric_content : 0, 5, '_')} <i>${
+							addCharBeforeDecimalValue(e.view_json.protein ? e.view_json.protein : 0, 4, '_')} Ж:${
+							addCharBeforeDecimalValue(e.view_json.fat ? e.view_json.fat : 0, 4, '_')} У:${
+							addCharBeforeDecimalValue(e.view_json.carbohydrate ? e.view_json.carbohydrate : 0, 4, '_')} К:${
+							addCharBeforeDecimalValue(e.view_json.caloric_content ? e.view_json.caloric_content : 0, 5, '_')} <i>${
 							e.name__lang_code_ru}</i> `
 					});
 
@@ -4626,14 +4629,14 @@ bot.on(`inline_query`, async ctx => {
 								inputMessageContent = makeInputMessageContent(`d${el.dish_items_id}w${userInputWeight}`)
 							}
 							let description = `Б:${
-								addCharBeforeValue(el.protein, 6, '_')} Ж:${
-								addCharBeforeValue(el.fat, 6, '_')} У:${
-								addCharBeforeValue(el.carbohydrate, 6, '_')} К:${
-								addCharBeforeValue(el.caloric_content, 7, '_')} на 100 грамм\nБ:${
-								addCharBeforeValue(el.protein * userInputWeight / 100, 6, '_')} Ж:${
-								addCharBeforeValue(el.fat * userInputWeight / 100, 6, '_')} У:${
-								addCharBeforeValue(el.carbohydrate * userInputWeight / 100, 6, '_')} К:${
-								addCharBeforeValue(el.caloric_content * userInputWeight / 100, 7, '_')} на ${userInputWeight} грамм`;
+								addCharBeforeDecimalValue(el.protein, 6, '_')} Ж:${
+								addCharBeforeDecimalValue(el.fat, 6, '_')} У:${
+								addCharBeforeDecimalValue(el.carbohydrate, 6, '_')} К:${
+								addCharBeforeDecimalValue(el.caloric_content, 7, '_')} на 100 грамм\nБ:${
+								addCharBeforeDecimalValue(el.protein * userInputWeight / 100, 6, '_')} Ж:${
+								addCharBeforeDecimalValue(el.fat * userInputWeight / 100, 6, '_')} У:${
+								addCharBeforeDecimalValue(el.carbohydrate * userInputWeight / 100, 6, '_')} К:${
+								addCharBeforeDecimalValue(el.caloric_content * userInputWeight / 100, 7, '_')} на ${userInputWeight} грамм`;
 
 							inlineQueryResultArticles.push(
 								makeInlineQueryResultArticle(
@@ -4784,14 +4787,14 @@ bot.on(`inline_query`, async ctx => {
 								inputMessageContent = makeInputMessageContent(`d${el.dish_items_id}w${userInputWeight}`)
 							}
 							let description = `Б:${
-								addCharBeforeValue(el.protein, 6, '_')} Ж:${
-								addCharBeforeValue(el.fat, 6, '_')} У:${
-								addCharBeforeValue(el.carbohydrate, 6, '_')} К:${
-								addCharBeforeValue(el.caloric_content, 7, '_')} на 100 грамм\nБ:${
-								addCharBeforeValue(el.protein * userInputWeight / 100, 6, '_')} Ж:${
-								addCharBeforeValue(el.fat * userInputWeight / 100, 6, '_')} У:${
-								addCharBeforeValue(el.carbohydrate * userInputWeight / 100, 6, '_')} К:${
-								addCharBeforeValue(el.caloric_content * userInputWeight / 100, 7, '_')} на ${userInputWeight} грамм`;
+								addCharBeforeDecimalValue(el.protein, 6, '_')} Ж:${
+								addCharBeforeDecimalValue(el.fat, 6, '_')} У:${
+								addCharBeforeDecimalValue(el.carbohydrate, 6, '_')} К:${
+								addCharBeforeDecimalValue(el.caloric_content, 7, '_')} на 100 грамм\nБ:${
+								addCharBeforeDecimalValue(el.protein * userInputWeight / 100, 6, '_')} Ж:${
+								addCharBeforeDecimalValue(el.fat * userInputWeight / 100, 6, '_')} У:${
+								addCharBeforeDecimalValue(el.carbohydrate * userInputWeight / 100, 6, '_')} К:${
+								addCharBeforeDecimalValue(el.caloric_content * userInputWeight / 100, 7, '_')} на ${userInputWeight} грамм`;
 
 							inlineQueryResultArticles.push(
 								makeInlineQueryResultArticle(
