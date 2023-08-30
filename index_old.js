@@ -53,7 +53,7 @@ const RE_RU_NUTRIENTS = [];
 /////////100% necessary START
 const RE_RU_COMMAND__HELP = /^(х|\/h)$/u;
 
-const RE_RU_COMMAND__SET_USER_LOCAL_TIME = /^зв(\s+|)([0-3][0-9])\s+([0-1][0-9]|2[0-3])\s+([0-5][0-9])$/u;
+const RE_RU_COMMAND__SET_USER_LOCAL_TIME = /^зв(\s+|)([0-3][0-9]|[1-9])\s+([0-9]|[0-1][0-9]|2[0-3])\s+([0-9]|[0-5][0-9])$/u;
 
 
 
@@ -1537,6 +1537,11 @@ bot.on(`message`, async ctx => {
 	if(!userSubprocess){
 
 		//delete last invalid user message and bot reply
+		if(userLastCommand.invalid_command){
+			for(p in userLastCommand.data){
+				await deleteMessage(chatId, userLastCommand.data[p]);
+			}
+		}
 
 		if(Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__HELP))){
 			const countOfPages = HTMLCommandMaker.fullDescCommandListPerPageCounts.length;
@@ -1588,7 +1593,19 @@ bot.on(`message`, async ctx => {
 
 				const invalidReply = `Некорректные данные.`;
 
-				await sendMessage(chatId, invalidReply);
+				const res = await sendMessage(chatId, invalidReply);
+
+				const row = {};
+				row.tg_user_id = userInfo.tg_user_id;
+				row.creation_date = creation_date;
+				row.invalid_command = true;
+				
+				row.data = {};
+				row.data.u = gotUserMessageId;
+				row.data.b = res.message_id;
+				row.data = JSON.stringify(row.data);
+
+				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
 
 				return;
 			}
@@ -2580,12 +2597,24 @@ bot.on(`message`, async ctx => {
 					ctx.reply(`code me, btch`)
 					console.log(`code me`)
 			} else {
-				//ne mogu raspoznat' zapros //ssilka na manual
-				//
 
-				ctx.reply(`Не понимаю команду.\n\n*Краткая инструкция:*\n-создать еду\n  се мороженое Обамка. б3,4ж17,2у22,2к257\nи т.д.\n\n\nПодробная инструкция ссылка.`, { parse_mode: 'Markdown', allow_sending_without_reply: true })
+				const invalidReply = `Не понимаю команду.\n\nПолучить список команд.  /h`;
 
-	
+				const res = await sendMessage(chatId, invalidReply);
+
+				const row = {};
+				row.tg_user_id = userInfo.tg_user_id;
+				row.creation_date = creation_date;
+				row.invalid_command = true;
+				
+				row.data = {};
+				row.data.u = gotUserMessageId;
+				row.data.b = res.message_id;
+				row.data = JSON.stringify(row.data);
+
+				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
+
+				return;
 			}
 		} else {
 			console.log(`user has last command, main tree, subprocess`);
