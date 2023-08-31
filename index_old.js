@@ -917,14 +917,14 @@ const memoizeOneArgument = a => {
 
 const makeFnSendMessageToChat = chatId => {
 	return async (...args) => {
-		await sendMessage(chatId, ...args);
+		return await sendMessage(chatId, ...args);
 	};
 };
 
 const makeFnCompleteInvalidCommandHandling = (sendMessageToChatFn, getPredefinedRowFn, insertFn, gotUserMessageId) => 
 	async invalidReply => {
 		const res = await sendMessageToChatFn(invalidReply);
-				
+
 		row = getPredefinedRowFn();
 		row.invalid_command = true;
 				
@@ -1007,7 +1007,7 @@ NUTRIENTS.forEach(i => {
 		let word = i.regexp_list_ru.join('|');
 		
 		RE_RU_NUTRIENTS.push(
-			new RegExp(`(${word})(\\s+|)(\\d+(\\s+|)(,|\\.)(\\s+|)\\d+|\\d+)(\\s+|)`, 'u') //(г|мкг|мг|ккал|)`, 'u')
+			new RegExp(`(${word})(\\s+|)(\\d+(\\s+|)(,|\\.)(\\s+|)\\d+|\\d+)`, 'u')
 		)
 	
 
@@ -1581,6 +1581,12 @@ bot.on(`message`, async ctx => {
 			for(p in userLastCommand.data){
 				await deleteMessage(chatId, userLastCommand.data[p]);
 			}
+
+			await pgClient.query(`
+				UPDATE telegram_user_sended_commands
+				SET data = null
+				WHERE id = ${userLastCommand.id}
+			;`);
 		}
 
 		if(Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__HELP))){
@@ -1592,9 +1598,7 @@ bot.on(`message`, async ctx => {
 			
 			await sendMessage(chatId, m.text, m.inlineKeyboard);
 
-			const row = {};
-			row.tg_user_id = userInfo.tg_user_id;
-			row.creation_date = creation_date;
+			const row = getPredefinedRowForTelegramUserSendedCommands();
 			row.command = `HELP`;
 
 			await insertIntoTelegramUserSendedCommandsPostgresTable(row);
@@ -1621,6 +1625,7 @@ bot.on(`message`, async ctx => {
 			}
 
 			const reply = `Часовой пояс задан успешно. UTC ${getUTCOffsetStr(userUTCOffset)}`;
+			await sendMessageToChat(reply);
 
 			userUTCOffset = minifyPropNamesOfUserUTCOffset(userUTCOffset);
 			
@@ -1629,15 +1634,19 @@ bot.on(`message`, async ctx => {
 				SET s__utc_s_h_m = '${JSON.stringify(userUTCOffset)}'
 				WHERE tg_user_id = ${userInfo.tg_user_id}
 			;`);
+			
+			const row = getPredefinedRowForTelegramUserSendedCommands();
+			row.command = `SET USER UTC`;
 
-			await sendMessageToChat(reply);
+			await insertIntoTelegramUserSendedCommandsPostgresTable(row);
 
 		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_LAST_ACTION))) {
 		
 			console.log(userLastCommand);
 
 			if (!userLastCommand.can_it_be_removed){
-				ctx.reply(`Последняя команда ничего не создавала, чтобы что-то удалить.`);
+				const invalidReply = `Последняя команда ничего не создавала, чтобы что-то удалить.`;
+				await completeInvalidCommandHandling(invalidReply);
 				return;
 			}
 			
@@ -1664,9 +1673,7 @@ bot.on(`message`, async ctx => {
 				`);
 
 				//telegram_user_sended_commands add deletion
-				const row = {};
-				row.tg_user_id = userInfo.tg_user_id;
-				row.creation_date = creation_date;
+				const row = getPredefinedRowForTelegramUserSendedCommands();
 				row.command = `DELETE_FOOD`;
 				row.can_it_be_canceled = true;
 
@@ -1675,14 +1682,7 @@ bot.on(`message`, async ctx => {
 
 				row.data = JSON.stringify(row.data);
 
-				const paramQuery = {};
-				paramQuery.text = `
-					INSERT INTO telegram_user_sended_commands
-					(${objKeysToColumnStr(row)})
-					VALUES
-					(${objKeysToColumn$IndexesStr(row)});`;
-				paramQuery.values = getArrOfValuesFromObj(row);
-				await DB_CLIENT.query(paramQuery);
+				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
 			
 				//predlojit' otmenu
 				ctx.reply(`Удалено. Отменить? *"о/отмена"*.\n\nМем на тему удаления.`, {parse_mode:`Markdown`})
@@ -1780,240 +1780,246 @@ bot.on(`message`, async ctx => {
 			ctx.reply(`code me`)
 			console.log(re_result);			
 		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__CREATE_FOOD))) {
-				// console.log(re_result, `RE_RU_COMMAND__CREATE_FOOD`);
-				
-				// add text second param
+			// console.log(re_result, `RE_RU_COMMAND__CREATE_FOOD`);
+			
+			// add text second param
 
-				let db = DB_CLIENT;
+			let db = DB_CLIENT;
 
-				let limit_count_of_user_created_fidi = 100;
-				if (!userInfo.privilege_type && userInfo.limit_count_of_user_created_fidi >= limit_count_of_user_created_fidi) { //think about it...
-					const limitResp =`Вы не можете создавать еду или блюда больше ${limit_count_of_user_created_fidi} раз за 24ч.`;
-					ctx.reply(limitResp);
-					return;
-					/* {
-						result: false,
-						cause: `limit_count_of_user_created_fidi`,
-						message: `Вы не можете создавать еду больше ${limit_count_of_user_created_fidi} раз за 24ч.`
-					}; */
+			let limit_count_of_user_created_fidi = 100;
+			if (!userInfo.privilege_type && userInfo.limit_count_of_user_created_fidi >= limit_count_of_user_created_fidi) {
+				const invalidReply =`Вы не можете создавать еду или блюда больше ${limit_count_of_user_created_fidi} раз за 24ч.`;
+				await completeInvalidCommandHandling(invalidReply);
+				return;
+			}
+			
+			const foodName = text.slice(re_result[1].length-1, re_result[2].length + re_result[1].length).slice(0, 128).replaceAll(/['"\\]/ug, ``).trim();
+			// console.log( foodName, re_result);return;
+			
+			if (foodName.length < 4) {
+				const invalidReply = `Название еды должно состоять из хотя бы 4 символов.`;
+				await completeInvalidCommandHandling(invalidReply);
+				return;
+			}
+
+			let findIdenticalNameResponse = await MSDB.search(foodName, {
+				filter: `name__lang_code_ru = '${foodName}' AND tg_user_id = ${userInfo.tg_user_id} AND food_items_id IS NOT EMPTY`
+			});
+
+			if (findIdenticalNameResponse?.hits?.length) {
+				const invalidReply = `Еда с таким названием уже существует.`;
+				await completeInvalidCommandHandling(invalidReply);
+				return;
+			}
+
+
+			const foodNutrientMatches = [];
+			const foodNutrients = {};
+
+			let nutrientPart = re_result.input.slice(re_result[2].length);
+			// console.log(re_result, text)
+
+			// console.log(NUTRIENTS);return;
+			RE_RU_NUTRIENTS.forEach((el, i) => {
+				const match = nutrientPart.match(el);
+			
+				const nutrientName = NUTRIENTS[i].lang_code_en.replaceAll(/\s+/g, `_`);
+				foodNutrients[nutrientName] = NUTRIENTS[i];
+
+				if (Array.isArray(match)){
+					let strNutrientValue = match[3].replace(`,`, `.`);
+					const dotMatch = strNutrientValue.match(/\./);
+					if (Array.isArray(dotMatch)) {
+						strNutrientValue = strNutrientValue.slice(0, dotMatch.index + 2);
+					}
+
+					foodNutrients[nutrientName].nutrientValue = Number(strNutrientValue);
 				}
+			});	
 
-				let messageText = `*Чпок, и готооова...*`;
-				
-				const foodName = text.slice(re_result[1].length-1, re_result[2].length + re_result[1].length).slice(0, 128).replaceAll(/['"\\]/ug, ``).trim();//(re_result[2].trim()).slice(0, 128); // poisk odinakovih imen, otpravka i ojidanie podtverjdeniya
-				// console.log( foodName, re_result);return;
-				if (foodName.length < 4) {
-					ctx.reply(`Название еды должно иметь хотя бы 4 символа.`)
-					return;
-				}
+			const foodNutrientKeys = Object.keys(foodNutrients);
 
-				// poisk odinakovih imen, otpravka i ojidanie podtverjdeniya
-				// TODO 
+			if (foodNutrientKeys.length == 0){
+				const invalidReply = `Нутриентов не обнаружено.`;
+				await completeInvalidCommandHandling(invalidReply);
+				return;
+			}
 
-				messageText += `\n\n\`\`\` ${foodName}. `;
+			if (!foodNutrients.caloric_content.nutrientValue){
+				foodNutrients.caloric_content.nutrientValue	= 0;
 
-				const foodNutrientMatches = [];
-
-				let nutrientPart = re_result.input.slice(re_result[2].length);
-				// console.log(re_result, text)
-
-				RE_RU_NUTRIENTS.forEach((el, i) => {
-					const match = nutrientPart.match(el);
-					
-					if (!Array.isArray(match)){
-						const obj = NUTRIENTS[i];
-						obj.nutrientName = NUTRIENTS[i].lang_code_en.replaceAll(/\s+/g, `_`);
-						obj[obj.nutrientName] = 0;
-						foodNutrientMatches.push(obj);
+				foodNutrientKeys.forEach(e =>{
+					if(e == `caloric_content`){
 						return;
 					}
-
-					const obj = NUTRIENTS[i];
-					obj.nutrientName = NUTRIENTS[i].lang_code_en.replaceAll(/\s+/g, `_`);
-					let strNutrientValue = match[3].replace(`,`, `.`);
-					let dotMatch = strNutrientValue.match(/\./);
-					if (Array.isArray(dotMatch)) {
-						strNutrientValue = strNutrientValue.slice(0, dotMatch.index + 3);
+					if(e == `fat`){
+						foodNutrients.caloric_content.nutrientValue	+= foodNutrients[e].nutrientValue * 9;
 					}
-					obj[obj.nutrientName] = Number(strNutrientValue);
-					foodNutrientMatches.push(obj);
-				});	
+					foodNutrients.caloric_content.nutrientValue	+= foodNutrients[e].nutrientValue * 4;
+				});
 
-				let noNutrientsResp = `Нутриентов не обнаружено. T_T`;
-				if (foodNutrientMatches.length == 0){ //podumat' o zamene, prosloyke i td...
+				foodNutrients.caloric_content.nutrientValue = Number(foodNutrients.caloric_content.nutrientValue.toFixed(1));
+			}
 
-					ctx.reply(noNutrientsResp);
 
+			let invalidReply = ``;
+			let sumOfBJU = 0;
+
+			foodNutrientKeys.forEach(e => {
+				if(e == `caloric_content`){
+					if (foodNutrients.caloric_content.nutrientValue > 900) {
+						invalidReply += `\nКалорийность не может превышать 900 ккал.`
+					}
 					return;
 				}
 
+				sumOfBJU += foodNutrients[e].nutrientValue;
 
-
-				let cal = foodNutrientMatches.find(el => el.nutrientName == `caloric_content`);
-				if(!cal.caloric_content){
-					let nutrient;
-
-					cal.caloric_content += (nutrient = foodNutrientMatches.find(el => el.nutrientName == `fat`)) ? nutrient.fat * 9 : 0;
-					cal.caloric_content += (nutrient = foodNutrientMatches.find(el => el.nutrientName == `carbohydrate`)) ? nutrient.carbohydrate * 4 : 0;
-					cal.caloric_content += (nutrient = foodNutrientMatches.find(el => el.nutrientName == `protein`)) ? nutrient.protein * 4 : 0;	
+				if(foodNutrients[e].nutrientValue > 100){
+					invalidReply += `\n${
+						foodNutrients[e].lang_code_ru.slice(0,1).toUpperCase() + foodNutrients[e].lang_code_ru.slice(1)
+					} не могут превышать 100 грамм.`;
 				}
 
+			});
+			
+			if (sumOfBJU > 100) {
+				invalidReply += `\nСумма БЖУ не может превышать 100 грамм.`
+			}
 
+			if(invalidReply){
+				await completeInvalidCommandHandling(invalidReply);
+				return;
+			}
 
-				let nutrientValueMistakeResp = ``;
-				let sumOfBJU = 0;
-				foodNutrientMatches.forEach(el => {
-					if (el.internal_definition_number == 4 && el.caloric_content > 900) {// caloric_content
-						nutrientValueMistakeResp += `\n${el.lang_code_ru.slice(0,1).toUpperCase() + el.lang_code_ru.slice(1)} не может превышать 900 кКал.`;
-					}
-					if (el.internal_definition_number == 3 && el[el.nutrientName] > 100) { //БЖУ
-						nutrientValueMistakeResp += `\n${el.lang_code_ru.slice(0,1).toUpperCase() + el.lang_code_ru.slice(1)} не могут превышать 100 грамм.`;
-					}
-					if (el.internal_definition_number == 3) { //БЖУ sum
-						sumOfBJU += el[el.nutrientName];
-					}
-
-				});
-
-				if (Math.round(sumOfBJU) > 100) {
-					nutrientValueMistakeResp += `\nСумма БЖУ не может быть больше 100 грамм.`;
-				}
-				
-				if (nutrientValueMistakeResp) {//think about it
-					ctx.reply(nutrientValueMistakeResp);
-					return;
-				}
-
-
-				foodNutrientMatches.forEach((el, i) => {
-					foodNutrientMatches[i][el.nutrientName] = Number(Number(el[el.nutrientName]).toFixed(1));
-				});
-				
-				foodNutrientMatches.forEach(el => {
-					messageText += `\n${el.lang_code_ru} ${el[el.nutrientName]}`;
-					if (el.caloric_content){
-						messageText += ` ккал`;
-					} else {
-						messageText += ` г`;
-					}
-				});
-
-
-				if (typeof userInfo.limit_count_of_user_created_fidi == `string`) {
-					userInfo.limit_count_of_user_created_fidi = Number(userInfo.limit_count_of_user_created_fidi);
+			let messageText = `*Чпок, и готооова...*`;
+			messageText += `\n\n\`\`\` ${foodName}. `;
+			
+			foodNutrientMatches.forEach(el => {
+				messageText += `\n${el.lang_code_ru} ${el[el.nutrientName]}`;
+				if (el.caloric_content){
+					messageText += ` ккал`;
 				} else {
-					userInfo.limit_count_of_user_created_fidi = 0;
+					messageText += ` г`;
 				}
-
-				const doc = {};
-				let row = {};
-				row.creation_date = new Date(reqDate).toISOString();
-				row.tg_user_id = ctx.update.message.from.id;
-				row.view_json = {};
-				row.name__lang_code_ru = foodName;
-
-				foodNutrientMatches.forEach(e => {
-					row.view_json[e.nutrientName] = e[e.nutrientName];
-					row[e.nutrientName] = e[e.nutrientName];
-					doc[e.nutrientName] = e[e.nutrientName];
-				});
-
-				row.view_json = JSON.stringify(row.view_json);
-
-				userInfo.count_of_user_created_fi = userInfo.count_of_user_created_fi ? Number(userInfo.count_of_user_created_fi) + 1 : 1;
-				row.fi_id_for_user = userInfo.count_of_user_created_fi;
-
-				messageText += `\n\`\`\`\nЕда ID:\`\`\`${userInfo.count_of_user_created_fi}\`\`\`\n\nОшибка? Отправьте *"у/удалить"*.`;
-
-				let paramQuery = {};
-				paramQuery.text = `
-					WITH foit AS(
-						INSERT INTO food_items
-						(${objKeysToColumnStr(row)})
-						VALUES
-						(${objKeysToColumn$IndexesStr(row)})
-						RETURNING id
-					),
-					fdifmsear AS (
-						INSERT INTO fooddish_ids_for_meilisearch
-						(food_items_id)
-						SELECT id
-						FROM foit
-						RETURNING id, food_items_id
-					)
-					SELECT fdifm.id as fdifmid, fdifm.food_items_id as id
-					FROM ( 
-						SELECT id, food_items_id
-						FROM fdifmsear
-						GROUP BY id, food_items_id
-					) fdifm
-				;`;
-				paramQuery.values = getArrOfValuesFromObj(row);
-				const foodItemsRes = await db.query(paramQuery);
-				console.log(`TEST ME CREATE_FOOD MeiliSearch`);
-				//add doc to MSDB
-				doc.id = Number(foodItemsRes.rows[0].fdifmid),
-				doc.food_items_id = Number(foodItemsRes.rows[0].id);
-				doc.dish_items_id = null;
-				doc.name__lang_code_ru = row.name__lang_code_ru;
-				doc.tg_user_id = row.tg_user_id;
-				doc.created_by_project = null;
-
-				await MSDB.addDocuments([doc]);
+			});
 
 
-				row = {};
-				row.tg_user_id = userInfo.tg_user_id;
-				row.creation_date = new Date(reqDate).toISOString();
-				row.command = `CREATE_FOOD`;
-				row.can_it_be_removed = true;
+			if (typeof userInfo.limit_count_of_user_created_fidi == `string`) {
+				userInfo.limit_count_of_user_created_fidi = Number(userInfo.limit_count_of_user_created_fidi);
+			} else {
+				userInfo.limit_count_of_user_created_fidi = 0;
+			}
 
-				row.data = {};
-				row.data.food_items_ids = [foodItemsRes.rows[0].id];
+			const doc = {};
+			let row = {};
+			row.creation_date = new Date(reqDate).toISOString();
+			row.tg_user_id = ctx.update.message.from.id;
+			row.view_json = {};
+			row.name__lang_code_ru = foodName;
 
-				row.data = JSON.stringify(row.data);
-	
-				paramQuery = {};
-				paramQuery.text = `
-					INSERT INTO telegram_user_sended_commands
+			foodNutrientMatches.forEach(e => {
+				row.view_json[e.nutrientName] = e[e.nutrientName];
+				row[e.nutrientName] = e[e.nutrientName];
+				doc[e.nutrientName] = e[e.nutrientName];
+			});
+
+			row.view_json = JSON.stringify(row.view_json);
+
+			userInfo.count_of_user_created_fi = userInfo.count_of_user_created_fi ? Number(userInfo.count_of_user_created_fi) + 1 : 1;
+			row.fi_id_for_user = userInfo.count_of_user_created_fi;
+
+			messageText += `\n\`\`\`\nЕда ID:\`\`\`${userInfo.count_of_user_created_fi}\`\`\`\n\nОшибка? Отправьте *"у/удалить"*.`;
+
+			let paramQuery = {};
+			paramQuery.text = `
+				WITH foit AS(
+					INSERT INTO food_items
 					(${objKeysToColumnStr(row)})
 					VALUES
-					(${objKeysToColumn$IndexesStr(row)});`;
-				paramQuery.values = getArrOfValuesFromObj(row);
-				await db.query(paramQuery);
+					(${objKeysToColumn$IndexesStr(row)})
+					RETURNING id
+				),
+				fdifmsear AS (
+					INSERT INTO fooddish_ids_for_meilisearch
+					(food_items_id)
+					SELECT id
+					FROM foit
+					RETURNING id, food_items_id
+				)
+				SELECT fdifm.id as fdifmid, fdifm.food_items_id as id
+				FROM ( 
+					SELECT id, food_items_id
+					FROM fdifmsear
+					GROUP BY id, food_items_id
+				) fdifm
+			;`;
+			paramQuery.values = getArrOfValuesFromObj(row);
+			const foodItemsRes = await db.query(paramQuery);
+			console.log(`TEST ME CREATE_FOOD MeiliSearch`);
+			//add doc to MSDB
+			doc.id = Number(foodItemsRes.rows[0].fdifmid),
+			doc.food_items_id = Number(foodItemsRes.rows[0].id);
+			doc.dish_items_id = null;
+			doc.name__lang_code_ru = row.name__lang_code_ru;
+			doc.tg_user_id = row.tg_user_id;
+			doc.created_by_project = null;
+
+			await MSDB.addDocuments([doc]);
+
+
+			row = {};
+			row.tg_user_id = userInfo.tg_user_id;
+			row.creation_date = new Date(reqDate).toISOString();
+			row.command = `CREATE_FOOD`;
+			row.can_it_be_removed = true;
+
+			row.data = {};
+			row.data.food_items_ids = [foodItemsRes.rows[0].id];
+
+			row.data = JSON.stringify(row.data);
+	
+			paramQuery = {};
+			paramQuery.text = `
+				INSERT INTO telegram_user_sended_commands
+				(${objKeysToColumnStr(row)})
+				VALUES
+				(${objKeysToColumn$IndexesStr(row)});`;
+			paramQuery.values = getArrOfValuesFromObj(row);
+			await db.query(paramQuery);
 
 
 
 
-				let setFUCFIDITime;
-				let setLimitCOfFIDI;
+			let setFUCFIDITime;
+			let setLimitCOfFIDI;
 
-				if (!userInfo.privilege_type) {
-					if (!userInfo.first_user_created_fidi_time) {
-						setFUCFIDITime = `first_user_created_fidi_time = ${creation_date}`;
-						userInfo.limit_count_of_user_created_fidi = 0;
-					}
-					setLimitCOfFIDI = `limit_count_of_user_created_fidi= ${Number(userInfo.limit_count_of_user_created_fidi) + 1}`;
+			if (!userInfo.privilege_type) {
+				if (!userInfo.first_user_created_fidi_time) {
+					setFUCFIDITime = `first_user_created_fidi_time = ${creation_date}`;
+					userInfo.limit_count_of_user_created_fidi = 0;
 				}
-				
-				if (!userInfo.available_count_of_user_created_fi) {
-					userInfo.available_count_of_user_created_fi = 1;
-				} else {
-					userInfo.available_count_of_user_created_fi = Number(userInfo.available_count_of_user_created_fi) + 1;
-				}
+				setLimitCOfFIDI = `limit_count_of_user_created_fidi= ${Number(userInfo.limit_count_of_user_created_fidi) + 1}`;
+			}
+			
+			if (!userInfo.available_count_of_user_created_fi) {
+				userInfo.available_count_of_user_created_fi = 1;
+			} else {
+				userInfo.available_count_of_user_created_fi = Number(userInfo.available_count_of_user_created_fi) + 1;
+			}
 
-				await db.query(`
-					UPDATE registered_users
-					SET available_count_of_user_created_fi = ${userInfo.available_count_of_user_created_fi},
-					count_of_user_created_fi = ${userInfo.count_of_user_created_fi}
-					${setLimitCOfFIDI ? ', ' + setLimitCOfFIDI : ``}
-					${setFUCFIDITime ? ', ' + setFUCFIDITime : ``}
-					WHERE id = ${userInfo.r_user_id};
-				`);
+			await db.query(`
+				UPDATE registered_users
+				SET available_count_of_user_created_fi = ${userInfo.available_count_of_user_created_fi},
+				count_of_user_created_fi = ${userInfo.count_of_user_created_fi}
+				${setLimitCOfFIDI ? ', ' + setLimitCOfFIDI : ``}
+				${setFUCFIDITime ? ', ' + setFUCFIDITime : ``}
+				WHERE id = ${userInfo.r_user_id};
+			`);
 	
 
 
-				ctx.reply(messageText, { parse_mode: 'Markdown', allow_sending_without_reply: true });
+			ctx.reply(messageText, { parse_mode: 'Markdown', allow_sending_without_reply: true });
 
 			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__CREATE_DISH))) {
 				console.log(re_result);			
@@ -2050,7 +2056,7 @@ bot.on(`message`, async ctx => {
 				}
 
 				let findIdenticalNameResponse = await MSDB.search(dishName, {
-					filter: `name__lang_code_ru = '${dishName}' AND tg_user_id = ${userInfo.tg_user_id}`
+					filter: `name__lang_code_ru = '${dishName}' AND tg_user_id = ${userInfo.tg_user_id} AND dish_items_id IS NOT EMPTY`
 				});
 				
 				const count_of_user_created_di = Number(userInfo.count_of_user_created_di) + 1;
@@ -2060,7 +2066,7 @@ bot.on(`message`, async ctx => {
 				dish.total_g_weight = 0;
 				dish.di_id_for_user = count_of_user_created_di;
 
-				console.log(findIdenticalNameResponse);
+				// console.log(findIdenticalNameResponse);
 				if (findIdenticalNameResponse?.hits?.length) {
 					//na global chat process perepisat'
 					let messageText = `Блюдо с названием "<b>${dishName}</b>" уже существует.\n\nОтправьте <b>новое название блюда</b> или нажмите "<b>Отменить</b>".`;
@@ -2607,23 +2613,8 @@ bot.on(`message`, async ctx => {
 					ctx.reply(`code me, btch`)
 					console.log(`code me`)
 			} else {
-
 				const invalidReply = `Не понимаю команду.\n\nПолучить список команд.  /h`;
-
-				const res = await sendMessage(chatId, invalidReply);
-
-				const row = {};
-				row.tg_user_id = userInfo.tg_user_id;
-				row.creation_date = creation_date;
-				row.invalid_command = true;
-				
-				row.data = {};
-				row.data.u = gotUserMessageId;
-				row.data.b = res.message_id;
-				row.data = JSON.stringify(row.data);
-
-				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
-
+				await completeInvalidCommandHandling(invalidReply);
 				return;
 			}
 		} else {
@@ -2726,7 +2717,7 @@ bot.on(`message`, async ctx => {
 
 
 	 				let findIdenticalNameResponse = await MSDB.search(dishName, {
-						filter: `name__lang_code_ru = '${dishName}' AND tg_user_id = ${userInfo.tg_user_id}`
+						filter: `name__lang_code_ru = '${dishName}' AND tg_user_id = ${userInfo.tg_user_id} AND dish_items_id IS NOT EMPTY`
 					});
 
 	 				if (findIdenticalNameResponse?.hits?.length) {
@@ -3089,7 +3080,7 @@ bot.on(`message`, async ctx => {
 
 
  				let findIdenticalNameResponse = await MSDB.search(dishName, {
-					filter: `name__lang_code_ru = '${dishName}' AND tg_user_id = ${userInfo.tg_user_id}`
+					filter: `name__lang_code_ru = '${dishName}' AND tg_user_id = ${userInfo.tg_user_id} AND dish_items_id IS NOT EMPTY`
 				});
 
  				if (findIdenticalNameResponse?.hits?.length) {
@@ -3319,7 +3310,7 @@ bot.on(`message`, async ctx => {
 
 
 	 				let findIdenticalNameResponse = await MSDB.search(dishName, {
-						filter: `name__lang_code_ru = '${dishName}' AND tg_user_id = ${userInfo.tg_user_id}`
+						filter: `name__lang_code_ru = '${dishName}' AND tg_user_id = ${userInfo.tg_user_id} AND dish_items_id IS NOT EMPTY`
 					});
 
 	 				if (findIdenticalNameResponse?.hits?.length) {
