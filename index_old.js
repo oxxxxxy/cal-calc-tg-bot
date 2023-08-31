@@ -204,7 +204,7 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 				return (c1 * w1 - c2 * w2)/(w1 - w2);
 			}
 				
-			const makeDishNumForSheetLine = (num, maxLength) => {
+			const makeNumForSheetLine = (num, maxLength) => {
 				const defaultMaxLength = 2;
 				maxLength = maxLength ? maxLength : defaultMaxLength;
 				const str = String(num);
@@ -289,14 +289,34 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 		return dish;
 	};
 
+const makeFoodHeader = food => {
+	return `<b><u>|__ID| Название еды пользователя</u></b>\n|${
+		makeNumForSheetLine(food.fi_id_for_user, 4)}| ${
+		food.name__lang_code_ru}\n\n<u><b>|Белки__|Жиры___|Углевод|Калории|</b></u>`;
+};
+
+const makeFoodSheetLine = food => {
+	return `\n<u>|Б:${
+		addCharBeforeDecimalValue(food.protein, 6, '_')} |Ж:${
+		addCharBeforeDecimalValue(food.fat, 6, '_')} |У:${
+		addCharBeforeDecimalValue(food.carbohydrate, 6, '_')} |К:${
+		addCharBeforeDecimalValue(food.caloric_content, 7, '_')}|</u>`;
+};
+
+const getUserFoodMessageText = food => {
+	let str = makeFoodHeader(food);
+	str += makeFoodSheetLine(food);
+	return str;
+};
+
 const makeDishSheetHeader = dish => {
 	if (dish.di_id_for_user) {
 		return `<b><u>|__ID| Название блюда пользователя</u></b>\n|${
-			makeDishNumForSheetLine(dish.di_id_for_user, 4)}| ${
+			makeNumForSheetLine(dish.di_id_for_user, 4)}| ${
 			dish.name__lang_code_ru}\n\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм)| <i>Ингредиент и его название</i></b></u>`;
 	}
 	return `<b><u>|__ID| Название блюда проекта</u></b>\n|${
-		makeDishNumForSheetLine(dish.id, 4)}| ${
+		makeNumForSheetLine(dish.id, 4)}| ${
 		dish.name__lang_code_ru}\n\n<u>|<b>№_|Белки__|Жиры___|Углевод|Калории|Вес(грамм)| <i>Ингредиент и его название</i></b></u>`;
 };
 
@@ -325,7 +345,7 @@ const makeDishSheetFooter = dish => {
 			
 const makeDishSheetLine = (ingreNum, protein, fat, carb, cal, weight, name) => {
 		return `\n|${
-			makeDishNumForSheetLine(ingreNum)} <u>|Б:${
+			makeNumForSheetLine(ingreNum)} <u>|Б:${
 			addCharBeforeDecimalValue(protein, 6, '_')} |Ж:${
 			addCharBeforeDecimalValue(fat, 6, '_')} |У:${
 			addCharBeforeDecimalValue(carb, 6, '_')} |К:${
@@ -1834,8 +1854,12 @@ bot.on(`message`, async ctx => {
 					}
 
 					foodNutrients[nutrientName].nutrientValue = Number(strNutrientValue);
+					return;
 				}
+				
+				foodNutrients[nutrientName].nutrientValue = 0;
 			});	
+
 
 			const foodNutrientKeys = Object.keys(foodNutrients);
 
@@ -1860,7 +1884,6 @@ bot.on(`message`, async ctx => {
 
 				foodNutrients.caloric_content.nutrientValue = Number(foodNutrients.caloric_content.nutrientValue.toFixed(1));
 			}
-
 
 			let invalidReply = ``;
 			let sumOfBJU = 0;
@@ -1892,44 +1915,24 @@ bot.on(`message`, async ctx => {
 				return;
 			}
 
-			let messageText = `*Чпок, и готооова...*`;
-			messageText += `\n\n\`\`\` ${foodName}. `;
-			
-			foodNutrientMatches.forEach(el => {
-				messageText += `\n${el.lang_code_ru} ${el[el.nutrientName]}`;
-				if (el.caloric_content){
-					messageText += ` ккал`;
-				} else {
-					messageText += ` г`;
-				}
-			});
-
-
-			if (typeof userInfo.limit_count_of_user_created_fidi == `string`) {
-				userInfo.limit_count_of_user_created_fidi = Number(userInfo.limit_count_of_user_created_fidi);
-			} else {
-				userInfo.limit_count_of_user_created_fidi = 0;
-			}
+			userInfo.count_of_user_created_fi = userInfo.count_of_user_created_fi ? Number(userInfo.count_of_user_created_fi) + 1 : 1;
 
 			const doc = {};
+			doc.name__lang_code_ru = foodName;
+			doc.tg_user_id = userInfo.tg_user_id;
+
 			let row = {};
 			row.creation_date = new Date(reqDate).toISOString();
-			row.tg_user_id = ctx.update.message.from.id;
-			row.view_json = {};
+			row.tg_user_id = userInfo.tg_user_id;
 			row.name__lang_code_ru = foodName;
+			row.fi_id_for_user = Number(userInfo.count_of_user_created_fi);
 
-			foodNutrientMatches.forEach(e => {
-				row.view_json[e.nutrientName] = e[e.nutrientName];
-				row[e.nutrientName] = e[e.nutrientName];
-				doc[e.nutrientName] = e[e.nutrientName];
+			foodNutrientKeys.forEach(e => {
+				row[e] = foodNutrients[e].nutrientValue;
+				doc[e] = foodNutrients[e].nutrientValue;
 			});
 
-			row.view_json = JSON.stringify(row.view_json);
-
-			userInfo.count_of_user_created_fi = userInfo.count_of_user_created_fi ? Number(userInfo.count_of_user_created_fi) + 1 : 1;
-			row.fi_id_for_user = userInfo.count_of_user_created_fi;
-
-			messageText += `\n\`\`\`\nЕда ID:\`\`\`${userInfo.count_of_user_created_fi}\`\`\`\n\nОшибка? Отправьте *"у/удалить"*.`;
+			const foodMessageText = getUserFoodMessageText(row);
 
 			let paramQuery = {};
 			paramQuery.text = `
@@ -1947,7 +1950,7 @@ bot.on(`message`, async ctx => {
 					FROM foit
 					RETURNING id, food_items_id
 				)
-				SELECT fdifm.id as fdifmid, fdifm.food_items_id as id
+				SELECT fdifm.id as fdifmid, fdifm.food_items_id as food_items_id
 				FROM ( 
 					SELECT id, food_items_id
 					FROM fdifmsear
@@ -1955,73 +1958,45 @@ bot.on(`message`, async ctx => {
 				) fdifm
 			;`;
 			paramQuery.values = getArrOfValuesFromObj(row);
-			const foodItemsRes = await db.query(paramQuery);
-			console.log(`TEST ME CREATE_FOOD MeiliSearch`);
-			//add doc to MSDB
-			doc.id = Number(foodItemsRes.rows[0].fdifmid),
-			doc.food_items_id = Number(foodItemsRes.rows[0].id);
-			doc.dish_items_id = null;
-			doc.name__lang_code_ru = row.name__lang_code_ru;
-			doc.tg_user_id = row.tg_user_id;
-			doc.created_by_project = null;
+			const res = await db.query(paramQuery);
+
+			doc.id = Number(res.rows[0].fdifmid),
+			doc.food_items_id = Number(res.rows[0].food_items_id);
 
 			await MSDB.addDocuments([doc]);
 
-
-			row = {};
-			row.tg_user_id = userInfo.tg_user_id;
-			row.creation_date = new Date(reqDate).toISOString();
+			row = getPredefinedRowForTelegramUserSendedCommands();
 			row.command = `CREATE_FOOD`;
 			row.can_it_be_removed = true;
 
 			row.data = {};
-			row.data.food_items_ids = [foodItemsRes.rows[0].id];
+			row.data.food_items_ids = [res.rows[0].food_items_id];
 
 			row.data = JSON.stringify(row.data);
-	
-			paramQuery = {};
-			paramQuery.text = `
-				INSERT INTO telegram_user_sended_commands
-				(${objKeysToColumnStr(row)})
-				VALUES
-				(${objKeysToColumn$IndexesStr(row)});`;
-			paramQuery.values = getArrOfValuesFromObj(row);
-			await db.query(paramQuery);
 
+			await insertIntoTelegramUserSendedCommandsPostgresTable(row);
 
-
-
-			let setFUCFIDITime;
-			let setLimitCOfFIDI;
+			row = {};
 
 			if (!userInfo.privilege_type) {
 				if (!userInfo.first_user_created_fidi_time) {
-					setFUCFIDITime = `first_user_created_fidi_time = ${creation_date}`;
-					userInfo.limit_count_of_user_created_fidi = 0;
+					row.first_user_created_fidi_time = creation_date;
 				}
-				setLimitCOfFIDI = `limit_count_of_user_created_fidi= ${Number(userInfo.limit_count_of_user_created_fidi) + 1}`;
-			}
-			
-			if (!userInfo.available_count_of_user_created_fi) {
-				userInfo.available_count_of_user_created_fi = 1;
-			} else {
-				userInfo.available_count_of_user_created_fi = Number(userInfo.available_count_of_user_created_fi) + 1;
+				row.limit_count_of_user_created_fidi= Number(userInfo.limit_count_of_user_created_fidi) + 1;
 			}
 
-			await db.query(`
+			row.available_count_of_user_created_fi = Number(userInfo.available_count_of_user_created_fi) + 1;
+			row.count_of_user_created_fi = userInfo.count_of_user_created_fi;
+
+			await DB_CLIENT.query(`
 				UPDATE registered_users
-				SET available_count_of_user_created_fi = ${userInfo.available_count_of_user_created_fi},
-				count_of_user_created_fi = ${userInfo.count_of_user_created_fi}
-				${setLimitCOfFIDI ? ', ' + setLimitCOfFIDI : ``}
-				${setFUCFIDITime ? ', ' + setFUCFIDITime : ``}
+				SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
 				WHERE id = ${userInfo.r_user_id};
 			`);
-	
 
+			await sendMessageToChat(foodMessageText, {parse_mode:`HTML`});
 
-			ctx.reply(messageText, { parse_mode: 'Markdown', allow_sending_without_reply: true });
-
-			} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__CREATE_DISH))) {
+		} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__CREATE_DISH))) {
 				console.log(re_result);			
 				
 				let limit_count_of_user_created_fidi = 100;
