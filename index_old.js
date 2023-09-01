@@ -84,7 +84,8 @@ const RE_RU_COMMAND__CREATE_FOOD = /^(се\s+)((([а-яА-Яa-zA-Z0-9]+)(\s+|))+
 // /^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\((\s+|)((([а-яА-Яa-zA-Z0-9]+)(\s+|):(\s+|)(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)(\s+|)(г|мкг|мг|ккал)(\s+|))+)\)$/u;
 // ^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\((\s+|)([а-яА-Яa-zA-Z0-9\s]+)(\s+|)\)$
 // ^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\(
-const RE_RU_COMMAND__SHOW_CREATED_FOOD = /^псе$/u;
+const RE_RU_COMMAND__SHOW_CREATED_FOOD = /^псе(\s+(б|ж|у|к)(\s+|)(>|<)(\s+|)(\d+)|)$/u;
+const RE_CALLBACK_Q__LEAF_LIST_OF_CREATED_FOOD = /^i(\d+)cf(((b|j|u|k)(>|<)(\d+))|)p(\d+)$/;
 const RE_RU_COMMAND__DELETE_CREATED_FOOD_IDs = /^уе/u;//(([0-9]+(\s+|)|[0-9]+)+)$/u;
 
 const RE_RU_COMMAND__DELETE_CREATED_DISH_IDs = /^уб\s+/u; 
@@ -1801,10 +1802,6 @@ bot.on(`message`, async ctx => {
 			console.log(re_result);			
 		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__CREATE_FOOD))) {
 			// console.log(re_result, `RE_RU_COMMAND__CREATE_FOOD`);
-			
-			// add text second param
-
-			let db = DB_CLIENT;
 
 			let limit_count_of_user_created_fidi = 100;
 			if (!userInfo.privilege_type && userInfo.limit_count_of_user_created_fidi >= limit_count_of_user_created_fidi) {
@@ -1832,14 +1829,10 @@ bot.on(`message`, async ctx => {
 				return;
 			}
 
-
-			const foodNutrientMatches = [];
 			const foodNutrients = {};
 
 			let nutrientPart = re_result.input.slice(re_result[2].length);
-			// console.log(re_result, text)
 
-			// console.log(NUTRIENTS);return;
 			RE_RU_NUTRIENTS.forEach((el, i) => {
 				const match = nutrientPart.match(el);
 			
@@ -1958,7 +1951,7 @@ bot.on(`message`, async ctx => {
 				) fdifm
 			;`;
 			paramQuery.values = getArrOfValuesFromObj(row);
-			const res = await db.query(paramQuery);
+			const res = await pgClient.query(paramQuery);
 
 			doc.id = Number(res.rows[0].fdifmid),
 			doc.food_items_id = Number(res.rows[0].food_items_id);
@@ -1996,6 +1989,144 @@ bot.on(`message`, async ctx => {
 
 			await sendMessageToChat(foodMessageText, {parse_mode:`HTML`});
 
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SHOW_CREATED_FOOD))) {
+				console.log(re_result);
+				console.log(`переписать меня нада...`);
+
+				if(re_result[1])console.log(`2`);
+
+
+				const res2 = pgClient.query(`
+						SELECT 
+					;`);
+
+
+
+				return;
+
+				if(!userInfo.available_count_of_user_created_fi){
+					ctx.reply(`Нет созданной еды... Т_Т`)
+					return;
+				}
+
+				const makeUnderlineIDOfUserCreatedFI = intId => {
+					const str = String(intId);
+					const maxStrIDLength = 4;
+					
+					let result = ``;
+
+					for (let i = 0, diff = maxStrIDLength - str.length; i < diff; i++) {
+						result += `_`;
+					}
+					result += str;
+
+					return result;
+				};
+				
+				const getPages = (available_count_of_user_created_fi, maxNumberOfLines, selectedPage) => {
+					let numberOfPages = available_count_of_user_created_fi / maxNumberOfLines;
+					const numberOfPagesRound = Math.round(numberOfPages);
+					const numberOfPagesFloor = Math.floor(numberOfPages);
+					numberOfPages = numberOfPagesRound > numberOfPagesFloor ? numberOfPagesRound : numberOfPagesFloor + 1;
+			
+					const pages = {};
+					pages.first = 1;
+					pages.selected = selectedPage;
+					pages.last = numberOfPages;
+			
+					if (numberOfPages == 1) {
+						pages.movePrevious = 1;
+						pages.movePreviousMinusFive = 1;
+						pages.selected = 1;
+						pages.moveNext = 1;
+						pages.moveNextPlusFive = 1;
+					} else if (numberOfPages > 1) {
+						pages.moveNext = selectedPage + 1;
+						if (pages.moveNext > numberOfPages) {
+							pages.moveNext = numberOfPages;
+						}
+			
+						pages.moveNextPlusFive = selectedPage + 6;
+						if (pages.moveNextPlusFive > numberOfPages - 1) {
+							pages.moveNextPlusFive = selectedPage + Math.round((numberOfPages - selectedPage ) / 2);
+						}
+					}
+			
+					if (selectedPage > numberOfPages){
+						selectedPage = numberOfPages;
+			
+						pages.selected = numberOfPages;
+						pages.moveNext = numberOfPages;
+						pages.moveNextPlusFive = numberOfPages;
+					}
+			
+					if (selectedPage > 1) {
+						pages.movePrevious = selectedPage - 1;
+						pages.movePreviousMinusFive = selectedPage - 6;
+						if (pages.movePreviousMinusFive < 1) {
+							pages.movePreviousMinusFive = Math.floor(selectedPage / 2);
+						}
+					} else {
+						pages.movePrevious = 1;
+						pages.movePreviousMinusFive = 1;
+					}
+					return pages;
+				}
+ 		
+				const maxNumberOfLines = 10;
+				let selectedPage = 1;
+				const pages = getPages(userInfo.available_count_of_user_created_fi, maxNumberOfLines, selectedPage);
+
+				const res = await DB_CLIENT.query(`
+					SELECT view_json, fi_id_for_user, name__lang_code_ru
+					FROM food_items
+					WHERE tg_user_id = ${userInfo.tg_user_id}
+					AND fi_id_for_user IS NOT NULL
+					AND deleted = false
+					ORDER BY fi_id_for_user DESC
+					LIMIT ${maxNumberOfLines};
+				`);
+
+				let message = `<b>Cписок созданной еды.</b> Всего: <b>${userInfo.available_count_of_user_created_fi}</b>.\n<b>ID</b>   БЖУК (на 100г) <b><i>Название еды</i></b>`;
+
+				res.rows.forEach(e => {
+					message += `\n<code>${e.fi_id_for_user}</code> Б:${
+						addCharBeforeDecimalValue(e.view_json.protein ? e.view_json.protein : 0, 4, '_')} Ж:${
+						addCharBeforeDecimalValue(e.view_json.fat ? e.view_json.fat : 0, 4, '_')} У:${
+						addCharBeforeDecimalValue(e.view_json.carbohydrate ? e.view_json.carbohydrate : 0, 4, '_')} К:${
+						addCharBeforeDecimalValue(e.view_json.caloric_content ? e.view_json.caloric_content : 0, 5, '_')} <i>${
+						e.name__lang_code_ru}</i> `
+				});
+
+				const makeInlineKeyboard = (pages, tableName, id) => {
+					return telegraf.Markup.inlineKeyboard([[
+							telegraf.Markup.button.callback(`${pages.first}`, `${tableName + pages.first}i${id}`),
+							telegraf.Markup.button.callback(`${pages.movePreviousMinusFive}<<`, `${tableName + pages.movePreviousMinusFive}i${id}`),
+							telegraf.Markup.button.callback(`${pages.movePrevious}<`, `${tableName + pages.movePrevious}i${id}`),
+							telegraf.Markup.button.callback(`${pages.selected}`, `${tableName + pages.selected}i${id}`),
+							telegraf.Markup.button.callback(`>${pages.moveNext}`, `${tableName + pages.moveNext}i${id}`),
+							telegraf.Markup.button.callback(`>>${pages.moveNextPlusFive}`, `${tableName + pages.moveNextPlusFive}i${id}`),
+							telegraf.Markup.button.callback(`${pages.last}`, `${tableName + pages.last}i${id}`)
+					]]);
+				}
+
+				const inlineKeyboard = makeInlineKeyboard(pages, `fi`, userInfo.tg_user_id);
+
+				inlineKeyboard.parse_mode = 'HTML';
+				inlineKeyboard.allow_sending_without_reply = true;
+				// inlineKeyboard.reply_to_message_id = ctx.update.message.message_id; //only if in groups
+
+ 				const response = await bot.telegram.sendMessage(
+					ctx.update.message.chat.id,
+					message,
+					inlineKeyboard
+				);
+
+				const row = getPredefinedRowForTelegramUserSendedCommands();
+				row.command = `SHOW_CREATED_FOOD`;
+				
+				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
+
 		} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__CREATE_DISH))) {
 				console.log(re_result);			
 				
@@ -2009,24 +2140,8 @@ bot.on(`message`, async ctx => {
 				const dishName = re_result[2].slice(0, 128).replaceAll(/['"\\]/ug, ``).trim();//(re_result[2].trim()).slice(0, 128); 
 				
 				if (dishName.length < 4) {
-					//tot je process s renaymom sdelat'
-					//peredumal, NE DELAT', zachem zapuskat' process kotoriy teper' subprocess, esli eto v bolshom, glavnom processe chata sidit. vot ego sdelat' nada
-					/* let row = {};
-					row.creation_date = creation_date;
-					row.invalid_command = true;
-					row.invalid_cause = `dishName.length < 4`;
-					row.tg_user_id = userInfo.tg_user_id;
-
-					let paramQuery = {};
-					paramQuery.text = `
-						INSERT INTO telegram_user_sended_commands
-						(${objKeysToColumnStr(row)})
-						VALUES
-						(${objKeysToColumn$IndexesStr(row)})
-					;`;
-					paramQuery.values = getArrOfValuesFromObj(row);
-					await DB_CLIENT.query(paramQuery); */
-					ctx.reply(`Название еды должно иметь хотя бы 4 символа.`)
+					const invalidReply = `Название еды должно иметь хотя бы 4 символа.`;
+					await completeInvalidCommandHandling(invalidReply);
 					return;
 				}
 
@@ -2043,84 +2158,8 @@ bot.on(`message`, async ctx => {
 
 				// console.log(findIdenticalNameResponse);
 				if (findIdenticalNameResponse?.hits?.length) {
-					//na global chat process perepisat'
-					let messageText = `Блюдо с названием "<b>${dishName}</b>" уже существует.\n\nОтправьте <b>новое название блюда</b> или нажмите "<b>Отменить</b>".`;
-
-					const id = userInfo.tg_user_id;
-					const inlineKeyboard = telegraf.Markup.inlineKeyboard([[
-							telegraf.Markup.button.callback(`Отменить`, `i${id}cancel`),
-						]]);
-
-					inlineKeyboard.parse_mode = 'HTML';
-
-					let sendMessageResponse;
-
-					try {
- 						sendMessageResponse = await bot.telegram.sendMessage(
-							ctx.update.message.chat.id,
-							messageText,
-							inlineKeyboard
-						);
-					} catch(e) {
-						console.log(e);
-					}
-
-					if(!sendMessageResponse){
-						return;
-					}
-
-					console.log(sendMessageResponse);
-
-					let row = {};
-					row.creation_date = creation_date;
-					row.command = `CREATE_DISH__RENAME`;
-					row.tg_user_id = userInfo.tg_user_id;
-					row.is_process_c = true;
-
-					let paramQuery = {};
-					paramQuery.text = `
-						INSERT INTO telegram_user_sended_commands
-						(${objKeysToColumnStr(row)})
-						VALUES
-						(${objKeysToColumn$IndexesStr(row)})
-						RETURNING id
-					;`;
-					paramQuery.values = getArrOfValuesFromObj(row);
-					res = await DB_CLIENT.query(paramQuery);
-
-
-					const sendedCommandId = res.rows[0].id;
-
-					row = {};
-					row.creation_date = creation_date;
-					row.tg_user_id = userInfo.tg_user_id;
-					row.sended_command_id = sendedCommandId;
-					row.process_name = `DISH_CREATING__RENAMING`;
-
-					row.data = {};
-					row.data.dish = dish;
-					row.data.ingredients = [];
-
-					row.sequence = [];
-
-					row.state = {};
-					row.state.message_id = sendMessageResponse.message_id;
-					row.state.interface = `main`;
-
-					row.data = JSON.stringify(row.data);
-					row.sequence = JSON.stringify(row.sequence);
-					row.state = JSON.stringify(row.state);
-
-					paramQuery = {};
-					paramQuery.text = `
-						INSERT INTO telegram_user_subprocesses
-						(${objKeysToColumnStr(row)})
-						VALUES
-						(${objKeysToColumn$IndexesStr(row)})
-					;`;
-					paramQuery.values = getArrOfValuesFromObj(row);
-					await DB_CLIENT.query(paramQuery);
-
+					const invalidReply = `Блюдо с таким названием уже существует.`;
+					await completeInvalidCommandHandling(invalidReply);
 					return;
 				}
 
@@ -2158,10 +2197,8 @@ bot.on(`message`, async ctx => {
 				console.log(response);
 
 				//add to telegram_user_sended_commands
-				let row = {};
-				row.creation_date = creation_date;
+				let row = getPredefinedRowForTelegramUserSendedCommands();
 				row.command = `CREATE_DISH`;
-				row.tg_user_id = userInfo.tg_user_id;
 				row.is_process_c = true;
 
 				let paramQuery = {};
@@ -2318,148 +2355,6 @@ bot.on(`message`, async ctx => {
 					return;
 				}
 				
-			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SHOW_CREATED_FOOD))) {
-				console.log(re_result);
-				console.log(`переписать меня нада...`);
-
-				if(!userInfo.available_count_of_user_created_fi){
-					ctx.reply(`Нет созданной еды... Т_Т`)
-					return;
-				}
-
-				const makeUnderlineIDOfUserCreatedFI = intId => {
-					const str = String(intId);
-					const maxStrIDLength = 4;
-					
-					let result = ``;
-
-					for (let i = 0, diff = maxStrIDLength - str.length; i < diff; i++) {
-						result += `_`;
-					}
-					result += str;
-
-					return result;
-				};
-				
-				const getPages = (available_count_of_user_created_fi, maxNumberOfLines, selectedPage) => {
-					let numberOfPages = available_count_of_user_created_fi / maxNumberOfLines;
-					const numberOfPagesRound = Math.round(numberOfPages);
-					const numberOfPagesFloor = Math.floor(numberOfPages);
-					numberOfPages = numberOfPagesRound > numberOfPagesFloor ? numberOfPagesRound : numberOfPagesFloor + 1;
-			
-					const pages = {};
-					pages.first = 1;
-					pages.selected = selectedPage;
-					pages.last = numberOfPages;
-			
-					if (numberOfPages == 1) {
-						pages.movePrevious = 1;
-						pages.movePreviousMinusFive = 1;
-						pages.selected = 1;
-						pages.moveNext = 1;
-						pages.moveNextPlusFive = 1;
-					} else if (numberOfPages > 1) {
-						pages.moveNext = selectedPage + 1;
-						if (pages.moveNext > numberOfPages) {
-							pages.moveNext = numberOfPages;
-						}
-			
-						pages.moveNextPlusFive = selectedPage + 6;
-						if (pages.moveNextPlusFive > numberOfPages - 1) {
-							pages.moveNextPlusFive = selectedPage + Math.round((numberOfPages - selectedPage ) / 2);
-						}
-					}
-			
-					if (selectedPage > numberOfPages){
-						selectedPage = numberOfPages;
-			
-						pages.selected = numberOfPages;
-						pages.moveNext = numberOfPages;
-						pages.moveNextPlusFive = numberOfPages;
-					}
-			
-					if (selectedPage > 1) {
-						pages.movePrevious = selectedPage - 1;
-						pages.movePreviousMinusFive = selectedPage - 6;
-						if (pages.movePreviousMinusFive < 1) {
-							pages.movePreviousMinusFive = Math.floor(selectedPage / 2);
-						}
-					} else {
-						pages.movePrevious = 1;
-						pages.movePreviousMinusFive = 1;
-					}
-					return pages;
-				}
- 		
-				const maxNumberOfLines = 10;
-				let selectedPage = 1;
-				const pages = getPages(userInfo.available_count_of_user_created_fi, maxNumberOfLines, selectedPage);
-
-				const res = await DB_CLIENT.query(`
-					SELECT view_json, fi_id_for_user, name__lang_code_ru
-					FROM food_items
-					WHERE tg_user_id = ${userInfo.tg_user_id}
-					AND fi_id_for_user IS NOT NULL
-					AND deleted = false
-					ORDER BY fi_id_for_user DESC
-					LIMIT ${maxNumberOfLines};
-				`);
-
-				let message = `<b>Cписок созданной еды.</b> Всего: <b>${userInfo.available_count_of_user_created_fi}</b>.\n<b>ID</b>   БЖУК (на 100г) <b><i>Название еды</i></b>`;
-
-				res.rows.forEach(e => {
-					message += `\n<code>${e.fi_id_for_user}</code> Б:${
-						addCharBeforeDecimalValue(e.view_json.protein ? e.view_json.protein : 0, 4, '_')} Ж:${
-						addCharBeforeDecimalValue(e.view_json.fat ? e.view_json.fat : 0, 4, '_')} У:${
-						addCharBeforeDecimalValue(e.view_json.carbohydrate ? e.view_json.carbohydrate : 0, 4, '_')} К:${
-						addCharBeforeDecimalValue(e.view_json.caloric_content ? e.view_json.caloric_content : 0, 5, '_')} <i>${
-						e.name__lang_code_ru}</i> `
-				});
-
-				const makeInlineKeyboard = (pages, tableName, id) => {
-					return telegraf.Markup.inlineKeyboard([[
-							telegraf.Markup.button.callback(`${pages.first}`, `${tableName + pages.first}i${id}`),
-							telegraf.Markup.button.callback(`${pages.movePreviousMinusFive}<<`, `${tableName + pages.movePreviousMinusFive}i${id}`),
-							telegraf.Markup.button.callback(`${pages.movePrevious}<`, `${tableName + pages.movePrevious}i${id}`),
-							telegraf.Markup.button.callback(`${pages.selected}`, `${tableName + pages.selected}i${id}`),
-							telegraf.Markup.button.callback(`>${pages.moveNext}`, `${tableName + pages.moveNext}i${id}`),
-							telegraf.Markup.button.callback(`>>${pages.moveNextPlusFive}`, `${tableName + pages.moveNextPlusFive}i${id}`),
-							telegraf.Markup.button.callback(`${pages.last}`, `${tableName + pages.last}i${id}`)
-					]]);
-				}
-
-				const inlineKeyboard = makeInlineKeyboard(pages, `fi`, userInfo.tg_user_id);
-
-				inlineKeyboard.parse_mode = 'HTML';
-				inlineKeyboard.allow_sending_without_reply = true;
-				// inlineKeyboard.reply_to_message_id = ctx.update.message.message_id; //only if in groups
-
- 				const response = await bot.telegram.sendMessage(
-					ctx.update.message.chat.id,
-					message,
-					inlineKeyboard
-				);
-
-
-				let row = {};
-				row = {};
-				row.creation_date = new Date(reqDate).toISOString();
-				row.tg_user_id = ctx.update.message.from.id;
-				row.command = `SHOW_CREATED_FOOD`;
-				row.data = {};
-				row.data.message_id = response.message_id;
-				row.data = JSON.stringify(row.data);
-				
-				let paramQuery = {};
-				paramQuery.text = `
-					INSERT INTO telegram_user_sended_commands
-					(${objKeysToColumnStr(row)})
-					VALUES
-					(${objKeysToColumn$IndexesStr(row)})
-				;`;
-				paramQuery.values = getArrOfValuesFromObj(row);
-				await DB_CLIENT.query(paramQuery);
-
 
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_CREATED_FOOD_IDs))) {
 				console.log(re_result);
