@@ -45,10 +45,10 @@ const userFood = {
 		commandBlockName:`userFood`
 		,commandTitle:`Посмотреть созданную еду`
 		,command:`псе`
-		,parameters:`(бжук &gt;&lt; N в 100 граммах)`
-		,parameterDescription:`Фильтры опциональны.`
+		,parameters:`(бжук &gt;&lt; N в 100 граммах)   (бжук п ву) сортировка по возрастанию/убыванию`
 		,usageExamples:[
-			`псе  ж&lt;10`
+			`псе  ж&lt;10  жпу`
+			,`псе кпв`
 			,`псе`
 		]
 	}

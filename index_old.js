@@ -84,7 +84,7 @@ const RE_RU_COMMAND__CREATE_FOOD = /^(се\s+)((([а-яА-Яa-zA-Z0-9]+)(\s+|))+
 // /^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\((\s+|)((([а-яА-Яa-zA-Z0-9]+)(\s+|):(\s+|)(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)(\s+|)(г|мкг|мг|ккал)(\s+|))+)\)$/u;
 // ^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\((\s+|)([а-яА-Яa-zA-Z0-9\s]+)(\s+|)\)$
 // ^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\(
-const RE_RU_COMMAND__SHOW_CREATED_FOOD = /^псе(\s+(б|ж|у|к)(\s+|)(>|<)(\s+|)(\d+)|)$/u;
+const RE_RU_COMMAND__SHOW_CREATED_FOOD = /^псе(\s+(б|ж|у|к)(\s+|)(>|<)(\s+|)(\d+)|)(\s+(б|ж|у|к)(\s+|)п(\s+|)(у|в)|)$/u;
 const RE_CALLBACK_Q__LEAF_LIST_OF_CREATED_FOOD = /^i(\d+)cf(((b|j|u|k)(>|<)(\d+))|)p(\d+)$/;
 const RE_RU_COMMAND__DELETE_CREATED_FOOD_IDs = /^уе/u;//(([0-9]+(\s+|)|[0-9]+)+)$/u;
 
@@ -1993,12 +1993,89 @@ bot.on(`message`, async ctx => {
 				console.log(re_result);
 				console.log(`переписать меня нада...`);
 
-				if(re_result[1])console.log(`2`);
+				return;
+				let query;
+
+				if(re_result[1]){// bjuk condition
+
+					
+					
+					const sqlBJUKCondition = getSqlBJUKCondition(re_result[2], re_result[4], re_result[6]);
+				
+					query = `
+						WITH ucf AS (
+						SELECT fi_id_for_user, name__lang_code_ru, protein, carbohydrate, fat, caloric_content
+						FROM food_items
+						WHERE tg_user_id = ${userInfo.tg_user_id}
+						AND NOT deleted
+						${sqlBJUKCondition}
+						ORDER BY fi_id_for_user DESC
+						), cnt AS (
+						SELECT count(*) as count
+						FROM ucf
+						)
+						SELECT *
+						FROM ucf, cnt
+						LIMIT 20
+
+						WITH ucf AS (
+						SELECT fi_id_for_user, name__lang_code_ru, protein, carbohydrate, fat, caloric_content
+						FROM food_items
+						WHERE tg_user_id is not null
+						AND NOT deleted
+						AND protein>5
+						ORDER BY fi_id_for_user DESC
+						), cnt AS (
+						SELECT count(*) as count
+						FROM ucf
+						)
+						SELECT *
+						FROM ucf, cnt
+						LIMIT 20
+					;`;
+
+				} else {
+					query = `
+						SELECT fi_id_for_user, name__lang_code_ru, protein, carbohydrate, fat, caloric_content
+						FROM food_items
+						WHERE tg_user_id = ${userInfo.tg_user_id}
+						AND NOT deleted
+						ORDER BY fi_id_for_user DESC
+						LIMIT 20
+					;`;
+
+				}
+
+				const getSqlBJUKCondition = (bjuk, moreLess, value) => {
+					let condition = `AND `;
+
+					switch (bjuk) {
+					 	case 'б':
+							condition += `protein`;
+						break
+					 	case 'ж':
+							condition += `fat`;
+						break
+					 	case 'у':
+							condition += `carbohydrate`;
+						break
+					 	case 'к':
+							condition += `caloric_content`;
+						break
+					};
+					
+					return condition += moreLess + value;					
+				};
 
 
 				const res2 = pgClient.query(`
-						SELECT 
-					;`);
+					SELECT fi_id_for_user, name__lang_code_ru,
+					protein, carbohydrate, fat, caloric_content
+					FROM food_items
+					WHERE tg_user_id = ${userInfo.tg_user_id}
+					AND NOT deleted
+					ORDER BY fi_id_for_user DESC
+				;`);
 
 
 
