@@ -33,6 +33,10 @@ const {
 const {
 	addCharBeforeValue
 	,addCharBeforeDecimalValue
+	,HTMLMonospace 
+	,HTMLItalic 
+	,HTMLBold
+	,HTMLUnderline 
 } = require(`./utils/textFormatting.js`);
 
 const TG_USERS_LAST_ACTION_TIME = {};
@@ -290,25 +294,35 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 		return dish;
 	};
 
-const makeFoodHeader = food => {
-	return `<b><u>|__ID| Название еды пользователя</u></b>\n|${
-		makeNumForSheetLine(food.fi_id_for_user, 4)}| ${
-		food.name__lang_code_ru}\n\n<u><b>|Белки__|Жиры___|Углевод|Калории|</b></u>`;
+const makeBJUKValueForSheetLine = (value, maxLength) => {
+	const strValue = value.toString();
+	const isDecimal = Array.isArray(strValue.match(/\./));
+
+	if(strValue.length == maxLength - 1 && !isDecimal){
+		return strValue + '.';
+	}
+	
+	return addCharBeforeValue(value.toFixed(1), maxLength, '_');
 };
 
-const makeFoodSheetLine = food => {
-	return `\n<u>|Б:${
-		addCharBeforeDecimalValue(food.protein, 6, '_')} |Ж:${
-		addCharBeforeDecimalValue(food.fat, 6, '_')} |У:${
-		addCharBeforeDecimalValue(food.carbohydrate, 6, '_')} |К:${
-		addCharBeforeDecimalValue(food.caloric_content, 7, '_')}|</u>`;
-};
+const makeFoodSheetHeader = isUserFood =>
+	`<b><u>${isUserFood ? '|__ID' : ''}|Б_____|Ж_____|У_____|К______|</u> <i>Название</i></b>`;
 
-const getUserFoodMessageText = food => {
-	let str = makeFoodHeader(food);
-	str += makeFoodSheetLine(food);
-	return str;
-};
+const makeFoodSheetLine = food => `\n<u>${
+	food.fi_id_for_user ?
+		'|' + makeNumForSheetLine(food.fi_id_for_user, 4) : ''}|Б:${
+	makeBJUKValueForSheetLine(food.protein, 4)}|Ж:${
+	makeBJUKValueForSheetLine(food.fat, 4)}|У:${
+	makeBJUKValueForSheetLine(food.carbohydrate, 4)}|К:${
+	makeBJUKValueForSheetLine(food.caloric_content, 5)}|</u> <i>${
+	food.name__lang_code_ru}</i>`;
+
+const getUserFoodCreatedMessageText = food => 
+	`<b>ЕДА УСПЕШНО СОЗДАНА.</b>\n${
+		makeFoodSheetHeader(true)}${
+		makeFoodSheetLine(food)}\n\nОшибка? Введите  ${
+		HTMLMonospace('уе ' + food.fi_id_for_user)}.`;
+
 
 const makeDishSheetHeader = dish => {
 	if (dish.di_id_for_user) {
@@ -323,10 +337,10 @@ const makeDishSheetHeader = dish => {
 
 const makeDishSheetFooter = dish => {
 	let dishSheetFooter = `\n<u>|<b>И__|Б:${
-		addCharBeforeDecimalValue(dish.protein, 6, '_')} |Ж:${
-		addCharBeforeDecimalValue(dish.fat, 6, '_')} |У:${
-		addCharBeforeDecimalValue(dish.carbohydrate, 6, '_')} |К:${
-		addCharBeforeDecimalValue(dish.caloric_content, 7, '_')} |В:_100.0|</b></u> Итого на 100 грамм.`;
+		makeBJUKValueForSheetLine(dish.protein, 6)} |Ж:${
+		makeBJUKValueForSheetLine(dish.fat, 6)} |У:${
+		makeBJUKValueForSheetLine(dish.carbohydrate, 6)} |К:${
+		makeBJUKValueForSheetLine(dish.caloric_content, 7)} |В:_100.0|</b></u> Итого на 100 грамм.`;
 
 	let totalWeight = `__н/д__`;
 	let difference = `__н/д__`;
@@ -958,7 +972,78 @@ const makeFnCompleteInvalidCommandHandling = (sendMessageToChatFn, getPredefined
 	};
 
 
+				const getEngCharOfBJUKFromRuLang = ruBjukChar => {
+					switch (ruBjukChar) {
+					 	case 'б':
+							return `p`;
+					 	case 'ж':
+							return `f`;
+					 	case 'у':
+							return `c`;
+					 	case 'к':
+							return `cal`;
+					};
+				};
 
+				const getEngCharOfAscDescFromRuLang = ruAscDesc => {
+					switch (ruAscDesc) {
+					 	case 'у':
+							return `d`;
+					 	default:
+					 		return `a`;
+					};
+				};
+
+				const getDBColumnNutrientNameOfBJUK = engBjukChar => {
+					switch (engBjukChar) {
+					 	case 'p':
+							return `protein`;
+					 	case 'f':
+							return `fat`;
+					 	case 'c':
+							return `carbohydrate`;
+					 	case 'cal':
+							return `caloric_content`;
+					};
+				};
+				
+				const getSqlBJUKCondition = (engBjukChar, moreLess, numValue) => 
+					`AND ` + getDBColumnNutrientNameOfBJUK(engBjukChar) + moreLess + numValue;
+
+				const getSqlBJUKSorting = (engBjukChar, engAscDescChar) => 
+					`ORDER BY ${getDBColumnNutrientNameOfBJUK(engBjukChar)} ${
+						engAscDescChar == `d` ? 'DESC' : ''}`;
+
+				const makeQueryForShowUserCreatedFoodCmd = (sqlBJUKCondition, sqlBJUKSorting, tg_user_id, offset = 0, limit = 20) => {
+					if(sqlBJUKCondition) {
+						return `
+							WITH ucf AS (
+								SELECT fi_id_for_user, name__lang_code_ru, protein, carbohydrate, fat, caloric_content
+								FROM food_items
+								WHERE tg_user_id = ${tg_user_id}
+								AND NOT deleted
+								${sqlBJUKCondition}
+								${sqlBJUKSorting ? sqlBJUKSorting : 'ORDER BY fi_id_for_user DESC'}
+							), cnt AS (
+								SELECT count(*) as count
+								FROM ucf
+							)
+							SELECT *
+							FROM ucf, cnt
+							OFFSET ${offset}
+							LIMIT ${limit} 
+						;`;
+					}
+					return `
+						SELECT fi_id_for_user, name__lang_code_ru, protein, carbohydrate, fat, caloric_content
+						FROM food_items
+						WHERE tg_user_id = ${tg_user_id}
+						AND NOT deleted
+						${sqlBJUKSorting ? sqlBJUKSorting : 'ORDER BY fi_id_for_user DESC'}
+						OFFSET ${offset}
+						LIMIT ${limit} 
+					;`;
+				}
 
 
 
@@ -1925,7 +2010,7 @@ bot.on(`message`, async ctx => {
 				doc[e] = foodNutrients[e].nutrientValue;
 			});
 
-			const foodMessageText = getUserFoodMessageText(row);
+			const foodMessageText = getUserFoodCreatedMessageText(row);
 
 			let paramQuery = {};
 			paramQuery.text = `
@@ -1998,50 +2083,7 @@ bot.on(`message`, async ctx => {
 					return;
 				}
 
-				const getEngCharOfBJUKFromRuLang = ruBjukChar => {
-					switch (ruBjukChar) {
-					 	case 'б':
-							return `p`;
-					 	case 'ж':
-							return `f`;
-					 	case 'у':
-							return `c`;
-					 	case 'к':
-							return `cal`;
-					};
-				};
-
-				const getEngCharOfAscDescFromRuLang = ruAscDesc => {
-					switch (ruAscDesc) {
-					 	case 'у':
-							return `d`;
-					 	default:
-					 		return `a`;
-					};
-				};
-
-				const getDBColumnNutrientNameOfBJUK = engBjukChar => {
-					switch (engBjukChar) {
-					 	case 'p':
-							return `protein`;
-					 	case 'f':
-							return `fat`;
-					 	case 'c':
-							return `carbohydrate`;
-					 	case 'cal':
-							return `caloric_content`;
-					};
-				};
-				
-				const getSqlBJUKCondition = (engBjukChar, moreLess, numValue) => 
-					`AND ` + getDBColumnNutrientNameOfBJUK(engBjukChar) + moreLess + numValue;
-
-				const getSqlBJUKSorting = (engBjukChar, engAscDescChar) => 
-					`ORDER BY ${getDBColumnNutrientNameOfBJUK(engBjukChar)} ${
-						engAscDescChar == `d` ? 'DESC' : ''}`;
-
-				let query
-					,sqlBJUKCondition
+				let sqlBJUKCondition
 					,sqlBJUKSorting;
 
 				const bjukMoreLessCondition = re_result[1];
@@ -2075,125 +2117,34 @@ bot.on(`message`, async ctx => {
 					sqlBJUKSorting = getSqlBJUKSorting(engBjukChar, engAscDescChar);
 				}
 
-				
-				if(sqlBJUKCondition || sqlBJUKCondition) {
-					query = `
-						WITH ucf AS (
-							SELECT fi_id_for_user, name__lang_code_ru, protein, carbohydrate, fat, caloric_content
-							FROM food_items
-							WHERE tg_user_id = ${userInfo.tg_user_id}
-							AND NOT deleted
-							${sqlBJUKCondition ? sqlBJUKCondition : ''}
-							${sqlBJUKSorting ? sqlBJUKSorting : 'ORDER BY fi_id_for_user DESC'}
-						), cnt AS (
-							SELECT count(*) as count
-							FROM ucf
-						)
-						SELECT *
-						FROM ucf, cnt
-						LIMIT 20
-					;`;
-				} else {
-					query = `
-						SELECT fi_id_for_user, name__lang_code_ru, protein, carbohydrate, fat, caloric_content
-						FROM food_items
-						WHERE tg_user_id = ${userInfo.tg_user_id}
-						AND NOT deleted
-						ORDER BY fi_id_for_user DESC
-						LIMIT 20
-					;`;
-				}
+				const query = makeQueryForShowUserCreatedFoodCmd(sqlBJUKCondition, sqlBJUKSorting, userInfo.tg_user_id);
+				const res = await pgClient.query(query);
 
-				// const res = await pgClient.query(query);
-				//
-
-
-
-				return;
-
-
-				if(!userInfo.available_count_of_user_created_fi){
-					ctx.reply(`Нет созданной еды... Т_Т`)
+				if(res.rows.length){
+					const invalidReply = `Созданной еды с таким критерием не найдено.`;
+					await completeInvalidCommandHandling(invalidReply);
 					return;
 				}
 
-				const makeUnderlineIDOfUserCreatedFI = intId => {
-					const str = String(intId);
-					const maxStrIDLength = 4;
-					
-					let result = ``;
+				let countOfRows;
+				if(sqlBJUKCondition) {
+					countOfRows = res.rows[0].count;
+				} else {
+					countOfRows = userInfo.available_count_of_user_created_fi;
+				}
 
-					for (let i = 0, diff = maxStrIDLength - str.length; i < diff; i++) {
-						result += `_`;
-					}
-					result += str;
+				const makeUserFoodSheetMessageText = (foodList, countOfRows) => {
+					let text = 'СПИСОК СОЗДАННОЙ ЕДЫ.'
 
-					return result;
 				};
 				
-				const getPages = (available_count_of_user_created_fi, maxNumberOfLines, selectedPage) => {
-					let numberOfPages = available_count_of_user_created_fi / maxNumberOfLines;
-					const numberOfPagesRound = Math.round(numberOfPages);
-					const numberOfPagesFloor = Math.floor(numberOfPages);
-					numberOfPages = numberOfPagesRound > numberOfPagesFloor ? numberOfPagesRound : numberOfPagesFloor + 1;
-			
-					const pages = {};
-					pages.first = 1;
-					pages.selected = selectedPage;
-					pages.last = numberOfPages;
-			
-					if (numberOfPages == 1) {
-						pages.movePrevious = 1;
-						pages.movePreviousMinusFive = 1;
-						pages.selected = 1;
-						pages.moveNext = 1;
-						pages.moveNextPlusFive = 1;
-					} else if (numberOfPages > 1) {
-						pages.moveNext = selectedPage + 1;
-						if (pages.moveNext > numberOfPages) {
-							pages.moveNext = numberOfPages;
-						}
-			
-						pages.moveNextPlusFive = selectedPage + 6;
-						if (pages.moveNextPlusFive > numberOfPages - 1) {
-							pages.moveNextPlusFive = selectedPage + Math.round((numberOfPages - selectedPage ) / 2);
-						}
-					}
-			
-					if (selectedPage > numberOfPages){
-						selectedPage = numberOfPages;
-			
-						pages.selected = numberOfPages;
-						pages.moveNext = numberOfPages;
-						pages.moveNextPlusFive = numberOfPages;
-					}
-			
-					if (selectedPage > 1) {
-						pages.movePrevious = selectedPage - 1;
-						pages.movePreviousMinusFive = selectedPage - 6;
-						if (pages.movePreviousMinusFive < 1) {
-							pages.movePreviousMinusFive = Math.floor(selectedPage / 2);
-						}
-					} else {
-						pages.movePrevious = 1;
-						pages.movePreviousMinusFive = 1;
-					}
-					return pages;
-				}
+
+
+				return;
  		
-				const maxNumberOfLines = 10;
+				// const maxNumberOfLines = 10;
 				let selectedPage = 1;
 				const pages = getPages(userInfo.available_count_of_user_created_fi, maxNumberOfLines, selectedPage);
-
-				const res = await DB_CLIENT.query(`
-					SELECT view_json, fi_id_for_user, name__lang_code_ru
-					FROM food_items
-					WHERE tg_user_id = ${userInfo.tg_user_id}
-					AND fi_id_for_user IS NOT NULL
-					AND deleted = false
-					ORDER BY fi_id_for_user DESC
-					LIMIT ${maxNumberOfLines};
-				`);
 
 				let message = `<b>Cписок созданной еды.</b> Всего: <b>${userInfo.available_count_of_user_created_fi}</b>.\n<b>ID</b>   БЖУК (на 100г) <b><i>Название еды</i></b>`;
 
@@ -2273,7 +2224,7 @@ bot.on(`message`, async ctx => {
 
 				let messageText = makeDishSheet(dish, []);
 
-				let dishReminder = `\n\n—Перед добавлением ингредиента его нужно создать.\n—Если в блюде больше 100 ингредиентов, то блюдо придется разделить на два блюда. Создать первое блюдо и добавить его как ингредиент в создоваемое второе.\n—Вес ингредиента ограничен 9999.9 граммами.\n\nНужна помощь? Нажми "<b>Команды</b>"`;
+				let dishReminder = `\n\n—Перед добавлением ингредиента его нужно создать.\n—Если в блюде больше 99 ингредиентов, то блюдо придется разделить на два блюда. Создать первое блюдо и добавить его как ингредиент в создоваемое второе.\n—Вес ингредиента ограничен 9999.9 граммами.\n\nНужна помощь? Нажми "<b>Команды</b>"`;
 
 				messageText += dishReminder;
 
@@ -2743,9 +2694,9 @@ bot.on(`message`, async ctx => {
 					const id = Number(re_result[2]);
 					const g_weight = Number(Number(re_result[3]).toFixed(1));
 					
-					if(userSubprocess.data.ingredients.length >= 100){
- 						const invalidComment = `Больше 100 ингредиентов в одном блюде? Не шутишь?\nТогда придётся сохранить текущее блюдо, создать второе блюдо и добавить в него текущее.\nТакие дела, чо...`;
-						const cause = `userSubprocess.data.ingredients.length >= 100`;
+					if(userSubprocess.data.ingredients.length >= 99){
+ 						const invalidComment = `Больше 99 ингредиентов в одном блюде? Не шутишь?\nТогда придётся сохранить текущее блюдо, создать второе блюдо и добавить в него текущее.\nТакие дела, чо...`;
+						const cause = `userSubprocess.data.ingredients.length >= 99`;
 						
 						await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, subCommand, cause);
 						return;
@@ -3337,9 +3288,9 @@ bot.on(`message`, async ctx => {
 					const id = Number(re_result[2]);
 					const g_weight = Number(Number(re_result[3]).toFixed(1));
 					
-					if(userSubprocess.data.ingredients.length >= 100){
- 						const invalidComment = `Больше 100 ингредиентов в одном блюде? Не шутишь?\nТогда придётся сохранить текущее блюдо, создать второе блюдо и добавить в него текущее.\nТакие дела, чо...`;
-						const cause = `userSubprocess.data.ingredients.length >= 100`;
+					if(userSubprocess.data.ingredients.length >= 99){
+ 						const invalidComment = `Больше 99 ингредиентов в одном блюде? Не шутишь?\nТогда придётся сохранить текущее блюдо, создать второе блюдо и добавить в него текущее.\nТакие дела, чо...`;
+						const cause = `userSubprocess.data.ingredients.length >= 99`;
 						
 						await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, subCommand, cause);
 						return;

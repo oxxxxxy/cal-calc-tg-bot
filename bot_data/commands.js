@@ -1,3 +1,7 @@
+const {
+	HTMLMonospace, HTMLItalic, HTMLBold, HTMLUnderline 
+} = require(`../utils/textFormatting.js`);
+
 require('dotenv').config();
 
 const help = {
@@ -422,21 +426,6 @@ const copyShareFoodDish = {
 		}
 
 */
-
-const HTMLBold = str => {
-	return `<b>${str}</b>`;
-}
-
-const HTMLUnderline = str =>{
-	return `<u>${str}</u>`;
-}
-
-const HTMLItalic = str => {
-	return `<i>${str}</i>`;
-}
-const HTMLMonospace = str => {
-	return `<code>${str}</code>`;
-}
 
 const getHTMLCommandsOfCommandBlock = (obj, blockNum) => {
 	let str = ``
