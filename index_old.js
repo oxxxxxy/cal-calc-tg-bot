@@ -1991,49 +1991,108 @@ bot.on(`message`, async ctx => {
 
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SHOW_CREATED_FOOD))) {
 				console.log(re_result);
-				console.log(`переписать меня нада...`);
-
-				return;
-				let query;
-
-				if(re_result[1]){// bjuk condition
-
-					
-					
-					const sqlBJUKCondition = getSqlBJUKCondition(re_result[2], re_result[4], re_result[6]);
 				
+				if(!userInfo.available_count_of_user_created_fi){
+					const invalidReply = `У вас нет созданной еды.`;
+					await completeInvalidCommandHandling(invalidReply);
+					return;
+				}
+
+				const getEngCharOfBJUKFromRuLang = ruBjukChar => {
+					switch (ruBjukChar) {
+					 	case 'б':
+							return `p`;
+					 	case 'ж':
+							return `f`;
+					 	case 'у':
+							return `c`;
+					 	case 'к':
+							return `cal`;
+					};
+				};
+
+				const getEngCharOfAscDescFromRuLang = ruAscDesc => {
+					switch (ruAscDesc) {
+					 	case 'у':
+							return `d`;
+					 	default:
+					 		return `a`;
+					};
+				};
+
+				const getDBColumnNutrientNameOfBJUK = engBjukChar => {
+					switch (engBjukChar) {
+					 	case 'p':
+							return `protein`;
+					 	case 'f':
+							return `fat`;
+					 	case 'c':
+							return `carbohydrate`;
+					 	case 'cal':
+							return `caloric_content`;
+					};
+				};
+				
+				const getSqlBJUKCondition = (engBjukChar, moreLess, numValue) => 
+					`AND ` + getDBColumnNutrientNameOfBJUK(engBjukChar) + moreLess + numValue;
+
+				const getSqlBJUKSorting = (engBjukChar, engAscDescChar) => 
+					`ORDER BY ${getDBColumnNutrientNameOfBJUK(engBjukChar)} ${
+						engAscDescChar == `d` ? 'DESC' : ''}`;
+
+				let query
+					,sqlBJUKCondition
+					,sqlBJUKSorting;
+
+				const bjukMoreLessCondition = re_result[1];
+				if (bjukMoreLessCondition) {
+					const bjukChar = re_result[2];
+					const engBjukChar = getEngCharOfBJUKFromRuLang(bjukChar);
+					const moreLess = re_result[4];
+					const value = re_result[6].slice(0, 3);
+					const numValue = Number(value);
+					
+					if(engBjukChar == `cal` && numValue > 900){
+						const invalidReply = `Калорийность не может превышать 900 ккал.`;
+						await completeInvalidCommandHandling(invalidReply);
+						return;
+					} else if (numValue > 100) {
+						const invalidReply = `Ни один нутриент из БЖУ не может превышать 100 грамм.`;
+						await completeInvalidCommandHandling(invalidReply);
+						return;
+					}
+					
+					sqlBJUKCondition = getSqlBJUKCondition(engBjukChar, moreLess, numValue);
+				}
+
+				const bjukAscDescSorting = re_result[7];
+				if (bjukAscDescSorting) {
+					const bjukChar = re_result[8];
+					const engBjukChar = getEngCharOfBJUKFromRuLang(bjukChar);
+					const ascDesc = re_result[11];
+					const engAscDescChar = getEngCharOfAscDescFromRuLang(ascDesc);
+
+					sqlBJUKSorting = getSqlBJUKSorting(engBjukChar, engAscDescChar);
+				}
+
+				
+				if(sqlBJUKCondition || sqlBJUKCondition) {
 					query = `
 						WITH ucf AS (
-						SELECT fi_id_for_user, name__lang_code_ru, protein, carbohydrate, fat, caloric_content
-						FROM food_items
-						WHERE tg_user_id = ${userInfo.tg_user_id}
-						AND NOT deleted
-						${sqlBJUKCondition}
-						ORDER BY fi_id_for_user DESC
+							SELECT fi_id_for_user, name__lang_code_ru, protein, carbohydrate, fat, caloric_content
+							FROM food_items
+							WHERE tg_user_id = ${userInfo.tg_user_id}
+							AND NOT deleted
+							${sqlBJUKCondition ? sqlBJUKCondition : ''}
+							${sqlBJUKSorting ? sqlBJUKSorting : 'ORDER BY fi_id_for_user DESC'}
 						), cnt AS (
-						SELECT count(*) as count
-						FROM ucf
-						)
-						SELECT *
-						FROM ucf, cnt
-						LIMIT 20
-
-						WITH ucf AS (
-						SELECT fi_id_for_user, name__lang_code_ru, protein, carbohydrate, fat, caloric_content
-						FROM food_items
-						WHERE tg_user_id is not null
-						AND NOT deleted
-						AND protein>5
-						ORDER BY fi_id_for_user DESC
-						), cnt AS (
-						SELECT count(*) as count
-						FROM ucf
+							SELECT count(*) as count
+							FROM ucf
 						)
 						SELECT *
 						FROM ucf, cnt
 						LIMIT 20
 					;`;
-
 				} else {
 					query = `
 						SELECT fi_id_for_user, name__lang_code_ru, protein, carbohydrate, fat, caloric_content
@@ -2043,43 +2102,15 @@ bot.on(`message`, async ctx => {
 						ORDER BY fi_id_for_user DESC
 						LIMIT 20
 					;`;
-
 				}
 
-				const getSqlBJUKCondition = (bjuk, moreLess, value) => {
-					let condition = `AND `;
-
-					switch (bjuk) {
-					 	case 'б':
-							condition += `protein`;
-						break
-					 	case 'ж':
-							condition += `fat`;
-						break
-					 	case 'у':
-							condition += `carbohydrate`;
-						break
-					 	case 'к':
-							condition += `caloric_content`;
-						break
-					};
-					
-					return condition += moreLess + value;					
-				};
-
-
-				const res2 = pgClient.query(`
-					SELECT fi_id_for_user, name__lang_code_ru,
-					protein, carbohydrate, fat, caloric_content
-					FROM food_items
-					WHERE tg_user_id = ${userInfo.tg_user_id}
-					AND NOT deleted
-					ORDER BY fi_id_for_user DESC
-				;`);
+				// const res = await pgClient.query(query);
+				//
 
 
 
 				return;
+
 
 				if(!userInfo.available_count_of_user_created_fi){
 					ctx.reply(`Нет созданной еды... Т_Т`)
