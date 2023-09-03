@@ -1021,6 +1021,54 @@ const makeFnCompleteInvalidCommandHandling = (sendMessageToChatFn, getPredefined
 					;`;
 				}
 
+				const makeBJUKCriterionDescForRuHeaderOfShowingMessage = (bjukMoreLessCondition, bjukAscDescSorting) => {//think about it...
+					if(bjukMoreLessCondition && bjukAscDescSorting) {
+						return ' с ' + bjukMoreLessCondition + ' и ' + bjukAscDescSorting;
+					}
+					if(bjukMoreLessCondition){
+						return ' с ' + bjukMoreLessCondition;
+					}
+					if(bjukAscDescSorting){
+						return ' с ' + bjukAscDescSorting;
+					}
+					return ``;
+				}
+				
+				const makeRuHeaderBeforeUserFoodSheet = (countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting) => 
+					`<b>СПИСОК СОЗДАННОЙ ЕДЫ${
+							makeBJUKCriterionDescForRuHeaderOfShowingMessage(bjukMoreLessCondition, bjukAscDescSorting)
+						}.</b> Всего: ${countOfAllRows}.`;
+
+				const makeUserFoodSheetMessageText = (language_code, foodList, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting) => //add duolang
+					makeRuHeaderBeforeUserFoodSheet(countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting)
+						+ makeRuFoodSheetHeader(true)
+						+ makeRuFoodSheetContent(foodList);
+
+				const getShowCreatedFoodMessagePanel = (language_code, dataPart, foodList, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting, selectedPage = 1) => {
+					const maxNumberOfLines = 20;
+
+					const message = {};
+					message.inlineKeyboard = {};
+
+					if (countOfAllRows > maxNumberOfLines) {
+						const countOfPages = getCountOfPages(
+							countOfAllRows,
+							maxNumberOfLines
+						);
+						const paging = getPagingForNButtonsOfPagingInlineKeyboardLine(countOfPages, 5, selectedPage);
+						const buttons = getNButtonsForPagingInlineKeyboardLine(paging, dataPart);
+						const pagingLine = makePagingInlineKeyboardLine(buttons);
+		
+						message.inlineKeyboard = telegraf.Markup.inlineKeyboard([pagingLine]);
+					}
+					
+					message.text = makeUserFoodSheetMessageText(language_code, foodList, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting);
+		
+					message.inlineKeyboard.parse_mode = 'HTML';
+
+					return message;
+
+				};
 
 
 /*
@@ -2099,11 +2147,15 @@ bot.on(`message`, async ctx => {
 				const query = makeQueryForShowUserCreatedFoodCmd(sqlBJUKCondition, sqlBJUKSorting, userInfo.tg_user_id);
 				const res = await pgClient.query(query);
 
-				if(res.rows.length){
+				if(!res.rows.length){
 					const invalidReply = `Созданной еды с таким критерием не найдено.`;
 					await completeInvalidCommandHandling(invalidReply);
 					return;
 				}
+				
+				res.rows.forEach(e => {
+					e = bjukToNum(e);
+				});
 
 				let countOfAllRows;
 				if(sqlBJUKCondition) {
@@ -2111,101 +2163,10 @@ bot.on(`message`, async ctx => {
 				} else {
 					countOfAllRows = userInfo.available_count_of_user_created_fi;
 				}
-
-				const makeBJUKCriterionDescForRuHeaderOfShowingMessage = (bjukMoreLessCondition, bjukAscDescSorting) => {//think about it...
-					if(bjukMoreLessCondition && bjukAscDescSorting) {
-						return ' с ' + bjukMoreLessCondition + ' и ' + bjukAscDescSorting;
-					}
-					if(bjukMoreLessCondition){
-						return ' с ' + bjukMoreLessCondition;
-					}
-					if(bjukAscDescSorting){
-						return ' с ' + bjukAscDescSorting;
-					}
-					return ``;
-				}
 				
-				const makeRuHeaderBeforeUserFoodSheet = (countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting) => 
-					`<b>СПИСОК СОЗДАННОЙ ЕДЫ${
-							makeBJUKCriterionDescForRuHeaderOfShowingMessage(bjukMoreLessCondition, bjukAscDescSorting)
-						}.</b> Всего: ${countOfAllRows}.`;
+				const m = getShowCreatedFoodMessagePanel(user_language_code, userInfo.tg_user_id, res.rows, countOfAllRows, bjukMoreLessCondition.trim(), bjukAscDescSorting.trim());//remake that shit
 
-				const makeUserFoodSheetMessageText = (language_code, foodList, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting) => //add duolang
-					makeRuHeaderBeforeUserFoodSheet(countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting)
-						+ makeRuFoodSheetHeader(true)
-						+ makeRuFoodSheetContent(foodList);
-				
-				const m = getShowCreatedFoodMessagePanel(user_language_code, userInfo.tg_user_id, res.rows, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting);
-
-
-					const getShowCreatedFoodMessagePanel = (language_code, dataPart, foodList, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting, selectedPage = 1) => {
-						const maxNumberOfLines = 20;
-
-						const message = {};
-						message.inlineKeyboard = {};
-
-						if (countOfAllRows > maxNumberOfLines) {
-							const countOfPages = getCountOfPages(
-								countOfAllRows,
-								maxNumberOfLines
-							);
-							const paging = getPagingForNButtonsOfPagingInlineKeyboardLine(countOfPages, 5, selectedPage);
-							const buttons = getNButtonsForPagingInlineKeyboardLine(paging, dataPart);
-							const pagingLine = makePagingInlineKeyboardLine(buttons);
-		
-							message.inlineKeyboard = telegraf.Markup.inlineKeyboard([pagingLine]);
-						}
-						
-						message.text = makeUserFoodSheetMessageText(language_code, foodList, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting);
-		
-						message.inlineKeyboard.parse_mode = 'HTML';
-
-						return message;
-
-					};
-
-
-
-				return;
- 		
-				// const maxNumberOfLines = 10;
-				let selectedPage = 1;
-				const pages = getPages(userInfo.available_count_of_user_created_fi, maxNumberOfLines, selectedPage);
-
-				let message = `<b>Cписок созданной еды.</b> Всего: <b>${userInfo.available_count_of_user_created_fi}</b>.\n<b>ID</b>   БЖУК (на 100г) <b><i>Название еды</i></b>`;
-
-				res.rows.forEach(e => {
-					message += `\n<code>${e.fi_id_for_user}</code> Б:${
-						addCharBeforeDecimalValue(e.view_json.protein ? e.view_json.protein : 0, 4, '_')} Ж:${
-						addCharBeforeDecimalValue(e.view_json.fat ? e.view_json.fat : 0, 4, '_')} У:${
-						addCharBeforeDecimalValue(e.view_json.carbohydrate ? e.view_json.carbohydrate : 0, 4, '_')} К:${
-						addCharBeforeDecimalValue(e.view_json.caloric_content ? e.view_json.caloric_content : 0, 5, '_')} <i>${
-						e.name__lang_code_ru}</i> `
-				});
-
-				const makeInlineKeyboard = (pages, tableName, id) => {
-					return telegraf.Markup.inlineKeyboard([[
-							telegraf.Markup.button.callback(`${pages.first}`, `${tableName + pages.first}i${id}`),
-							telegraf.Markup.button.callback(`${pages.movePreviousMinusFive}<<`, `${tableName + pages.movePreviousMinusFive}i${id}`),
-							telegraf.Markup.button.callback(`${pages.movePrevious}<`, `${tableName + pages.movePrevious}i${id}`),
-							telegraf.Markup.button.callback(`${pages.selected}`, `${tableName + pages.selected}i${id}`),
-							telegraf.Markup.button.callback(`>${pages.moveNext}`, `${tableName + pages.moveNext}i${id}`),
-							telegraf.Markup.button.callback(`>>${pages.moveNextPlusFive}`, `${tableName + pages.moveNextPlusFive}i${id}`),
-							telegraf.Markup.button.callback(`${pages.last}`, `${tableName + pages.last}i${id}`)
-					]]);
-				}
-
-				const inlineKeyboard = makeInlineKeyboard(pages, `fi`, userInfo.tg_user_id);
-
-				inlineKeyboard.parse_mode = 'HTML';
-				inlineKeyboard.allow_sending_without_reply = true;
-				// inlineKeyboard.reply_to_message_id = ctx.update.message.message_id; //only if in groups
-
- 				const response = await bot.telegram.sendMessage(
-					ctx.update.message.chat.id,
-					message,
-					inlineKeyboard
-				);
+				await sendMessageToChat(m.text, m.inlineKeyboard);
 
 				const row = getPredefinedRowForTelegramUserSendedCommands();
 				row.command = `SHOW_CREATED_FOOD`;
