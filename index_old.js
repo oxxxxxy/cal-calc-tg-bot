@@ -305,10 +305,10 @@ const makeBJUKValueForSheetLine = (value, maxLength) => {
 	return addCharBeforeValue(value.toFixed(1), maxLength, '_');
 };
 
-const makeFoodSheetHeader = isUserFood =>
-	`<b><u>${isUserFood ? '|__ID' : ''}|Б_____|Ж_____|У_____|К______|</u> <i>Название</i></b>`;
+const makeRuFoodSheetHeader = isUserFood =>
+	`\n<b><u>${isUserFood ? '|__ID' : ''}|Б_____|Ж_____|У_____|К______|</u> <i>Название</i></b>`;
 
-const makeFoodSheetLine = food => `\n<u>${
+const makeRuFoodSheetLine = food => `\n<u>${
 	food.fi_id_for_user ?
 		'|' + makeNumForSheetLine(food.fi_id_for_user, 4) : ''}|Б:${
 	makeBJUKValueForSheetLine(food.protein, 4)}|Ж:${
@@ -317,10 +317,13 @@ const makeFoodSheetLine = food => `\n<u>${
 	makeBJUKValueForSheetLine(food.caloric_content, 5)}|</u> <i>${
 	food.name__lang_code_ru}</i>`;
 
+const makeRuFoodSheetContent = foodList => foodList.reduce(
+	(accum, e) => accum + makeRuFoodSheetLine(e), '');
+
 const getUserFoodCreatedMessageText = food => 
-	`<b>ЕДА УСПЕШНО СОЗДАНА.</b>\n${
-		makeFoodSheetHeader(true)}${
-		makeFoodSheetLine(food)}\n\nОшибка? Введите  ${
+	`<b>ЕДА УСПЕШНО СОЗДАНА.</b>${
+		makeRuFoodSheetHeader(true)}${
+		makeRuFoodSheetLine(food)}\n\nОшибка? Введите  ${
 		HTMLMonospace('уе ' + food.fi_id_for_user)}.`;
 
 
@@ -716,113 +719,103 @@ const editMessage = async (chatId, messageId, text, inlineKeyboard) => {
 					return countOfPages;
 				};
 
-				const getPagesFor3ButtonInlineKeyboard = (countOfPages, selectedPage = 1) => {
-					if(countOfPages < 2){
-						throw `countOfPages is less than 2, there is no reason to create inlineKeyboard.`;
-					}
 
-					const pages = {};
-					pages.first = {};
-					pages.second = {};
+const getPagingForNButtonsOfPagingInlineKeyboardLine = (countOfPages, countOfButtons, selectedPage = 1) => {
+	if(countOfPages < 2){
+		throw `countOfPages is less than 2, there is no reason to create inlineKeyboard.`;
+	}
 
-					if(countOfPages == 2) {
-						if(selectedPage == 1) {
-						 pages.first.number = selectedPage;
-						 pages.first.selected = true;
-						 pages.second.number = selectedPage + 1;
-						} else {	
-						 pages.first.number = selectedPage - 1;
-						 pages.second.number = selectedPage;
-						 pages.second.selected = true;
-						}
-						return pages;
-					}
+	if(!Number.isInteger(countOfButtons)){
+		throw `countOfButtons must be an integer.`;
+	}
 
-					pages.third = {};
+	if(!(countOfButtons % 2)){
+		throw `countOfButtons must have odd number value.`;
+	}
 
-					if(selectedPage == countOfPages) {
-						pages.first.number = selectedPage - 2;
-						pages.second.number = selectedPage - 1;
-						pages.third.number = selectedPage;
-						pages.third.selected = true;
+	if(selectedPage > countOfPages){
+		selectedPage = countOfPages;
+	} else if(selectedPage < 1){
+		selectedPage = 1;
+	}
 
-						return pages;
-					}
+	const pages = {};
+	
+	if(countOfPages <= countOfButtons){
+		for(let i = 1; i <= countOfPages; i++){
+			pages[i] = {};
+			pages[i].number = i;
 
-					if(selectedPage == 1){
-						pages.first.number = selectedPage;
-						pages.first.selected = true;
-						pages.second.number = selectedPage + 1;
-						pages.third.number = selectedPage + 2;
+			if(i == selectedPage){
+				pages[i].selected = true;
+			}
+		}
 
-						return pages;
-					}
+		return pages;
+	}
 
-					pages.first.number = selectedPage - 1;
-					pages.second.number = selectedPage;
-					pages.second.selected = true;
-					pages.third.number = selectedPage + 1;
+	const pagesBeforeAndAfterSelected = Math.floor(countOfButtons / 2);
+	let startPoint = selectedPage - pagesBeforeAndAfterSelected;
 
-					return pages;
-				};
+	if(selectedPage <= pagesBeforeAndAfterSelected) {
+		startPoint = 1;
+	} else if(selectedPage > countOfPages - pagesBeforeAndAfterSelected) {
+		startPoint = countOfPages - countOfButtons + 1;
+	}
 
-				const getButtonsFor3ButtonInlineKeyboard = (pages, dataPart) => {
-					const buttons = {};
-					buttons.first = {};
-					buttons.first.data = dataPart + 'p' + pages.first.number;
-					buttons.second = {};
-					buttons.second.data = dataPart + 'p' + pages.second.number;
+	for(let i = 1; i <= countOfButtons; i++){
+		pages[i] = {};
+		pages[i].number = startPoint;
 
-					if(pages.first.selected){
-						buttons.first.text = `<<${pages.first.number}>>`;
-						buttons.second.text = `>>${pages.second.number}`;
+		if(startPoint == selectedPage){
+			pages[i].selected = true;
+		}
 
-						if(pages.third){
-							buttons.third = {};
-							buttons.third.text = `>>${pages.third.number}`;
-							buttons.third.data = dataPart + 'p' + pages.third.number;
-						}
+		startPoint++;
+	}
+	
+	return pages;
+};
 
-						return buttons;
-					} else {
-						buttons.first.text += `<<`;
-					}
+const getNButtonsForPagingInlineKeyboardLine = (pages, dataPart) => {
+	const keys = Object.keys(pages);
+	const buttons = {};
 
-					if(pages.second.selected){
-						buttons.first.text = `${pages.first.number}<<`;
-						buttons.second.text = `<<${pages.second.number}>>`;
+	let wasSelected = false;
+	keys.forEach((e, i) => {
+		i++;
+		buttons[i] = {};
+		buttons[i].data = dataPart + 'p' + pages[i].number;
+		
+		if(pages[i].selected){
+			buttons[i].text = `<<${pages[i].number}>>`;
+			wasSelected = true;
+			return;
+		}
 
-						if(pages.third){
-							buttons.third = {};
-							buttons.third.text = `>>${pages.third.number}`;
-							buttons.third.data = dataPart + 'p' + pages.third.number;
-						}
-						return  buttons;
-					}
+		if(wasSelected){
+			buttons[i].text = `>>` + pages[i].number;
+		} else {
+			buttons[i].text = pages[i].number + `<<`;
+		}
+	});
 
-					buttons.third = {};
-					buttons.first.text = `${pages.first.number}<<`;
-					buttons.second.text = `${pages.second.number}<<`;
-					buttons.third.text = `<<${pages.third.number}>>`;
-					buttons.third.data = dataPart + 'p' + pages.third.number;
+	return buttons;
+}
 
-					return buttons;
-				}
+const makePagingInlineKeyboardLine = buttons => {
+	const inlineKeyboardLine = [];
 
-				const make3ButtonInlineKeyboard = buttons => {
-					const inlineKeyboardFirstLine = [
-						telegraf.Markup.button.callback(buttons.first.text, buttons.first.data),
-						telegraf.Markup.button.callback(buttons.second.text, buttons.second.data),
-					];
-
-					if(buttons.third){
-						inlineKeyboardFirstLine.push(
-							telegraf.Markup.button.callback(buttons.third.text, buttons.third.data),
-						);
-					}
-					
-					return telegraf.Markup.inlineKeyboard([inlineKeyboardFirstLine]);
-				};
+	const keys = Object.keys(buttons);
+	keys.forEach((e, i) => {
+		i++;
+		inlineKeyboardLine.push(
+			telegraf.Markup.button.callback(buttons[i].text, buttons[i].data)
+		);		
+	});
+	
+	return inlineKeyboardLine;
+};
 
 
 const getHelpMessage = (selectedPage, pageCount, text, tgId) => {
@@ -832,16 +825,11 @@ const getHelpMessage = (selectedPage, pageCount, text, tgId) => {
 	message.inlineKeyboard = {};
 
 	if (pageCount > 1) {
-		const pagesFor3ButtonInlineKeyboard = getPagesFor3ButtonInlineKeyboard(pageCount, selectedPage);
-
-		const buttonsFor3ButtonInlineKeyboard = getButtonsFor3ButtonInlineKeyboard(
-			pagesFor3ButtonInlineKeyboard,
-			`i${tgId}c`
-		);
+		const paging = getPagingForNButtonsOfPagingInlineKeyboardLine(pageCount, 3, selectedPage);
+		const buttons = getNButtonsForPagingInlineKeyboardLine(paging, `i${tgId}c`);
+		const pagingLine = makePagingInlineKeyboardLine(buttons);
 		
-		message.inlineKeyboard = make3ButtonInlineKeyboard(
-			buttonsFor3ButtonInlineKeyboard
-		);
+		message.inlineKeyboard = telegraf.Markup.inlineKeyboard([pagingLine]);
 	}
 	
 	message.inlineKeyboard.parse_mode = 'HTML';
@@ -865,17 +853,11 @@ const getHelpMessage = (selectedPage, pageCount, text, tgId) => {
 								lengthOfIngredients,
 								maxNumberOfLines
 							);
-							const pagesFor3ButtonInlineKeyboard = getPagesFor3ButtonInlineKeyboard(
-								countOfPages,
-								selectedPage
-							);
-							const buttonsFor3ButtonInlineKeyboard = getButtonsFor3ButtonInlineKeyboard(
-								pagesFor3ButtonInlineKeyboard,
-								`i${tgId}`
-							);
-							message.inlineKeyboard = make3ButtonInlineKeyboard(
-								buttonsFor3ButtonInlineKeyboard
-							);
+							const paging = getPagingForNButtonsOfPagingInlineKeyboardLine(countOfPages, 3, selectedPage);
+							const buttons = getNButtonsForPagingInlineKeyboardLine(paging, `i${tgId}`);
+							const pagingLine = makePagingInlineKeyboardLine(buttons);
+
+							message.inlineKeyboard = telegraf.Markup.inlineKeyboard([pagingLine]);
 						}
 
 						message.inlineKeyboard.reply_markup.inline_keyboard.push(
@@ -905,6 +887,7 @@ const getHelpMessage = (selectedPage, pageCount, text, tgId) => {
 				const getDishLookingPanelMessage = (dataPart, dish, ingredients, selectedPage = 1) => {
 					const maxNumberOfLines = 20;
 					const message = {};
+					message.inlineKeyboard = {};
 
 					const lengthOfIngredients = ingredients.length;
 
@@ -913,20 +896,11 @@ const getHelpMessage = (selectedPage, pageCount, text, tgId) => {
 							lengthOfIngredients,
 							maxNumberOfLines
 						);
-						const pagesFor3ButtonInlineKeyboard = getPagesFor3ButtonInlineKeyboard(
-							countOfPages,
-							selectedPage
-						);
-						const buttonsFor3ButtonInlineKeyboard = getButtonsFor3ButtonInlineKeyboard(
-							pagesFor3ButtonInlineKeyboard,
-							dataPart
-						);
-						const threeButtonInlineKeyboard = make3ButtonInlineKeyboard(
-							buttonsFor3ButtonInlineKeyboard
-						);
-					
-						message.inlineKeyboard = threeButtonInlineKeyboard;
-						message.inlineKeyboard.parse_mode = 'HTML';
+						const paging = getPagingForNButtonsOfPagingInlineKeyboardLine(countOfPages, 3, selectedPage);
+						const buttons = getNButtonsForPagingInlineKeyboardLine(paging, dataPart);
+						const pagingLine = makePagingInlineKeyboardLine(buttons);
+
+						message.inlineKeyboard = telegraf.Markup.inlineKeyboard([pagingLine]);
 					}
 
 					const selectedIngredients = ingredients.slice(
@@ -938,6 +912,8 @@ const getHelpMessage = (selectedPage, pageCount, text, tgId) => {
 						dish,
 						selectedIngredients
 					);
+					
+					message.inlineKeyboard.parse_mode = 'HTML';
 					
 					return message;
 				}
@@ -2076,16 +2052,16 @@ bot.on(`message`, async ctx => {
 
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SHOW_CREATED_FOOD))) {
 				console.log(re_result);
+
+				const user_language_code = `ru`;
 				
 				if(!userInfo.available_count_of_user_created_fi){
 					const invalidReply = `У вас нет созданной еды.`;
 					await completeInvalidCommandHandling(invalidReply);
 					return;
 				}
-
-				let sqlBJUKCondition
-					,sqlBJUKSorting;
-
+				
+				let sqlBJUKCondition;
 				const bjukMoreLessCondition = re_result[1];
 				if (bjukMoreLessCondition) {
 					const bjukChar = re_result[2];
@@ -2095,10 +2071,12 @@ bot.on(`message`, async ctx => {
 					const numValue = Number(value);
 					
 					if(engBjukChar == `cal` && numValue > 900){
+						//invalidReply[language_code][command][name]
 						const invalidReply = `Калорийность не может превышать 900 ккал.`;
 						await completeInvalidCommandHandling(invalidReply);
 						return;
 					} else if (numValue > 100) {
+						//invalidReply[language_code][command][name]
 						const invalidReply = `Ни один нутриент из БЖУ не может превышать 100 грамм.`;
 						await completeInvalidCommandHandling(invalidReply);
 						return;
@@ -2107,6 +2085,7 @@ bot.on(`message`, async ctx => {
 					sqlBJUKCondition = getSqlBJUKCondition(engBjukChar, moreLess, numValue);
 				}
 
+				let sqlBJUKSorting;
 				const bjukAscDescSorting = re_result[7];
 				if (bjukAscDescSorting) {
 					const bjukChar = re_result[8];
@@ -2126,18 +2105,65 @@ bot.on(`message`, async ctx => {
 					return;
 				}
 
-				let countOfRows;
+				let countOfAllRows;
 				if(sqlBJUKCondition) {
-					countOfRows = res.rows[0].count;
+					countOfAllRows = res.rows[0].count;
 				} else {
-					countOfRows = userInfo.available_count_of_user_created_fi;
+					countOfAllRows = userInfo.available_count_of_user_created_fi;
 				}
 
-				const makeUserFoodSheetMessageText = (foodList, countOfRows) => {
-					let text = 'СПИСОК СОЗДАННОЙ ЕДЫ.'
-
-				};
+				const makeBJUKCriterionDescForRuHeaderOfShowingMessage = (bjukMoreLessCondition, bjukAscDescSorting) => {//think about it...
+					if(bjukMoreLessCondition && bjukAscDescSorting) {
+						return ' с ' + bjukMoreLessCondition + ' и ' + bjukAscDescSorting;
+					}
+					if(bjukMoreLessCondition){
+						return ' с ' + bjukMoreLessCondition;
+					}
+					if(bjukAscDescSorting){
+						return ' с ' + bjukAscDescSorting;
+					}
+					return ``;
+				}
 				
+				const makeRuHeaderBeforeUserFoodSheet = (countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting) => 
+					`<b>СПИСОК СОЗДАННОЙ ЕДЫ${
+							makeBJUKCriterionDescForRuHeaderOfShowingMessage(bjukMoreLessCondition, bjukAscDescSorting)
+						}.</b> Всего: ${countOfAllRows}.`;
+
+				const makeUserFoodSheetMessageText = (language_code, foodList, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting) => //add duolang
+					makeRuHeaderBeforeUserFoodSheet(countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting)
+						+ makeRuFoodSheetHeader(true)
+						+ makeRuFoodSheetContent(foodList);
+				
+				const m = getShowCreatedFoodMessagePanel(user_language_code, userInfo.tg_user_id, res.rows, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting);
+
+
+					const getShowCreatedFoodMessagePanel = (language_code, dataPart, foodList, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting, selectedPage = 1) => {
+						const maxNumberOfLines = 20;
+
+						const message = {};
+						message.inlineKeyboard = {};
+
+						if (countOfAllRows > maxNumberOfLines) {
+							const countOfPages = getCountOfPages(
+								countOfAllRows,
+								maxNumberOfLines
+							);
+							const paging = getPagingForNButtonsOfPagingInlineKeyboardLine(countOfPages, 5, selectedPage);
+							const buttons = getNButtonsForPagingInlineKeyboardLine(paging, dataPart);
+							const pagingLine = makePagingInlineKeyboardLine(buttons);
+		
+							message.inlineKeyboard = telegraf.Markup.inlineKeyboard([pagingLine]);
+						}
+						
+						message.text = makeUserFoodSheetMessageText(language_code, foodList, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting);
+		
+						message.inlineKeyboard.parse_mode = 'HTML';
+
+						return message;
+
+					};
+
 
 
 				return;
