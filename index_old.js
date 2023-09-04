@@ -2108,6 +2108,8 @@ bot.on(`message`, async ctx => {
 					await completeInvalidCommandHandling(invalidReply);
 					return;
 				}
+
+				let dataPart = `i${userInfo.tg_user_id}suf`;
 				
 				let sqlBJUKCondition;
 				const bjukMoreLessCondition = re_result[1];
@@ -2117,6 +2119,8 @@ bot.on(`message`, async ctx => {
 					const moreLess = re_result[4];
 					const value = re_result[6].slice(0, 3);
 					const numValue = Number(value);
+
+					dataPart += engBjukChar + moreLess + value;
 					
 					if(engBjukChar == `cal` && numValue > 900){
 						//invalidReply[language_code][command][name]
@@ -2140,6 +2144,8 @@ bot.on(`message`, async ctx => {
 					const engBjukChar = getEngCharOfBJUKFromRuLang(bjukChar);
 					const ascDesc = re_result[11];
 					const engAscDescChar = getEngCharOfAscDescFromRuLang(ascDesc);
+					
+					dataPart += engBjukChar + '_' + engAscDescChar;
 
 					sqlBJUKSorting = getSqlBJUKSorting(engBjukChar, engAscDescChar);
 				}
@@ -2164,7 +2170,7 @@ bot.on(`message`, async ctx => {
 					countOfAllRows = userInfo.available_count_of_user_created_fi;
 				}
 				
-				const m = getShowCreatedFoodMessagePanel(user_language_code, userInfo.tg_user_id, res.rows, countOfAllRows, bjukMoreLessCondition.trim(), bjukAscDescSorting.trim());//remake that shit
+				const m = getShowCreatedFoodMessagePanel(user_language_code, dataPart, res.rows, countOfAllRows, bjukMoreLessCondition?.trim(), bjukAscDescSorting?.trim());//remake that shit
 
 				await sendMessageToChat(m.text, m.inlineKeyboard);
 
