@@ -106,7 +106,7 @@ const RE_RU_COMMAND__CREATE_FOOD = /^(се\s+)((([а-яА-Яa-zA-Z0-9]+)(\s+|))+
 // ^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\((\s+|)([а-яА-Яa-zA-Z0-9\s]+)(\s+|)\)$
 // ^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\(
 const RE_RU_COMMAND__SHOW_CREATED_FOOD = /^псе(\s+(б|ж|у|к)(\s+|)(>|<)(\s+|)(\d+)|)(\s+(б|ж|у|к)(\s+|)п(\s+|)(у|в)|)$/u;
-const RE_CALLBACK_Q__LEAF_LIST_OF_CREATED_FOOD = /^i(\d+)suf(((p|f|c|cal)(>|<)(\d+))|)(((p|f|c|cal)_(d|a))|)p(\d+)$/;
+const RE_CALLBACK_Q__LEAF_LIST_OF_CREATED_FOOD = /^i(\d+)suf((p|f|c|cal)(>|<)(\d+)|)((p|f|c|cal)_(d|a)|)p(\d+)$/;
 const RE_RU_COMMAND__DELETE_CREATED_FOOD_IDs = /^уе/u;//(([0-9]+(\s+|)|[0-9]+)+)$/u;
 
 const RE_RU_COMMAND__DELETE_CREATED_DISH_IDs = /^уб\s+/u; 
@@ -565,41 +565,60 @@ const editMessage = async (chatId, messageId, text, inlineKeyboard) => {
 		return action;
 	};
 
-			const isPreviousMessageTextEqualToNewOne = (previous, newText) => {//return true/false
-				const reCharsToReplaceFromPreviousTextOfMessage = /\s+|<|>/g;
-				const reCharsToReplaceFromNewTextOfMessage = /<\w+>|<\/\w+>|\s+|&gt;|&lt;/g;
+const isPreviousMessageTextEqualToNewOne = (previous, newText) => {//return true/false
+	const reCharsToReplaceFromPreviousTextOfMessage = /\s+|<|>/g;
+	const reCharsToReplaceFromNewTextOfMessage = /<\w+>|<\/\w+>|\s+|&gt;|&lt;|<|>/g;
 
-				previous = previous.replaceAll(reCharsToReplaceFromPreviousTextOfMessage, ``); 
-				newText = newText.replaceAll(reCharsToReplaceFromNewTextOfMessage, ``);
-				
-				if(previous == newText){
-					return true;
-				}
-				return false;
-			};
+	previous = previous.replaceAll(reCharsToReplaceFromPreviousTextOfMessage, ``); 
+	newText = newText.replaceAll(reCharsToReplaceFromNewTextOfMessage, ``);
 
-			const isPreviousInlineKeyboardEqualToNewOne = (previous, newIK) => {//return true/false
-				if(previous.length != newIK.length){
-					return false;
-				}
+	if(previous == newText){
+		return true;
+	}
+	return false;
+};
 
-				return previous.every((e, i) => {
-					if(e.length != newIK[i].length){
-						return false;
-					}
-					
-					const isButtonLinesEqual = e.every((oldE, k) => {
-						const newE = newIK[i][k];
-						const keys = Object.keys(oldE);
+const isPreviousInlineKeyboardEqualToNewOne = (previous, newIK) => {//return true/false
+	if(previous.length != newIK.length){
+		return false;
+	}
 
-						const isButtonsEqual = keys.every(key => oldE[key] === newE[key]);
-						
-						return isButtonsEqual;
-					});
+	return previous.every((e, i) => {
+		if(e.length != newIK[i].length){
+			return false;
+		}
+		
+		const isButtonLinesEqual = e.every((oldE, k) => {
+			const newE = newIK[i][k];
+			const keys = Object.keys(oldE);
 
-					return isButtonLinesEqual;					
-				});
-			};
+			const isButtonsEqual = keys.every(key => oldE[key] === newE[key]);
+			
+			return isButtonsEqual;
+		});
+
+		return isButtonLinesEqual;					
+	});
+};
+
+
+const isPreviousMessagePanelEqualToNewOne = (callbackQuery, newPanel) => {
+	const areTextEqual = isPreviousMessageTextEqualToNewOne(
+			callbackQuery.message.text,
+			newPanel.text
+		);
+	const areInlineKeyboardsEqual = isPreviousInlineKeyboardEqualToNewOne(
+			callbackQuery.message.reply_markup.inline_keyboard,
+			newPanel.inlineKeyboard.reply_markup.inline_keyboard
+		);
+	
+	if (areTextEqual && areInlineKeyboardsEqual){
+		return true;
+	}
+
+	return false;
+};
+
 
 					const deletePreviousBotComment = async userSubprocess => {
 						const botPreviousComment = userSubprocess.sequence.findLast(e => e.fromBot && !e.deleted);
@@ -3401,6 +3420,9 @@ bot.on(`message`, async ctx => {
 
 });
 
+
+
+
 bot.on(`callback_query`, async ctx => {
 	console.log(
 		`____________callback_____________`,
@@ -3450,6 +3472,8 @@ bot.on(`callback_query`, async ctx => {
 	const reqDate = callbackQuery.message.date * 1000;	
 	const creation_date = new Date(reqDate).toISOString();
 
+	const isPreviousMessagePanelEqualToNewOneBound = isPreviousMessagePanelEqualToNewOne.bind(null, callbackQuery);
+
 	const userSubprocess = await getUserSubProcess(DB_CLIENT, userInfo.tg_user_id);
 
 	const userLastCommand = (await DB_CLIENT.query(`
@@ -3484,16 +3508,7 @@ bot.on(`callback_query`, async ctx => {
 
 			const m = getHelpMessage(pageNum, countOfPages, text, userInfo.tg_user_id);
 			
-			const areTextEqual = isPreviousMessageTextEqualToNewOne(
-					callbackQuery.message.text,
-					m.text
-				);
-			const areInlineKeyboardsEqual = isPreviousInlineKeyboardEqualToNewOne(
-					callbackQuery.message.reply_markup.inline_keyboard,
-					m.inlineKeyboard.reply_markup.inline_keyboard
-				);
-			
-			if (areTextEqual && areInlineKeyboardsEqual){
+			if(isPreviousMessagePanelEqualToNewOneBound(m)){
 				return;
 			}
 			
@@ -3507,6 +3522,59 @@ bot.on(`callback_query`, async ctx => {
 			await insertIntoTelegramUserSendedCommandsPostgresTable(row);
 		} else if (Array.isArray(re_result = callbackQuery.data.match(RE_CALLBACK_Q__LEAF_LIST_OF_CREATED_FOOD))) {
 			console.log(re_result);
+
+			const selectedPage = re_result[9];
+
+			let dataPart = `i${userInfo.tg_user_id}suf`;
+			
+			let sqlBJUKCondition;
+			let bjukMoreLessCondition = re_result[2];
+			if (bjukMoreLessCondition) {
+				bjukMoreLessCondition = {};
+				bjukMoreLessCondition.nutrientAbbreviation = re_result[3];
+				bjukMoreLessCondition.moreLessSign = re_result[4];
+				bjukMoreLessCondition.value = Number(re_result[5]);
+				
+				dataPart += bjukMoreLessCondition.nutrientAbbreviation + bjukMoreLessCondition.moreLessSign + bjukMoreLessCondition.value;
+				
+				sqlBJUKCondition = getSqlBJUKCondition(bjukMoreLessCondition.nutrientAbbreviation, bjukMoreLessCondition.moreLessSign, bjukMoreLessCondition.value);
+			}
+
+			let sqlBJUKSorting;
+			let bjukAscDescSorting = re_result[6];
+			if (bjukAscDescSorting) {
+				bjukAscDescSorting = {};
+				bjukAscDescSorting.nutrientAbbreviation = re_result[7];
+				bjukAscDescSorting.sortingAbbreviation = re_result[8]; 
+				
+				dataPart += bjukAscDescSorting.nutrientAbbreviation + '_' + bjukAscDescSorting.sortingAbbreviation;
+
+				sqlBJUKSorting = getSqlBJUKSorting(bjukAscDescSorting.nutrientAbbreviation, bjukAscDescSorting.sortingAbbreviation);
+			}
+
+			const query = makeQueryForShowUserCreatedFoodCmd(sqlBJUKCondition, sqlBJUKSorting, userInfo.tg_user_id, (selectedPage - 1) * 20);
+			const res = await pgClient.query(query);
+			
+			res.rows.forEach(e => {
+				e = bjukToNum(e);
+			});
+
+			let countOfAllRows;
+			if(sqlBJUKCondition) {
+				countOfAllRows = res.rows[0].count;
+			} else {
+				countOfAllRows = userInfo.available_count_of_user_created_fi;
+			}
+		
+			const user_language_code = `ru`;
+			const m = getUserFoodSheetMessagePanel(user_language_code, dataPart, res.rows, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting, selectedPage);
+
+			if(isPreviousMessagePanelEqualToNewOneBound(m)){
+				return;
+			}
+		
+			await editMessage(chatId, messageId, m.text, m.inlineKeyboard);
+
 		} else if (Array.isArray(re_result = callbackQuery.data.match(reDishLookingPage))) {
 			console.log(`code me`, re_result);
 			const dish_items_id = re_result[2];
