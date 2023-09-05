@@ -1,4 +1,17 @@
-const BJUKwords = {
+exports.sortingWords = {
+	descending:{
+		abbreviation:`d`
+		,singular:`descending`
+		,plural:`descendings`
+	}
+	,ascending:{
+		abbreviation:`a`
+		,singular:`ascending`
+		,plural:`ascendings`
+	}
+}
+
+exports.BJUKWords = {
 	protein:{
 		singular:`protein`
 		,plural:`proteins`
@@ -21,4 +34,3 @@ const BJUKwords = {
 	} 
 }
 
-exports.BJUKwords = BJUKwords;

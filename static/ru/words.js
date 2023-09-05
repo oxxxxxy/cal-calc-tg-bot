@@ -1,4 +1,45 @@
-exports.BJUKwords = {
+exports.sortingWords = {
+	descending:{
+		abbreviation:`у`
+		,singular:{
+			nominativeCase:`убывание`
+			,genitiveCase:`убывания`
+			,dativeCase:`убыванию`
+			,accusativeCase:`убывание`
+			,instrumentalCase:`убыванием`
+			,prepositionalCase:`убывании`
+		}
+		,plural:{
+			nominativeCase:`убывания`
+			,genitiveCase:`убываний`
+			,dativeCase:`убываниям`
+			,accusativeCase:`убывания`
+			,instrumentalCase:`убываниями`
+			,prepositionalCase:`убываниях`
+		}
+	}
+	,ascending:{
+		abbreviation:`в`
+		,singular:{
+			nominativeCase:`возрастание`
+			,genitiveCase:`возрастания` 
+			,dativeCase:`возрастанию` 
+			,accusativeCase:`возрастание`
+			,instrumentalCase:`возрастанием`
+			,prepositionalCase:`возрастании`
+		}
+		,plural:{
+			nominativeCase:`возрастания` 
+			,genitiveCase:`возрастаний` 
+			,dativeCase:`возрастаниям` 
+			,accusativeCase:`возрастания`
+			,instrumentalCase:`возрастаниями`
+			,prepositionalCase:`возрастаниях`
+		}
+	}
+}
+
+exports.BJUKWords = {
 	protein:{
 		abbreviation:`б`
 		,singular:{

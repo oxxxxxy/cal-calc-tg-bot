@@ -39,7 +39,11 @@ const {
 	,HTMLUnderline 
 } = require(`./utils/textFormatting.js`);
 
-const {getBJUKAbbreviationAndName} = require(`./utils/getBJUKAbbreviationAndName`);
+const {
+	getEngBJUKAbbreviationFromForeignAbbr
+	,getEngSortingAbbreviationFromForeignAbbr
+} = require(`./utils/getAbbreviationFns.js`);
+const { findEngNutrientNameByItsAbbreviation } = require('./utils/findEngNutrientNameByItsAbbreviation.js');
 
 const TG_USERS_LAST_ACTION_TIME = {};
 
@@ -950,27 +954,6 @@ const makeFnCompleteInvalidCommandHandling = (sendMessageToChatFn, getPredefined
 	};
 
 
-				const getEngCharOfBJUKFromRuLang = ruBjukChar => {
-					switch (ruBjukChar) {
-					 	case 'б':
-							return `p`;
-					 	case 'ж':
-							return `f`;
-					 	case 'у':
-							return `c`;
-					 	case 'к':
-							return `cal`;
-					};
-				};
-
-				const getEngCharOfAscDescFromRuLang = ruAscDesc => {
-					switch (ruAscDesc) {
-					 	case 'у':
-							return `d`;
-					 	default:
-					 		return `a`;
-					};
-				};
 
 				const getDBColumnNutrientNameOfBJUK = engBjukChar => {
 					switch (engBjukChar) {
@@ -1023,26 +1006,7 @@ const makeFnCompleteInvalidCommandHandling = (sendMessageToChatFn, getPredefined
 					;`;
 				}
 
-				const makeBJUKCriterionDescForRuHeaderOfShowingMessage = (bjukMoreLessCondition, bjukAscDescSorting) => {//think about it...
-					// const bjukMoreLessConditionPart = BJUKWords[bjukMoreLessCondition.nutrientName].singular.instrumentalCase + bjukMoreLessCondition.sign + bjukMoreLessCondition.value;
-					// const bjukAscDescSortingPart = BJUKWords[bjukAscDescSorting.nutrientName].singular.instrumentalCase + ` по ` + utilWords[bjukAscDescSorting.ascDesc];
-					if(bjukMoreLessCondition && bjukAscDescSorting) {
-						return ' с ' + //moreLessCondition
-							bjukMoreLessCondition + ' и ' + bjukAscDescSorting;
-					}
-					if(bjukMoreLessCondition){
-						return ' с ' + bjukMoreLessCondition;
-					}
-					if(bjukAscDescSorting){
-						return ' с ' + bjukAscDescSorting;
-					}
-					return ``;
-				}
 				
-				const makeRuHeaderBeforeUserFoodSheet = (countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting) => 
-					`<b>СПИСОК СОЗДАННОЙ ЕДЫ${
-							makeBJUKCriterionDescForRuHeaderOfShowingMessage(bjukMoreLessCondition, bjukAscDescSorting)
-						}.</b> Всего: ${countOfAllRows}.`;
 
 				const makeUserFoodSheetMessageText = (language_code, foodList, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting) => {
 					switch (language_code) {
@@ -2128,11 +2092,12 @@ bot.on(`message`, async ctx => {
 				let sqlBJUKCondition;
 				let bjukMoreLessCondition = re_result[1];
 				if (bjukMoreLessCondition) {
-					bjukMoreLessCondition = getBJUKAbbreviationAndName(userLanguageCode, re_result[2]);
+					bjukMoreLessCondition = {};
+					bjukMoreLessCondition.nutrientAbbreviation = getEngBJUKAbbreviationFromForeignAbbr(userLanguageCode, re_result[2]);
 					bjukMoreLessCondition.moreLessSign = re_result[4];
 					bjukMoreLessCondition.value = Number(re_result[6].slice(0, 3));
 					
-					if(bjukMoreLessCondition.abbreviation == `cal` && bjukMoreLessCondition.value > 900){
+					if(bjukMoreLessCondition.nutrientAbbreviation == `cal` && bjukMoreLessCondition.value > 900){
 						//invalidReply[language_code][command][name]
 						const invalidReply = `Калорийность не может превышать 900 ккал на 100 грамм.`;
 						await completeInvalidCommandHandling(invalidReply);
@@ -2144,21 +2109,21 @@ bot.on(`message`, async ctx => {
 						return;
 					}
 
-					dataPart += bjukMoreLessCondition.abbreviation + bjukMoreLessCondition.moreLessSign + bjukMoreLessCondition.value;
+					dataPart += bjukMoreLessCondition.nutrientAbbreviation + bjukMoreLessCondition.moreLessSign + bjukMoreLessCondition.value;
 					
-					sqlBJUKCondition = getSqlBJUKCondition(bjukMoreLessCondition.abbreviation, bjukMoreLessCondition.moreLessSign, bjukMoreLessCondition.value);
+					sqlBJUKCondition = getSqlBJUKCondition(bjukMoreLessCondition.nutrientAbbreviation, bjukMoreLessCondition.moreLessSign, bjukMoreLessCondition.value);
 				}
 
 				let sqlBJUKSorting;
 				let bjukAscDescSorting = re_result[7];
 				if (bjukAscDescSorting) {
-					bjukAscDescSorting = getBJUKAbbreviationAndName(userLanguageCode, re_result[7]);
-					const ascDesc = re_result[11];
-					const engAscDescChar = getEngCharOfAscDescFromRuLang(ascDesc);
+					bjukAscDescSorting = {};
+					bjukAscDescSorting.nutrientAbbreviation = getEngBJUKAbbreviationFromForeignAbbr(userLanguageCode, re_result[7]);
+					bjukAscDescSorting.sortingAbbreviation = getEngSortingAbbreviationFromForeignAbbr(re_result[11]); 
 					
-					dataPart += bjukAscDescSorting.abbreviation + '_' + engAscDescChar;
+					dataPart += bjukAscDescSorting.nutrientAbbreviation + '_' + bjukAscDescSorting.sortingAbbreviation;
 
-					sqlBJUKSorting = getSqlBJUKSorting(bjukAscDescSorting.abbreviation, engAscDescChar);
+					sqlBJUKSorting = getSqlBJUKSorting(bjukAscDescSorting.nutrientAbbreviation, bjukAscDescSorting.sortingAbbreviation);
 				}
 
 				const query = makeQueryForShowUserCreatedFoodCmd(sqlBJUKCondition, sqlBJUKSorting, userInfo.tg_user_id);
@@ -2181,7 +2146,7 @@ bot.on(`message`, async ctx => {
 					countOfAllRows = userInfo.available_count_of_user_created_fi;
 				}
 				
-				const m = getShowCreatedFoodMessagePanel(user_language_code, dataPart, res.rows, countOfAllRows, bjukMoreLessCondition?.trim(), bjukAscDescSorting?.trim());//remake that shit
+				const m = getShowCreatedFoodMessagePanel(user_language_code, dataPart, res.rows, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting);
 
 				await sendMessageToChat(m.text, m.inlineKeyboard);
 
