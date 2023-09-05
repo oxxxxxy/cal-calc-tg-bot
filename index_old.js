@@ -33,6 +33,8 @@ const {
 const {
 	addCharBeforeValue
 	,addCharBeforeDecimalValue
+	,makeNumForSheetLine
+	,makeBJUKValueForSheetLine
 	,HTMLMonospace 
 	,HTMLItalic 
 	,HTMLBold
@@ -50,6 +52,9 @@ const {
 	,getNButtonsForPagingInlineKeyboardLine
 	,makePagingInlineKeyboardLine
 } = require(`./messageMaking/inlineKeyboardUtils.js`);
+const {
+	getUserFoodSheetMessagePanel
+	} = require(`./messageMaking/foodSheet.js`);
 
 const TG_USERS_LAST_ACTION_TIME = {};
 
@@ -221,19 +226,6 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 				return (c1 * w1 - c2 * w2)/(w1 - w2);
 			}
 				
-			const makeNumForSheetLine = (num, maxLength) => {
-				const defaultMaxLength = 2;
-				maxLength = maxLength ? maxLength : defaultMaxLength;
-				const str = String(num);
-				let result = ``;
-
-				for (let i = 0, diff = maxLength - str.length; i < diff; i++) {
-					result += `_`;
-				}
-				result += `<code>${str}</code>`;
-
-				return result;
-			};
 
 
 	const setZeroBJUKnW = dish => {
@@ -306,16 +298,6 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 		return dish;
 	};
 
-const makeBJUKValueForSheetLine = (value, maxLength) => {
-	const strValue = value.toString();
-	const isDecimal = Array.isArray(strValue.match(/\./));
-
-	if(strValue.length == maxLength - 1 && !isDecimal){
-		return strValue + '.';
-	}
-	
-	return addCharBeforeValue(value.toFixed(1), maxLength, '_');
-};
 
 
 
@@ -1942,7 +1924,7 @@ bot.on(`message`, async ctx => {
 				let bjukMoreLessCondition = re_result[1];
 				if (bjukMoreLessCondition) {
 					bjukMoreLessCondition = {};
-					bjukMoreLessCondition.nutrientAbbreviation = getEngBJUKAbbreviationFromForeignAbbr(userLanguageCode, re_result[2]);
+					bjukMoreLessCondition.nutrientAbbreviation = getEngBJUKAbbreviationFromForeignAbbr(user_language_code, re_result[2]);
 					bjukMoreLessCondition.moreLessSign = re_result[4];
 					bjukMoreLessCondition.value = Number(re_result[6].slice(0, 3));
 					
@@ -1967,8 +1949,8 @@ bot.on(`message`, async ctx => {
 				let bjukAscDescSorting = re_result[7];
 				if (bjukAscDescSorting) {
 					bjukAscDescSorting = {};
-					bjukAscDescSorting.nutrientAbbreviation = getEngBJUKAbbreviationFromForeignAbbr(userLanguageCode, re_result[7]);
-					bjukAscDescSorting.sortingAbbreviation = getEngSortingAbbreviationFromForeignAbbr(re_result[11]); 
+					bjukAscDescSorting.nutrientAbbreviation = getEngBJUKAbbreviationFromForeignAbbr(user_language_code, re_result[8]);
+					bjukAscDescSorting.sortingAbbreviation = getEngSortingAbbreviationFromForeignAbbr(user_language_code, re_result[11]); 
 					
 					dataPart += bjukAscDescSorting.nutrientAbbreviation + '_' + bjukAscDescSorting.sortingAbbreviation;
 
@@ -1995,7 +1977,7 @@ bot.on(`message`, async ctx => {
 					countOfAllRows = userInfo.available_count_of_user_created_fi;
 				}
 				
-				const m = getShowCreatedFoodMessagePanel(user_language_code, dataPart, res.rows, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting);
+				const m = getUserFoodSheetMessagePanel(user_language_code, dataPart, res.rows, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting);
 
 				await sendMessageToChat(m.text, m.inlineKeyboard);
 

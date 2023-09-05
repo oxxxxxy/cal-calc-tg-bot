@@ -46,7 +46,7 @@ exports.getEngSortingAbbreviationFromRuAbbreviation = getEngSortingAbbreviationF
 
 const getEngSortingAbbreviationFromForeignAbbr = (userLanguageCode, abbr) => {
 	let abbreviation;
-	
+
 	switch (userLanguageCode) {
 	 	case 'ru':
 			abbreviation = getEngSortingAbbreviationFromRuAbbreviation(abbr);

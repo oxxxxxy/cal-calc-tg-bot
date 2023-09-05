@@ -1,8 +1,12 @@
-const {BJUKWords, sortingWords} = require(`../../../../static/ru/words.js`);
+const {BJUKWords, sortingWords} = require(`../../../static/ru/words.js`);
 const {
 	findEngNutrientNameByItsAbbreviation
 	,findEngSortingNameByItsAbbreviation
 } = require(`../../../utils/findEngFns.js`);
+const { 
+	makeNumForSheetLine
+	,makeBJUKValueForSheetLine
+} = require(`../../../utils/textFormatting.js`);
 
 const makeCriterionDescForRuHeaderBeforeFoodDishSheet = (bjukMoreLessCondition, bjukAscDescSorting) => {
 	const makeConditionPart = bjukMoreLessCondition => {
@@ -12,7 +16,7 @@ const makeCriterionDescForRuHeaderBeforeFoodDishSheet = (bjukMoreLessCondition, 
 
 		const conditionNutrientName = findEngNutrientNameByItsAbbreviation(bjukMoreLessCondition.nutrientAbbreviation);
 	
-		return BJUKWords[conditionNutrientName].plural.instrumentalCase + bjukMoreLessCondition.moreLessSign + bjukMoreLessCondition.value;
+		return BJUKWords[conditionNutrientName].plural.instrumentalCase + ' ' + bjukMoreLessCondition.moreLessSign + ' ' + bjukMoreLessCondition.value;
 	};
 
 	const makeSortingPart = bjukAscDescSorting => {
@@ -21,7 +25,7 @@ const makeCriterionDescForRuHeaderBeforeFoodDishSheet = (bjukMoreLessCondition, 
 		}
 
 		const sortingNutrientName = findEngNutrientNameByItsAbbreviation(bjukAscDescSorting.nutrientAbbreviation);
-		const sortingName = findEngSortingNameByItsAbbreviation(bjukMoreLessCondition.sortingAbbreviation);
+		const sortingName = findEngSortingNameByItsAbbreviation(bjukAscDescSorting.sortingAbbreviation);
 
 		return BJUKWords[sortingNutrientName].plural.instrumentalCase + ` по ` + sortingWords[sortingName].singular.dativeCase;
 	};

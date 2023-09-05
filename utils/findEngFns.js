@@ -1,13 +1,15 @@
 const {BJUKWords, sortingWords} = require(`../static/en/words.js`);
 
 exports.findEngSortingNameByItsAbbreviation = abbreviation => {
+	console.log(sortingWords, abbreviation)
+
 	const keys = Object.keys(sortingWords);
-	const word = keys.find(e => sortingWords[e].abbreviation == abbreviation);
-	return word.singular;
+	return keys.find(e => sortingWords[e].abbreviation == abbreviation);
 };
 
-exports.findEngNutrientNameByItsAbbreviation = abbreviation => {
+const findEngNutrientNameByItsAbbreviation = abbreviation => {
 	const keys = Object.keys(BJUKWords);
-	const word = keys.find(e => BJUKWords[e].abbreviation == abbreviation);
-	return word.singular;
+	return keys.find(e => BJUKWords[e].abbreviation == abbreviation);
 };
+exports.findEngNutrientNameByItsAbbreviation = findEngNutrientNameByItsAbbreviation;
+
