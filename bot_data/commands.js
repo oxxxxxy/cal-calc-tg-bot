@@ -29,6 +29,15 @@ const settings = {
 			`зв  26 13 37`
 		]
 	}
+	,setLang:{
+		commandBlockName:`utils`
+		,commandTitle:`Сменить язык интерфейса.`
+		,command:`сменить язык`
+		,parameterDescription:`Инициирует процесс смены текущего языка на один из доступных.`
+		,usageExamples:[
+			`сменить язык`
+		]
+	}
 }
 
 const userFood = {

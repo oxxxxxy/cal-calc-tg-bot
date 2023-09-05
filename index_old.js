@@ -39,6 +39,8 @@ const {
 	,HTMLUnderline 
 } = require(`./utils/textFormatting.js`);
 
+const {getBJUKAbbreviationAndName} = require(`./utils/getBJUKAbbreviationAndName`);
+
 const TG_USERS_LAST_ACTION_TIME = {};
 
 const ISofU = [];
@@ -89,7 +91,7 @@ const RE_RU_COMMAND__CREATE_FOOD = /^(се\s+)((([а-яА-Яa-zA-Z0-9]+)(\s+|))+
 // ^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\((\s+|)([а-яА-Яa-zA-Z0-9\s]+)(\s+|)\)$
 // ^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\(
 const RE_RU_COMMAND__SHOW_CREATED_FOOD = /^псе(\s+(б|ж|у|к)(\s+|)(>|<)(\s+|)(\d+)|)(\s+(б|ж|у|к)(\s+|)п(\s+|)(у|в)|)$/u;
-const RE_CALLBACK_Q__LEAF_LIST_OF_CREATED_FOOD = /^i(\d+)cf(((b|j|u|k)(>|<)(\d+))|)p(\d+)$/;
+const RE_CALLBACK_Q__LEAF_LIST_OF_CREATED_FOOD = /^i(\d+)suf(((p|f|c|cal)(>|<)(\d+))|)(((p|f|c|cal)_(d|a))|)p(\d+)$/;
 const RE_RU_COMMAND__DELETE_CREATED_FOOD_IDs = /^уе/u;//(([0-9]+(\s+|)|[0-9]+)+)$/u;
 
 const RE_RU_COMMAND__DELETE_CREATED_DISH_IDs = /^уб\s+/u; 
@@ -1022,8 +1024,11 @@ const makeFnCompleteInvalidCommandHandling = (sendMessageToChatFn, getPredefined
 				}
 
 				const makeBJUKCriterionDescForRuHeaderOfShowingMessage = (bjukMoreLessCondition, bjukAscDescSorting) => {//think about it...
+					// const bjukMoreLessConditionPart = BJUKWords[bjukMoreLessCondition.nutrientName].singular.instrumentalCase + bjukMoreLessCondition.sign + bjukMoreLessCondition.value;
+					// const bjukAscDescSortingPart = BJUKWords[bjukAscDescSorting.nutrientName].singular.instrumentalCase + ` по ` + utilWords[bjukAscDescSorting.ascDesc];
 					if(bjukMoreLessCondition && bjukAscDescSorting) {
-						return ' с ' + bjukMoreLessCondition + ' и ' + bjukAscDescSorting;
+						return ' с ' + //moreLessCondition
+							bjukMoreLessCondition + ' и ' + bjukAscDescSorting;
 					}
 					if(bjukMoreLessCondition){
 						return ' с ' + bjukMoreLessCondition;
@@ -1039,10 +1044,18 @@ const makeFnCompleteInvalidCommandHandling = (sendMessageToChatFn, getPredefined
 							makeBJUKCriterionDescForRuHeaderOfShowingMessage(bjukMoreLessCondition, bjukAscDescSorting)
 						}.</b> Всего: ${countOfAllRows}.`;
 
-				const makeUserFoodSheetMessageText = (language_code, foodList, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting) => //add duolang
-					makeRuHeaderBeforeUserFoodSheet(countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting)
-						+ makeRuFoodSheetHeader(true)
-						+ makeRuFoodSheetContent(foodList);
+				const makeUserFoodSheetMessageText = (language_code, foodList, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting) => {
+					switch (language_code) {
+					 	case 'ru':
+					 		return makeRuHeaderBeforeUserFoodSheet(countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting)
+								+ makeRuFoodSheetHeader(true)
+								+ makeRuFoodSheetContent(foodList);
+					 	case 'en':
+							return `code me`;
+					 	default:
+					 		return `code me`;
+					 }
+		 		}
 
 				const getShowCreatedFoodMessagePanel = (language_code, dataPart, foodList, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting, selectedPage = 1) => {
 					const maxNumberOfLines = 20;
@@ -2104,6 +2117,7 @@ bot.on(`message`, async ctx => {
 				const user_language_code = `ru`;
 				
 				if(!userInfo.available_count_of_user_created_fi){
+					//invalidReply[language_code][command][name]
 					const invalidReply = `У вас нет созданной еды.`;
 					await completeInvalidCommandHandling(invalidReply);
 					return;
@@ -2112,42 +2126,39 @@ bot.on(`message`, async ctx => {
 				let dataPart = `i${userInfo.tg_user_id}suf`;
 				
 				let sqlBJUKCondition;
-				const bjukMoreLessCondition = re_result[1];
+				let bjukMoreLessCondition = re_result[1];
 				if (bjukMoreLessCondition) {
-					const bjukChar = re_result[2];
-					const engBjukChar = getEngCharOfBJUKFromRuLang(bjukChar);
-					const moreLess = re_result[4];
-					const value = re_result[6].slice(0, 3);
-					const numValue = Number(value);
-
-					dataPart += engBjukChar + moreLess + value;
+					bjukMoreLessCondition = getBJUKAbbreviationAndName(userLanguageCode, re_result[2]);
+					bjukMoreLessCondition.moreLessSign = re_result[4];
+					bjukMoreLessCondition.value = Number(re_result[6].slice(0, 3));
 					
-					if(engBjukChar == `cal` && numValue > 900){
+					if(bjukMoreLessCondition.abbreviation == `cal` && bjukMoreLessCondition.value > 900){
 						//invalidReply[language_code][command][name]
-						const invalidReply = `Калорийность не может превышать 900 ккал.`;
+						const invalidReply = `Калорийность не может превышать 900 ккал на 100 грамм.`;
 						await completeInvalidCommandHandling(invalidReply);
 						return;
-					} else if (numValue > 100) {
+					} else if (bjukMoreLessCondition.value > 100) {
 						//invalidReply[language_code][command][name]
 						const invalidReply = `Ни один нутриент из БЖУ не может превышать 100 грамм.`;
 						await completeInvalidCommandHandling(invalidReply);
 						return;
 					}
+
+					dataPart += bjukMoreLessCondition.abbreviation + bjukMoreLessCondition.moreLessSign + bjukMoreLessCondition.value;
 					
-					sqlBJUKCondition = getSqlBJUKCondition(engBjukChar, moreLess, numValue);
+					sqlBJUKCondition = getSqlBJUKCondition(bjukMoreLessCondition.abbreviation, bjukMoreLessCondition.moreLessSign, bjukMoreLessCondition.value);
 				}
 
 				let sqlBJUKSorting;
-				const bjukAscDescSorting = re_result[7];
+				let bjukAscDescSorting = re_result[7];
 				if (bjukAscDescSorting) {
-					const bjukChar = re_result[8];
-					const engBjukChar = getEngCharOfBJUKFromRuLang(bjukChar);
+					bjukAscDescSorting = getBJUKAbbreviationAndName(userLanguageCode, re_result[7]);
 					const ascDesc = re_result[11];
 					const engAscDescChar = getEngCharOfAscDescFromRuLang(ascDesc);
 					
-					dataPart += engBjukChar + '_' + engAscDescChar;
+					dataPart += bjukAscDescSorting.abbreviation + '_' + engAscDescChar;
 
-					sqlBJUKSorting = getSqlBJUKSorting(engBjukChar, engAscDescChar);
+					sqlBJUKSorting = getSqlBJUKSorting(bjukAscDescSorting.abbreviation, engAscDescChar);
 				}
 
 				const query = makeQueryForShowUserCreatedFoodCmd(sqlBJUKCondition, sqlBJUKSorting, userInfo.tg_user_id);
@@ -3597,14 +3608,14 @@ bot.on(`message`, async ctx => {
 bot.on(`callback_query`, async ctx => {
 	console.log(
 		`____________callback_____________`,
-		JSON.stringify(ctx.update),
+		// JSON.stringify(ctx.update),
 		/* ctx.update,
 		ctx, */
 		`____________callbavk_____________`
 	);
 
 	const callbackQuery = ctx.update.callback_query;
-	console.log(callbackQuery?.data);
+	// console.log(callbackQuery?.data);
 
 	let re_result;
 	
@@ -3670,7 +3681,6 @@ bot.on(`callback_query`, async ctx => {
 	const chatId = callbackQuery.message.chat.id;
 	const messageId = callbackQuery.message.message_id;
 
-console.log(userSubprocess);	
 		if (Array.isArray(re_result = callbackQuery.data.match(reHelpPage))) {
 			const countOfPages = HTMLCommandMaker.fullDescCommandListPerPageCounts.length;
 			const pageNum = Number(re_result[2]);
@@ -3699,7 +3709,8 @@ console.log(userSubprocess);
 			row.command = `HELP_PAGE`;
 
 			await insertIntoTelegramUserSendedCommandsPostgresTable(row);
-
+		} else if (Array.isArray(re_result = callbackQuery.data.match(RE_CALLBACK_Q__LEAF_LIST_OF_CREATED_FOOD))) {
+			console.log(re_result);
 		} else if (Array.isArray(re_result = callbackQuery.data.match(reDishLookingPage))) {
 			console.log(`code me`, re_result);
 			const dish_items_id = re_result[2];
