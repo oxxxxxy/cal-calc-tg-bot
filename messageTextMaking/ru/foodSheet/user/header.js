@@ -1,4 +1,4 @@
-const {makeCriterionDescForRuHeaderBeforeFoodDishSheet} = require(`../header.js`);
+const {makeCriterionDescForRuHeaderBeforeFoodDishSheet} = require(`../index.js`);
 
 const makeRuHeaderBeforeUserFoodSheet = (countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting) => 
 	`<b>СПИСОК СОЗДАННОЙ ЕДЫ${

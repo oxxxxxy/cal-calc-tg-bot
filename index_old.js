@@ -43,7 +43,13 @@ const {
 	getEngBJUKAbbreviationFromForeignAbbr
 	,getEngSortingAbbreviationFromForeignAbbr
 } = require(`./utils/getAbbreviationFns.js`);
-const { findEngNutrientNameByItsAbbreviation } = require('./utils/findEngNutrientNameByItsAbbreviation.js');
+const { findEngNutrientNameByItsAbbreviation } = require('./utils/findEngFns.js');
+const {
+	getCountOfPages
+	,getPagingForNButtonsOfPagingInlineKeyboardLine
+	,getNButtonsForPagingInlineKeyboardLine
+	,makePagingInlineKeyboardLine
+} = require(`./messageMaking/inlineKeyboardUtils.js`);
 
 const TG_USERS_LAST_ACTION_TIME = {};
 
@@ -311,20 +317,7 @@ const makeBJUKValueForSheetLine = (value, maxLength) => {
 	return addCharBeforeValue(value.toFixed(1), maxLength, '_');
 };
 
-const makeRuFoodSheetHeader = isUserFood =>
-	`\n<b><u>${isUserFood ? '|__ID' : ''}|Б_____|Ж_____|У_____|К______|</u> <i>Название</i></b>`;
 
-const makeRuFoodSheetLine = food => `\n<u>${
-	food.fi_id_for_user ?
-		'|' + makeNumForSheetLine(food.fi_id_for_user, 4) : ''}|Б:${
-	makeBJUKValueForSheetLine(food.protein, 4)}|Ж:${
-	makeBJUKValueForSheetLine(food.fat, 4)}|У:${
-	makeBJUKValueForSheetLine(food.carbohydrate, 4)}|К:${
-	makeBJUKValueForSheetLine(food.caloric_content, 5)}|</u> <i>${
-	food.name__lang_code_ru}</i>`;
-
-const makeRuFoodSheetContent = foodList => foodList.reduce(
-	(accum, e) => accum + makeRuFoodSheetLine(e), '');
 
 const getUserFoodCreatedMessageText = food => 
 	`<b>ЕДА УСПЕШНО СОЗДАНА.</b>${
@@ -715,113 +708,6 @@ const editMessage = async (chatId, messageId, text, inlineKeyboard) => {
 							};
 
 				
-				const getCountOfPages = (lengthOfItems, maxNumberOfLinesOnPage) => {
-					let countOfPages = Math.floor(lengthOfItems / maxNumberOfLinesOnPage) + 1;
-
-					if(lengthOfItems > 0 && !(lengthOfItems % maxNumberOfLinesOnPage)) {
-						countOfPages = countOfPages - 1;
-					}
-
-					return countOfPages;
-				};
-
-
-const getPagingForNButtonsOfPagingInlineKeyboardLine = (countOfPages, countOfButtons, selectedPage = 1) => {
-	if(countOfPages < 2){
-		throw `countOfPages is less than 2, there is no reason to create inlineKeyboard.`;
-	}
-
-	if(!Number.isInteger(countOfButtons)){
-		throw `countOfButtons must be an integer.`;
-	}
-
-	if(!(countOfButtons % 2)){
-		throw `countOfButtons must have odd number value.`;
-	}
-
-	if(selectedPage > countOfPages){
-		selectedPage = countOfPages;
-	} else if(selectedPage < 1){
-		selectedPage = 1;
-	}
-
-	const pages = {};
-	
-	if(countOfPages <= countOfButtons){
-		for(let i = 1; i <= countOfPages; i++){
-			pages[i] = {};
-			pages[i].number = i;
-
-			if(i == selectedPage){
-				pages[i].selected = true;
-			}
-		}
-
-		return pages;
-	}
-
-	const pagesBeforeAndAfterSelected = Math.floor(countOfButtons / 2);
-	let startPoint = selectedPage - pagesBeforeAndAfterSelected;
-
-	if(selectedPage <= pagesBeforeAndAfterSelected) {
-		startPoint = 1;
-	} else if(selectedPage > countOfPages - pagesBeforeAndAfterSelected) {
-		startPoint = countOfPages - countOfButtons + 1;
-	}
-
-	for(let i = 1; i <= countOfButtons; i++){
-		pages[i] = {};
-		pages[i].number = startPoint;
-
-		if(startPoint == selectedPage){
-			pages[i].selected = true;
-		}
-
-		startPoint++;
-	}
-	
-	return pages;
-};
-
-const getNButtonsForPagingInlineKeyboardLine = (pages, dataPart) => {
-	const keys = Object.keys(pages);
-	const buttons = {};
-
-	let wasSelected = false;
-	keys.forEach((e, i) => {
-		i++;
-		buttons[i] = {};
-		buttons[i].data = dataPart + 'p' + pages[i].number;
-		
-		if(pages[i].selected){
-			buttons[i].text = `<<${pages[i].number}>>`;
-			wasSelected = true;
-			return;
-		}
-
-		if(wasSelected){
-			buttons[i].text = `>>` + pages[i].number;
-		} else {
-			buttons[i].text = pages[i].number + `<<`;
-		}
-	});
-
-	return buttons;
-}
-
-const makePagingInlineKeyboardLine = buttons => {
-	const inlineKeyboardLine = [];
-
-	const keys = Object.keys(buttons);
-	keys.forEach((e, i) => {
-		i++;
-		inlineKeyboardLine.push(
-			telegraf.Markup.button.callback(buttons[i].text, buttons[i].data)
-		);		
-	});
-	
-	return inlineKeyboardLine;
-};
 
 
 const getHelpMessage = (selectedPage, pageCount, text, tgId) => {
@@ -1008,44 +894,7 @@ const makeFnCompleteInvalidCommandHandling = (sendMessageToChatFn, getPredefined
 
 				
 
-				const makeUserFoodSheetMessageText = (language_code, foodList, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting) => {
-					switch (language_code) {
-					 	case 'ru':
-					 		return makeRuHeaderBeforeUserFoodSheet(countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting)
-								+ makeRuFoodSheetHeader(true)
-								+ makeRuFoodSheetContent(foodList);
-					 	case 'en':
-							return `code me`;
-					 	default:
-					 		return `code me`;
-					 }
-		 		}
 
-				const getShowCreatedFoodMessagePanel = (language_code, dataPart, foodList, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting, selectedPage = 1) => {
-					const maxNumberOfLines = 20;
-
-					const message = {};
-					message.inlineKeyboard = {};
-
-					if (countOfAllRows > maxNumberOfLines) {
-						const countOfPages = getCountOfPages(
-							countOfAllRows,
-							maxNumberOfLines
-						);
-						const paging = getPagingForNButtonsOfPagingInlineKeyboardLine(countOfPages, 5, selectedPage);
-						const buttons = getNButtonsForPagingInlineKeyboardLine(paging, dataPart);
-						const pagingLine = makePagingInlineKeyboardLine(buttons);
-		
-						message.inlineKeyboard = telegraf.Markup.inlineKeyboard([pagingLine]);
-					}
-					
-					message.text = makeUserFoodSheetMessageText(language_code, foodList, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting);
-		
-					message.inlineKeyboard.parse_mode = 'HTML';
-
-					return message;
-
-				};
 
 
 /*
