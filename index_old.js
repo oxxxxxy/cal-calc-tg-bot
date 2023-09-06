@@ -55,6 +55,7 @@ const {
 const {
 	getUserFoodSheetMessagePanel
 	} = require(`./messageMaking/foodSheet.js`);
+const { getCreatedFoodMessage } = require(`./messageMaking/createFood.js`);
 
 const TG_USERS_LAST_ACTION_TIME = {};
 
@@ -301,11 +302,6 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 
 
 
-const getUserFoodCreatedMessageText = food => 
-	`<b>ЕДА УСПЕШНО СОЗДАНА.</b>${
-		makeRuFoodSheetHeader(true)}${
-		makeRuFoodSheetLine(food)}\n\nОшибка? Введите  ${
-		HTMLMonospace('уе ' + food.fi_id_for_user)}.`;
 
 
 const makeDishSheetHeader = dish => {
@@ -1861,7 +1857,7 @@ bot.on(`message`, async ctx => {
 				doc[e] = foodNutrients[e].nutrientValue;
 			});
 
-			const foodMessageText = getUserFoodCreatedMessageText(row);
+			const m = getCreatedFoodMessage(`ru`, row);
 
 			let paramQuery = {};
 			paramQuery.text = `
@@ -1923,7 +1919,7 @@ bot.on(`message`, async ctx => {
 				WHERE id = ${userInfo.r_user_id};
 			`);
 
-			await sendMessageToChat(foodMessageText, {parse_mode:`HTML`});
+			await sendMessageToChat(m.text, m.reply_markup);
 
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SHOW_CREATED_FOOD))) {
 				console.log(re_result);
@@ -2238,17 +2234,18 @@ bot.on(`message`, async ctx => {
 				console.log(re_result);
 				
 					const fi_id_for_userStr = re_result.input;
-					const num_re = /[0-9]+/g;
+					const num_re = /\d+/g;
 
-					let fi_id_for_userArr = execAndGetAllREResults(fi_id_for_userStr, num_re);
-					fi_id_for_userArr = cleanArrFromRecurringItems(fi_id_for_userArr);
-					// check existance of that ucfi_ids_for_user_arr
+					let fi_id_for_userArr = [...fi_id_for_userStr.matchAll(num_re)].map(e => e[0]);
+					fi_id_for_userArr = fi_id_for_userArr.reduce((acc, e) => acc.includes(e) ? acc : acc.concat(e), []);
+
 					let res = await DB_CLIENT.query(`
-						SELECT fi_id_for_user
-						FROM food_items
+						UPDATE FROM food_items
+						SET deleted = true
 						WHERE tg_user_id = ${userInfo.tg_user_id}
 						AND fi_id_for_user = ANY (ARRAY[${fi_id_for_userArr.join()}])
-						AND deleted
+						AND NOT deleted
+						RETURNING id, name__lang_code_ru, protein, fat, carbohydrate, caloric_content;
 					;`);
 
 					if (res.rows.length) {
