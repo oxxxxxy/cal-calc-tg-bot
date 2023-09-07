@@ -1,5 +1,5 @@
-const ru = require(`../static/ru/words.js`);
-const en = require(`../static/en/words.js`);
+const ru = require(`../languages/ru/static/words.js`);
+const en = require(`../languages/en/static/words.js`);
 
 const getEngBJUKAbbreviationFromRuAbbreviation = ruAbbr => {
 	switch (ruAbbr) {

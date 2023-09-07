@@ -1,6 +1,6 @@
 const {
 	HTMLMonospace, HTMLItalic, HTMLBold, HTMLUnderline 
-} = require(`../utils/textFormatting.js`);
+} = require(`../messageMaking/text/utils/textFormatting.js`);
 
 require('dotenv').config();
 

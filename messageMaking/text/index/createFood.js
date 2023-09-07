@@ -1,4 +1,4 @@
-const {makeRuCreatedFoodMessageText} = require(`../ru/createFood.js`);
+const {makeRuCreatedFoodMessageText} = require(`../languages/ru/createFood.js`);
 
 const makeCreatedFoodMessageText = (language_code, food) => {
 	switch (language_code) {

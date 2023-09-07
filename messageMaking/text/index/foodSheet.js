@@ -1,5 +1,5 @@
-const {makeRuHeaderBeforeUserFoodSheet} = require(`../../ru/foodSheet/user/header.js`);
-const {makeRuFoodSheetHeader, makeRuFoodSheetContent} = require(`../../ru/foodSheet/index.js`);
+const {makeRuHeaderBeforeUserFoodSheet} = require(`../languages/ru/foodSheet/user/header.js`);
+const {makeRuFoodSheetHeader, makeRuFoodSheetContent} = require(`../languages/ru/foodSheet/index.js`);
 
 const makeUserFoodSheetMessageText = (language_code, foodList, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting) => {
 	switch (language_code) {

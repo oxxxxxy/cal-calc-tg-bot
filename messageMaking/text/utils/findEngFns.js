@@ -1,4 +1,4 @@
-const {BJUKWords, sortingWords} = require(`../static/en/words.js`);
+const {BJUKWords, sortingWords} = require(`../languages/en/static/words.js`);
 
 exports.findEngSortingNameByItsAbbreviation = abbreviation => {
 	console.log(sortingWords, abbreviation)

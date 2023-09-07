@@ -1,12 +1,12 @@
 const telegraf = require(`telegraf`);
 
-const {makeUserFoodSheetMessageText} = require(`../messageTextMaking/_main/foodSheet/index.js`);
+const {makeUserFoodSheetMessageText} = require(`./text/index/foodSheet.js`);
 const {
 	getCountOfPages
 	,getPagingForNButtonsOfPagingInlineKeyboardLine
 	,getNButtonsForPagingInlineKeyboardLine
 	,makePagingInlineKeyboardLine
-} = require(`./inlineKeyboardUtils.js`);
+} = require(`./reply_markup/inlineKeyboard.js`);
 
 const getUserFoodSheetMessagePanel = (language_code, dataPart, foodList, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting, selectedPage = 1) => {
 	const maxNumberOfLines = 20;

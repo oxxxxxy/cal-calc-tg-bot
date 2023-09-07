@@ -29,7 +29,7 @@ const {
 	,getUTCOffsetStr
 	,minifyPropNamesOfUserUTCOffset
 	,extendPropNamesOfUserUTCOffset
-} = require(`./utils/userUTCOffset.js`);
+} = require(`./messageMaking/text/utils/userUTCOffset.js`);
 const {
 	addCharBeforeValue
 	,addCharBeforeDecimalValue
@@ -39,19 +39,19 @@ const {
 	,HTMLItalic 
 	,HTMLBold
 	,HTMLUnderline 
-} = require(`./utils/textFormatting.js`);
+} = require(`./messageMaking/text/utils/textFormatting.js`);
 
 const {
 	getEngBJUKAbbreviationFromForeignAbbr
 	,getEngSortingAbbreviationFromForeignAbbr
-} = require(`./utils/getAbbreviationFns.js`);
-const { findEngNutrientNameByItsAbbreviation } = require('./utils/findEngFns.js');
+} = require(`./messageMaking/text/utils/getAbbreviationFns.js`);
+const { findEngNutrientNameByItsAbbreviation } = require('./messageMaking/text/utils/findEngFns.js');
 const {
 	getCountOfPages
 	,getPagingForNButtonsOfPagingInlineKeyboardLine
 	,getNButtonsForPagingInlineKeyboardLine
 	,makePagingInlineKeyboardLine
-} = require(`./messageMaking/inlineKeyboardUtils.js`);
+} = require(`./messageMaking/reply_markup/inlineKeyboard.js`);
 const {
 	getUserFoodSheetMessagePanel
 	} = require(`./messageMaking/foodSheet.js`);
@@ -2233,127 +2233,62 @@ bot.on(`message`, async ctx => {
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_CREATED_FOOD_IDs))) {
 				console.log(re_result);
 				
-					const fi_id_for_userStr = re_result.input;
-					const num_re = /\d+/g;
+				const num_re = /\d+/g;
+				const fi_id_for_userArr = [...re_result.input.matchAll(num_re)].map(e => e[0]);
+				const uniqueFi_id_for_userArr = fi_id_for_userArr.filter((e, i, a) => i == a.findIndex(ae => ae == e ) ? e : false).slice(0, 20);
 
-					let fi_id_for_userArr = [...fi_id_for_userStr.matchAll(num_re)].map(e => e[0]);
-					fi_id_for_userArr = fi_id_for_userArr.reduce((acc, e) => acc.includes(e) ? acc : acc.concat(e), []);
+				const res = await DB_CLIENT.query(`
+					UPDATE FROM food_items
+					SET deleted = true
+					WHERE tg_user_id = ${userInfo.tg_user_id}
+					AND fi_id_for_user = ANY (ARRAY[${uniqueFi_id_for_userArr.join()}])
+					AND NOT deleted
+					RETURNING id, name__lang_code_ru, protein, fat, carbohydrate, caloric_content;
+				;`);
 
-					let res = await DB_CLIENT.query(`
-						UPDATE FROM food_items
-						SET deleted = true
-						WHERE tg_user_id = ${userInfo.tg_user_id}
-						AND fi_id_for_user = ANY (ARRAY[${fi_id_for_userArr.join()}])
-						AND NOT deleted
-						RETURNING id, name__lang_code_ru, protein, fat, carbohydrate, caloric_content;
-					;`);
+				//make messages:
+				//	succesfull deleted 
+				//	alreadyDeleted
+				//	sucDeletedAndAlreadyDeleted
 
-					if (res.rows.length) {
-						let alreadyDeleted = ``;
-						if (res.rows.length > 1) {
-							alreadyDeleted += `Не существует еды с такими ID: `;
-							res.rows.forEach((el, i) => {
-								if (res.rows.length - 1 == i) {
-									alreadyDeleted += el.fi_id_for_user;
-									return;
-								}
-								alreadyDeleted += el.fi_id_for_user + ', '
-							})
-						} else {
-							alreadyDeleted += `Не существует еды с таким ID: `;
-							res.rows.forEach(el => alreadyDeleted += el.fi_id_for_user);
-						}
-						alreadyDeleted += `.\n\n0_0`;
-						ctx.reply(alreadyDeleted)
-						return;
-					}
+				let m;
+				if(res.rows.length){
+
+				} else {
+
+					//make m
+					//send m
+					await sendMessageToChat(m.text, m.reply_markup);
+					return;
+				}
 				
-
-					// delete doc with the same food_items_ids from meilisearch
-					await MSDB.deleteDocuments({
-						filter:`food_items_id IN [${userLastCommand.data.food_items_ids.join()}]`
-					});
-
-					
-					// update deleted ucfi rows   
-					let row = {};
-					row = {};
-					row.deleted = true;
-
-					let paramQuery = {};
-					paramQuery.text = `
-						UPDATE food_items
-						SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
-						WHERE tg_user_id = ${userInfo.tg_user_id}
-						AND fi_id_for_user = ANY (ARRAY[${fi_id_for_userArr.join(', ')}])
-						RETURNING	id, name__lang_code_ru, fi_id_for_user, view_json
-					;`;
-
-					let updateFIRes = await DB_CLIENT.query(paramQuery);
-					
-					// add to telegram_user_commands
-					row = {};
-				row.creation_date = new Date(reqDate).toISOString();
-					row.tg_user_id = ctx.update.message.from.id;
-					row.command = `DELETE_FOOD`;
-					row.can_it_be_canceled = true;
-
-					row.data = {};
-					row.data.food_items_ids = [];
-					updateFIRes.rows.forEach(el => row.data.food_items_ids.push(el.id));
-					row.data = JSON.stringify(row.data);
-					
-					paramQuery = {};
-					paramQuery.text = `
-						INSERT INTO telegram_user_sended_commands
-						(${objKeysToColumnStr(row)})
-						VALUES
-						(${objKeysToColumn$IndexesStr(row)})
-					;`;
-					paramQuery.values = getArrOfValuesFromObj(row);
-					
-					await DB_CLIENT.query(paramQuery);
-
-					// update available count fi in registered_users
-					row = {};
-					row.available_count_of_user_created_fi = Number(userInfo.available_count_of_user_created_fi) - fi_id_for_userArr.length;
-				
-					await DB_CLIENT.query(`
-						UPDATE registered_users
-						SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
-						WHERE id = ${userInfo.r_user_id}
-					;`);
-					
-					let deletedMessage = `<b>Удалено:</b>\n\n<b>ID</b>   БЖУК (на 100г) <b><i>Название еды</i></b>`;
-
-				const makeUnderlineIDOfUserCreatedFI = intId => {
-					const str = String(intId);
-					const maxStrIDLength = 4;
-					
-					let result = ``;
-
-					for (let i = 0, diff = maxStrIDLength - str.length; i < diff; i++) {
-						result += `_`;
-					}
-					result += str;
-
-					return result;
-				};
-
-
-				updateFIRes.rows.forEach(e => {
-					deletedMessage += `\n<b>${makeUnderlineIDOfUserCreatedFI(e.fi_id_for_user)}</b> Б:${
-						addCharBeforeDecimalValue(e.view_json.protein ? e.view_json.protein : 0, 4, '_')} Ж:${
-						addCharBeforeDecimalValue(e.view_json.fat ? e.view_json.fat : 0, 4, '_')} У:${
-						addCharBeforeDecimalValue(e.view_json.carbohydrate ? e.view_json.carbohydrate : 0, 4, '_')} К:${
-						addCharBeforeDecimalValue(e.view_json.caloric_content ? e.view_json.caloric_content : 0, 5, '_')} <i>${
-						e.name__lang_code_ru}</i> `
+				await MSDB.deleteDocuments({
+					filter:`food_items_id IN [${res.rows.map(e => e.id).join()}]`
 				});
+				
+				// add to telegram_user_commands
+				let row = getPredefinedRowForTelegramUserSendedCommands();
+				row.command = `DELETE_FOOD`;
+				row.can_it_be_canceled = true;
 
+				row.data = {};
+				row.data.food_items_ids = res.rows.map(e => e.id);
+				row.data = JSON.stringify(row.data);
+				
+				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
+
+				// update available count fi in registered_users
+				row = {};
+				row.available_count_of_user_created_fi = Number(userInfo.available_count_of_user_created_fi) - res.rows.length;
+			
+				await DB_CLIENT.query(`
+					UPDATE registered_users
+					SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
+					WHERE id = ${userInfo.r_user_id}
+				;`);
+
+				await sendMessageToChat(m.text, m.reply_markup);
 					
-					deletedMessage += `\n\nОтменить?<b> "о/отмена"</b>\n\n<i>Я ТЕБЯ ПОРОДИЛ, Я ТЕБЯ И УДАЛЮ...</i>`;
-					ctx.reply(deletedMessage, {parse_mode : 'HTML'});
-
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_CREATED_DISH_IDs))) {
 					ctx.reply(`code me, btch`)
 					console.log(`code me`)

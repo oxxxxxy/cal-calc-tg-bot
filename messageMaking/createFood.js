@@ -1,4 +1,4 @@
-const {makeCreatedFoodMessageText} = require(`../messageTextMaking/_main/createFood.js`);
+const {makeCreatedFoodMessageText} = require(`./text/index/createFood.js`);
 
 const getCreatedFoodMessage = (languageCode, food) => {
 	const message = {};

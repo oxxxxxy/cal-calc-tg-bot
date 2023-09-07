@@ -1,4 +1,4 @@
-const {BJUKWords, sortingWords} = require(`../../../static/ru/words.js`);
+const {BJUKWords, sortingWords} = require(`../static/words.js`);
 const {
 	findEngNutrientNameByItsAbbreviation
 	,findEngSortingNameByItsAbbreviation
@@ -7,6 +7,7 @@ const {
 	makeNumForSheetLine
 	,makeBJUKValueForSheetLine
 } = require(`../../../utils/textFormatting.js`);
+
 
 const makeCriterionDescForRuHeaderBeforeFoodDishSheet = (bjukMoreLessCondition, bjukAscDescSorting) => {
 	const makeConditionPart = bjukMoreLessCondition => {
