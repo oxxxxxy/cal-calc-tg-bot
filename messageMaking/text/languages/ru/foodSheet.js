@@ -1,12 +1,12 @@
-const {BJUKWords, sortingWords} = require(`../static/words.js`);
+const {BJUKWords, sortingWords} = require(`./static/words.js`);
 const {
 	findEngNutrientNameByItsAbbreviation
 	,findEngSortingNameByItsAbbreviation
-} = require(`../../../utils/findEngFns.js`);
+} = require(`../../utils/findEngFns.js`);
 const { 
 	makeNumForSheetLine
 	,makeBJUKValueForSheetLine
-} = require(`../../../utils/textFormatting.js`);
+} = require(`../../utils/textFormatting.js`);
 
 
 const makeCriterionDescForRuHeaderBeforeFoodDishSheet = (bjukMoreLessCondition, bjukAscDescSorting) => {
@@ -65,3 +65,10 @@ exports.makeRuFoodSheetLine = makeRuFoodSheetLine;
 const makeRuFoodSheetContent = foodList => foodList.reduce(
 	(accum, e) => accum + makeRuFoodSheetLine(e), '');
 exports.makeRuFoodSheetContent = makeRuFoodSheetContent;
+
+const makeRuHeaderBeforeUserFoodSheet = (countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting) => 
+	`<b>СПИСОК СОЗДАННОЙ ЕДЫ${
+			makeCriterionDescForRuHeaderBeforeFoodDishSheet(bjukMoreLessCondition, bjukAscDescSorting)
+		}.</b> Всего: ${countOfAllRows}.`;
+exports.makeRuHeaderBeforeUserFoodSheet = makeRuHeaderBeforeUserFoodSheet;
+

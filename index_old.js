@@ -56,6 +56,10 @@ const {
 	getUserFoodSheetMessagePanel
 	} = require(`./messageMaking/foodSheet.js`);
 const { getCreatedFoodMessage } = require(`./messageMaking/createFood.js`);
+const {
+	getDeleteCreatedFoodMessage
+	,getDeleteCreatedFoodAlreadyDeletedMessage
+} = require(`./messageMaking/deleteCreatedFood.js`);
 
 const TG_USERS_LAST_ACTION_TIME = {};
 
@@ -2001,6 +2005,57 @@ bot.on(`message`, async ctx => {
 				
 				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
 
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_CREATED_FOOD_IDs))) {
+				console.log(re_result);
+				
+				const num_re = /\d+/g;
+				const fi_id_for_userArr = [...re_result.input.matchAll(num_re)].map(e => e[0]);
+				const uniqueFi_id_for_userArr = fi_id_for_userArr.filter((e, i, a) => i == a.findIndex(ae => ae == e ) ? e : false).slice(0, 20);
+
+				const res = await DB_CLIENT.query(`
+					UPDATE food_items
+					SET deleted = true
+					WHERE tg_user_id = ${userInfo.tg_user_id}
+					AND fi_id_for_user IN (${uniqueFi_id_for_userArr.join()})
+					AND NOT deleted
+					RETURNING id, fi_id_for_user, name__lang_code_ru, protein, fat, carbohydrate, caloric_content;
+				;`);
+
+				let m;
+				if(res.rows.length){
+					m = getDeleteCreatedFoodMessage(`ru`, res.rows);
+				} else {
+					m = getDeleteCreatedFoodAlreadyDeletedMessage(`ru`, uniqueFi_id_for_userArr);
+					await sendMessageToChat(m.text, m.reply_markup);
+					return;
+				}
+				
+				await MSDB.deleteDocuments({
+					filter:`food_items_id IN [${res.rows.map(e => e.id).join()}]`
+				});
+				
+				// add to telegram_user_commands
+				let row = getPredefinedRowForTelegramUserSendedCommands();
+				row.command = `DELETE_FOOD`;
+				row.can_it_be_canceled = true;
+
+				row.data = {};
+				row.data.food_items_ids = res.rows.map(e => e.id);
+				row.data = JSON.stringify(row.data);
+				
+				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
+
+				row = {};
+				row.available_count_of_user_created_fi = Number(userInfo.available_count_of_user_created_fi) - res.rows.length;
+			
+				await DB_CLIENT.query(`
+					UPDATE registered_users
+					SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
+					WHERE id = ${userInfo.r_user_id}
+				;`);
+
+				await sendMessageToChat(m.text, m.reply_markup);
+					
 		} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__CREATE_DISH))) {
 				console.log(re_result);			
 				
@@ -2230,65 +2285,6 @@ bot.on(`message`, async ctx => {
 				}
 				
 
-			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_CREATED_FOOD_IDs))) {
-				console.log(re_result);
-				
-				const num_re = /\d+/g;
-				const fi_id_for_userArr = [...re_result.input.matchAll(num_re)].map(e => e[0]);
-				const uniqueFi_id_for_userArr = fi_id_for_userArr.filter((e, i, a) => i == a.findIndex(ae => ae == e ) ? e : false).slice(0, 20);
-
-				const res = await DB_CLIENT.query(`
-					UPDATE FROM food_items
-					SET deleted = true
-					WHERE tg_user_id = ${userInfo.tg_user_id}
-					AND fi_id_for_user = ANY (ARRAY[${uniqueFi_id_for_userArr.join()}])
-					AND NOT deleted
-					RETURNING id, name__lang_code_ru, protein, fat, carbohydrate, caloric_content;
-				;`);
-
-				//make messages:
-				//	succesfull deleted 
-				//	alreadyDeleted
-				//	sucDeletedAndAlreadyDeleted
-
-				let m;
-				if(res.rows.length){
-
-				} else {
-
-					//make m
-					//send m
-					await sendMessageToChat(m.text, m.reply_markup);
-					return;
-				}
-				
-				await MSDB.deleteDocuments({
-					filter:`food_items_id IN [${res.rows.map(e => e.id).join()}]`
-				});
-				
-				// add to telegram_user_commands
-				let row = getPredefinedRowForTelegramUserSendedCommands();
-				row.command = `DELETE_FOOD`;
-				row.can_it_be_canceled = true;
-
-				row.data = {};
-				row.data.food_items_ids = res.rows.map(e => e.id);
-				row.data = JSON.stringify(row.data);
-				
-				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
-
-				// update available count fi in registered_users
-				row = {};
-				row.available_count_of_user_created_fi = Number(userInfo.available_count_of_user_created_fi) - res.rows.length;
-			
-				await DB_CLIENT.query(`
-					UPDATE registered_users
-					SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
-					WHERE id = ${userInfo.r_user_id}
-				;`);
-
-				await sendMessageToChat(m.text, m.reply_markup);
-					
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_CREATED_DISH_IDs))) {
 					ctx.reply(`code me, btch`)
 					console.log(`code me`)

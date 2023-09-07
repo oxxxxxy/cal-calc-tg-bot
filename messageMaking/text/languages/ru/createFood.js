@@ -1,4 +1,7 @@
-const {makeRuFoodSheetHeader, makeRuFoodSheetLine} = require(`./foodSheet/index`);
+const {
+	makeRuFoodSheetHeader
+	,makeRuFoodSheetLine
+} = require(`./foodSheet.js`);
 const {HTMLMonospace} = require(`../../utils/textFormatting.js`);
 
 const makeRuCreatedFoodMessageText = food => 

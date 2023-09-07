@@ -30,8 +30,6 @@ const getEngBJUKAbbreviationFromForeignAbbr = (userLanguageCode, abbr) => {
 };
 exports.getEngBJUKAbbreviationFromForeignAbbr = getEngBJUKAbbreviationFromForeignAbbr;
 
-
-
 const getEngSortingAbbreviationFromRuAbbreviation = ruAbbr => {
 	switch (ruAbbr) {
 	 	case ru.sortingWords.ascending.abbreviation:
@@ -58,3 +56,12 @@ const getEngSortingAbbreviationFromForeignAbbr = (userLanguageCode, abbr) => {
 };
 exports.getEngSortingAbbreviationFromForeignAbbr = getEngSortingAbbreviationFromForeignAbbr;
 
+const getObjOfRuBJUKAbbreviations = () => {
+	const obj = {};
+	const keys = Object.keys(ru.BJUKWords);
+
+	keys.forEach(e => obj[e] = ru.BJUKWords[e].abbreviation);
+
+	return obj;
+};
+exports.getObjOfRuBJUKAbbreviations = getObjOfRuBJUKAbbreviations;
