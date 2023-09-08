@@ -22,14 +22,14 @@ const {
 	COMMAND__CREATE_FOOD__YES,
 	COMMAND__CREATE_FOOD__NO
 } = require(`./modules/user_commands/create_food_funcs.js`);
-const {HTMLCommandMaker} = require(`./bot_data/commands.js`);
+// const {HTMLCommandMaker} = require(`./bot_data/commands.js`);
 
 const {
 	getUserUTCOffset
 	,getUTCOffsetStr
 	,minifyPropNamesOfUserUTCOffset
 	,extendPropNamesOfUserUTCOffset
-} = require(`./messageMaking/text/utils/userUTCOffset.js`);
+} = require(`./botReply/message/text/utils/userUTCOffset.js`);
 const {
 	addCharBeforeValue
 	,addCharBeforeDecimalValue
@@ -39,27 +39,27 @@ const {
 	,HTMLItalic 
 	,HTMLBold
 	,HTMLUnderline 
-} = require(`./messageMaking/text/utils/textFormatting.js`);
+} = require(`./botReply/message/text/utils/textFormatting.js`);
 
 const {
 	getEngBJUKAbbreviationFromForeignAbbr
 	,getEngSortingAbbreviationFromForeignAbbr
-} = require(`./messageMaking/text/utils/getAbbreviationFns.js`);
-const { findEngNutrientNameByItsAbbreviation } = require('./messageMaking/text/utils/findEngFns.js');
+} = require(`./botReply/message/text/utils/getAbbreviationFns.js`);
+const { findEngNutrientNameByItsAbbreviation } = require('./botReply/message/text/utils/findEngFns.js');
 const {
 	getCountOfPages
 	,getPagingForNButtonsOfPagingInlineKeyboardLine
 	,getNButtonsForPagingInlineKeyboardLine
 	,makePagingInlineKeyboardLine
-} = require(`./messageMaking/reply_markup/inlineKeyboard.js`);
+} = require(`./botReply/message/reply_markup/inlineKeyboard.js`);
 const {
 	getUserFoodSheetMessagePanel
-	} = require(`./messageMaking/foodSheet.js`);
-const { getCreatedFoodMessage } = require(`./messageMaking/createFood.js`);
+	} = require(`./botReply/message/foodSheet.js`);
+const { getCreatedFoodMessage } = require(`./botReply/message/createFood.js`);
 const {
 	getDeleteCreatedFoodMessage
 	,getDeleteCreatedFoodAlreadyDeletedMessage
-} = require(`./messageMaking/deleteCreatedFood.js`);
+} = require(`./botReply/message/deleteCreatedFood.js`);
 
 const TG_USERS_LAST_ACTION_TIME = {};
 
@@ -112,7 +112,7 @@ const RE_RU_COMMAND__CREATE_FOOD = /^(се\s+)((([а-яА-Яa-zA-Z0-9]+)(\s+|))+
 // ^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\(
 const RE_RU_COMMAND__SHOW_CREATED_FOOD = /^псе(\s+(б|ж|у|к)(\s+|)(>|<)(\s+|)(\d+)|)(\s+(б|ж|у|к)(\s+|)п(\s+|)(у|в)|)$/u;
 const RE_CALLBACK_Q__LEAF_LIST_OF_CREATED_FOOD = /^i(\d+)suf((p|f|c|cal)(>|<)(\d+)|)((p|f|c|cal)_(d|a)|)p(\d+)$/;
-const RE_RU_COMMAND__DELETE_CREATED_FOOD_IDs = /^уе/u;//(([0-9]+(\s+|)|[0-9]+)+)$/u;
+const RE_RU_COMMAND__DELETE_CREATED_FOOD_IDs = /^уе(\s+|)([(\d+)\s+|(\d+)]+)$/u;//(([0-9]+(\s+|)|[0-9]+)+)$/u;
 
 const RE_RU_COMMAND__DELETE_CREATED_DISH_IDs = /^уб\s+/u; 
 const RE_RU_COMMAND__SHOW_CREATED_DISHES = /^псб$/u;
@@ -1553,7 +1553,7 @@ bot.on(`message`, async ctx => {
 
 			const m = getHelpMessage(pageNum, countOfPages, text, userInfo.tg_user_id);
 			
-			await sendMessage(chatId, m.text, m.inlineKeyboard);
+			await sendMessageToChat(m.text, m.inlineKeyboard);
 
 			const row = getPredefinedRowForTelegramUserSendedCommands();
 			row.command = `HELP`;
@@ -1597,145 +1597,6 @@ bot.on(`message`, async ctx => {
 
 			await insertIntoTelegramUserSendedCommandsPostgresTable(row);
 
-		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_LAST_ACTION))) {
-		
-			console.log(userLastCommand);
-
-			if (!userLastCommand.can_it_be_removed){
-				const invalidReply = `Последняя команда ничего не создавала, чтобы что-то удалить.`;
-				await completeInvalidCommandHandling(invalidReply);
-				return;
-			}
-			
-			if (userLastCommand.command == `CREATE_FOOD`) {
-				//deleted true food_items
-				await DB_CLIENT.query(`
-					UPDATE food_items
-					SET deleted = true
-					WHERE	id IN (${userLastCommand.data.food_items_ids.join()})
-				;`);
-
-				// delete doc with the same food_items_id from meilisearch
-				await MSDB.deleteDocuments({
-					filter:`food_items_id IN [${userLastCommand.data.food_items_ids.join()}]`
-				});
-
-				//perepisat' na telegram_users
-				//registered_users available_count_of_user_created_fi - 1 //add check for all users
-				userInfo.available_count_of_user_created_fi = Number(userInfo.available_count_of_user_created_fi) - userLastCommand.data.food_items_ids.length;
-				await DB_CLIENT.query(`
-					UPDATE registered_users
-					SET available_count_of_user_created_fi = ${userInfo.available_count_of_user_created_fi}
-					WHERE id = ${userInfo.r_user_id};
-				`);
-
-				//telegram_user_sended_commands add deletion
-				const row = getPredefinedRowForTelegramUserSendedCommands();
-				row.command = `DELETE_FOOD`;
-				row.can_it_be_canceled = true;
-
-				row.data = {};
-				row.data.food_items_ids = userLastCommand.data.food_items_ids;
-
-				row.data = JSON.stringify(row.data);
-
-				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
-			
-				//predlojit' otmenu
-				ctx.reply(`Удалено. Отменить? *"о/отмена"*.\n\nМем на тему удаления.`, {parse_mode:`Markdown`})
-			} else if (userLastCommand.command) {
-				console.log(`code me`)
-				ctx.reply(`code me`)
-			}
-
-		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__CANCEL_LAST_ACTION))) {
-
-			const userLastCommand = await getUserLastCommand(DB_CLIENT, userInfo.tg_user_id);
-			console.log(userLastCommand);
-
-			if (!userLastCommand.can_it_be_canceled){
-				ctx.reply(`Последняя команда не может быть отменена.`);
-				return;
-			}
-			
-			if (userLastCommand.command == `DELETE_FOOD`) {
-				//cancel deleted true food_items
-				const res = await DB_CLIENT.query(`
-					WITH updated AS (
-					  UPDATE food_items
-					  SET deleted = false
-					  WHERE id IN (${userLastCommand.data.food_items_ids.join()})
-					  RETURNING id, name__lang_code_ru, tg_user_id, protein, carbohydrate, fat, caloric_content)
-					SELECT fdifm.id, fdifm.food_items_id, upd.name__lang_code_ru, upd.tg_user_id, upd.protein, upd.carbohydrate, upd.fat, upd.caloric_content
-					FROM (
-						SELECT id, food_items_id, dish_items_id
-						FROM fooddish_ids_for_meilisearch
-						WHERE food_items_id IN (SELECT id FROM updated)
-						GROUP BY id, food_items_id, dish_items_id) fdifm
-					full outer join
-						(select id, name__lang_code_ru, tg_user_id, protein, carbohydrate, fat, caloric_content
-						from updated
-						group by id, name__lang_code_ru, tg_user_id, protein, carbohydrate, fat, caloric_content) upd
-					ON (fdifm.food_items_id = upd.id)
-				;`);
-				//add doc to MSDB
-				let documents = [];
-				res.rows.forEach(el =>{
-					let doc = {};
-					doc.id = Number(el.id),
-					doc.food_items_id = Number(el.food_items_id);
-					doc.dish_items_id = null;
-					doc.name__lang_code_ru = el.name__lang_code_ru;
-					doc.tg_user_id = Number(el.tg_user_id);
-					doc.created_by_project = null;
-					doc.protein = Number(el.protein);
-					doc.fat = Number(el.fat);
-					doc.carbohydrate = Number(el.carbohydrate);
-					doc.caloric_content = Number(el.caloric_content);
-					documents.push(doc);
-				});
-				await MSDB.addDocuments(documents);
- 
-					//registered_users available_count_of_user_created_fi - 1 //add check for all users					
-					userInfo.available_count_of_user_created_fi = Number(userInfo.available_count_of_user_created_fi) + userLastCommand.data.food_items_ids.length;
- 
-					await DB_CLIENT.query(`
-						UPDATE registered_users
-						SET available_count_of_user_created_fi = ${userInfo.available_count_of_user_created_fi}
-						WHERE id = ${userInfo.r_user_id};
-				`);
-
-				//telegram_user_sended_commands add otmenu
-				const row = {};
-				row.tg_user_id = userInfo.tg_user_id;
-				row.creation_date = new Date(reqDate).toISOString();
-				row.command = `CANCEL__DELETE_FOOD`;
-
-				row.data = {};
-				row.data.food_items_ids = userLastCommand.data.food_items_ids;
-
-				row.data = JSON.stringify(row.data);
-
-				const paramQuery = {};
-				paramQuery.text = `
-					INSERT INTO telegram_user_sended_commands
-					(${objKeysToColumnStr(row)})
-					VALUES
-					(${objKeysToColumn$IndexesStr(row)});`;
-				paramQuery.values = getArrOfValuesFromObj(row);
-				await DB_CLIENT.query(paramQuery);
-			
-				//predlojit' otmenu
-				ctx.reply(`Удаление отменено\\.\n\n_Галя, у нас отмена\\.\\.\\._`, {parse_mode:`MarkdownV2`})
-			} else if (userLastCommand.command) {
-				console.log(`code me`)
-				ctx.reply(`code me`)
-			}
-
-		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_BOT_AND_INLINE_COMMAND__SHOW_EATEN))) {
-			console.log(`code me`)
-			ctx.reply(`code me`)
-			console.log(re_result);			
 		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__CREATE_FOOD))) {
 			// console.log(re_result, `RE_RU_COMMAND__CREATE_FOOD`);
 
@@ -2006,10 +1867,9 @@ bot.on(`message`, async ctx => {
 				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
 
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_CREATED_FOOD_IDs))) {
-				console.log(re_result);
 				
 				const num_re = /\d+/g;
-				const fi_id_for_userArr = [...re_result.input.matchAll(num_re)].map(e => e[0]);
+				const fi_id_for_userArr = [...re_result[2].matchAll(num_re)].map(e => e[0]);
 				const uniqueFi_id_for_userArr = fi_id_for_userArr.filter((e, i, a) => i == a.findIndex(ae => ae == e ) ? e : false).slice(0, 20);
 
 				const res = await DB_CLIENT.query(`
@@ -2025,8 +1885,8 @@ bot.on(`message`, async ctx => {
 				if(res.rows.length){
 					m = getDeleteCreatedFoodMessage(`ru`, res.rows);
 				} else {
-					m = getDeleteCreatedFoodAlreadyDeletedMessage(`ru`, uniqueFi_id_for_userArr);
-					await sendMessageToChat(m.text, m.reply_markup);
+					const invalidReply = `Не найдено еды с ${uniqueFi_id_for_userArr.length > 1 ? 'такими' : 'таким' } ID:${uniqueFi_id_for_userArr.join(', ')}.`;
+					await completeInvalidCommandHandling(invalidReply);
 					return;
 				}
 				
@@ -2034,14 +1894,8 @@ bot.on(`message`, async ctx => {
 					filter:`food_items_id IN [${res.rows.map(e => e.id).join()}]`
 				});
 				
-				// add to telegram_user_commands
 				let row = getPredefinedRowForTelegramUserSendedCommands();
 				row.command = `DELETE_FOOD`;
-				row.can_it_be_canceled = true;
-
-				row.data = {};
-				row.data.food_items_ids = res.rows.map(e => e.id);
-				row.data = JSON.stringify(row.data);
 				
 				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
 
@@ -2056,6 +1910,145 @@ bot.on(`message`, async ctx => {
 
 				await sendMessageToChat(m.text, m.reply_markup);
 					
+		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_LAST_ACTION))) {
+		
+			console.log(userLastCommand);
+
+			if (!userLastCommand.can_it_be_removed){
+				const invalidReply = `Последняя команда ничего не создавала, чтобы что-то удалить.`;
+				await completeInvalidCommandHandling(invalidReply);
+				return;
+			}
+			
+			if (userLastCommand.command == `CREATE_FOOD`) {
+				//deleted true food_items
+				await DB_CLIENT.query(`
+					UPDATE food_items
+					SET deleted = true
+					WHERE	id IN (${userLastCommand.data.food_items_ids.join()})
+				;`);
+
+				// delete doc with the same food_items_id from meilisearch
+				await MSDB.deleteDocuments({
+					filter:`food_items_id IN [${userLastCommand.data.food_items_ids.join()}]`
+				});
+
+				//perepisat' na telegram_users
+				//registered_users available_count_of_user_created_fi - 1 //add check for all users
+				userInfo.available_count_of_user_created_fi = Number(userInfo.available_count_of_user_created_fi) - userLastCommand.data.food_items_ids.length;
+				await DB_CLIENT.query(`
+					UPDATE registered_users
+					SET available_count_of_user_created_fi = ${userInfo.available_count_of_user_created_fi}
+					WHERE id = ${userInfo.r_user_id};
+				`);
+
+				//telegram_user_sended_commands add deletion
+				const row = getPredefinedRowForTelegramUserSendedCommands();
+				row.command = `DELETE_FOOD`;
+				row.can_it_be_canceled = true;
+
+				row.data = {};
+				row.data.food_items_ids = userLastCommand.data.food_items_ids;
+
+				row.data = JSON.stringify(row.data);
+
+				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
+			
+				//predlojit' otmenu
+				ctx.reply(`Удалено. Отменить? *"о/отмена"*.\n\nМем на тему удаления.`, {parse_mode:`Markdown`})
+			} else if (userLastCommand.command) {
+				console.log(`code me`)
+				ctx.reply(`code me`)
+			}
+
+		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__CANCEL_LAST_ACTION))) {
+
+			const userLastCommand = await getUserLastCommand(DB_CLIENT, userInfo.tg_user_id);
+			console.log(userLastCommand);
+
+			if (!userLastCommand.can_it_be_canceled){
+				ctx.reply(`Последняя команда не может быть отменена.`);
+				return;
+			}
+			
+			if (userLastCommand.command == `DELETE_FOOD`) {
+				//cancel deleted true food_items
+				const res = await DB_CLIENT.query(`
+					WITH updated AS (
+					  UPDATE food_items
+					  SET deleted = false
+					  WHERE id IN (${userLastCommand.data.food_items_ids.join()})
+					  RETURNING id, name__lang_code_ru, tg_user_id, protein, carbohydrate, fat, caloric_content)
+					SELECT fdifm.id, fdifm.food_items_id, upd.name__lang_code_ru, upd.tg_user_id, upd.protein, upd.carbohydrate, upd.fat, upd.caloric_content
+					FROM (
+						SELECT id, food_items_id, dish_items_id
+						FROM fooddish_ids_for_meilisearch
+						WHERE food_items_id IN (SELECT id FROM updated)
+						GROUP BY id, food_items_id, dish_items_id) fdifm
+					full outer join
+						(select id, name__lang_code_ru, tg_user_id, protein, carbohydrate, fat, caloric_content
+						from updated
+						group by id, name__lang_code_ru, tg_user_id, protein, carbohydrate, fat, caloric_content) upd
+					ON (fdifm.food_items_id = upd.id)
+				;`);
+				//add doc to MSDB
+				let documents = [];
+				res.rows.forEach(el =>{
+					let doc = {};
+					doc.id = Number(el.id),
+					doc.food_items_id = Number(el.food_items_id);
+					doc.dish_items_id = null;
+					doc.name__lang_code_ru = el.name__lang_code_ru;
+					doc.tg_user_id = Number(el.tg_user_id);
+					doc.created_by_project = null;
+					doc.protein = Number(el.protein);
+					doc.fat = Number(el.fat);
+					doc.carbohydrate = Number(el.carbohydrate);
+					doc.caloric_content = Number(el.caloric_content);
+					documents.push(doc);
+				});
+				await MSDB.addDocuments(documents);
+ 
+					//registered_users available_count_of_user_created_fi - 1 //add check for all users					
+					userInfo.available_count_of_user_created_fi = Number(userInfo.available_count_of_user_created_fi) + userLastCommand.data.food_items_ids.length;
+ 
+					await DB_CLIENT.query(`
+						UPDATE registered_users
+						SET available_count_of_user_created_fi = ${userInfo.available_count_of_user_created_fi}
+						WHERE id = ${userInfo.r_user_id};
+				`);
+
+				//telegram_user_sended_commands add otmenu
+				const row = {};
+				row.tg_user_id = userInfo.tg_user_id;
+				row.creation_date = new Date(reqDate).toISOString();
+				row.command = `CANCEL__DELETE_FOOD`;
+
+				row.data = {};
+				row.data.food_items_ids = userLastCommand.data.food_items_ids;
+
+				row.data = JSON.stringify(row.data);
+
+				const paramQuery = {};
+				paramQuery.text = `
+					INSERT INTO telegram_user_sended_commands
+					(${objKeysToColumnStr(row)})
+					VALUES
+					(${objKeysToColumn$IndexesStr(row)});`;
+				paramQuery.values = getArrOfValuesFromObj(row);
+				await DB_CLIENT.query(paramQuery);
+			
+				//predlojit' otmenu
+				ctx.reply(`Удаление отменено\\.\n\n_Галя, у нас отмена\\.\\.\\._`, {parse_mode:`MarkdownV2`})
+			} else if (userLastCommand.command) {
+				console.log(`code me`)
+				ctx.reply(`code me`)
+			}
+
+		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_BOT_AND_INLINE_COMMAND__SHOW_EATEN))) {
+			console.log(`code me`)
+			ctx.reply(`code me`)
+			console.log(re_result);			
 		} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__CREATE_DISH))) {
 				console.log(re_result);			
 				
