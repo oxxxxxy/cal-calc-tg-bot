@@ -6,7 +6,7 @@ const {
 	,getPagingForNButtonsOfPagingInlineKeyboardLine
 	,getNButtonsForPagingInlineKeyboardLine
 	,makePagingInlineKeyboardLine
-} = require(`./reply_markup/inlineKeyboard.js`);
+} = require(`./reply_markup/inlineKeyboard/utils/inlineKeyboard.js`);
 
 const getUserFoodSheetMessagePanel = (language_code, dataPart, foodList, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting, selectedPage = 1) => {
 	const maxNumberOfLines = 20;

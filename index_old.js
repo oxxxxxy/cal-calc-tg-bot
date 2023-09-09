@@ -22,14 +22,13 @@ const {
 	COMMAND__CREATE_FOOD__YES,
 	COMMAND__CREATE_FOOD__NO
 } = require(`./modules/user_commands/create_food_funcs.js`);
-// const {HTMLCommandMaker} = require(`./bot_data/commands.js`);
 
 const {
 	getUserUTCOffset
 	,getUTCOffsetStr
 	,minifyPropNamesOfUserUTCOffset
 	,extendPropNamesOfUserUTCOffset
-} = require(`./botReply/message/text/utils/userUTCOffset.js`);
+} = require(`./reply/message/text/utils/userUTCOffset.js`);
 const {
 	addCharBeforeValue
 	,addCharBeforeDecimalValue
@@ -39,27 +38,32 @@ const {
 	,HTMLItalic 
 	,HTMLBold
 	,HTMLUnderline 
-} = require(`./botReply/message/text/utils/textFormatting.js`);
+} = require(`./reply/message/text/utils/textFormatting.js`);
 
 const {
 	getEngBJUKAbbreviationFromForeignAbbr
 	,getEngSortingAbbreviationFromForeignAbbr
-} = require(`./botReply/message/text/utils/getAbbreviationFns.js`);
-const { findEngNutrientNameByItsAbbreviation } = require('./botReply/message/text/utils/findEngFns.js');
+} = require(`./reply/message/text/utils/getAbbreviationFns.js`);
+const { findEngNutrientNameByItsAbbreviation } = require('./reply/message/text/utils/findEngFns.js');
 const {
 	getCountOfPages
 	,getPagingForNButtonsOfPagingInlineKeyboardLine
 	,getNButtonsForPagingInlineKeyboardLine
 	,makePagingInlineKeyboardLine
-} = require(`./botReply/message/reply_markup/inlineKeyboard.js`);
+} = require(`./reply/message/reply_markup/inlineKeyboard/utils/inlineKeyboard.js`);
 const {
 	getUserFoodSheetMessagePanel
-	} = require(`./botReply/message/foodSheet.js`);
-const { getCreatedFoodMessage } = require(`./botReply/message/createFood.js`);
+	} = require(`./reply/message/foodSheet.js`);
+const { getCreatedFoodMessage } = require(`./reply/message/createFood.js`);
 const {
 	getDeleteCreatedFoodMessage
 	,getDeleteCreatedFoodAlreadyDeletedMessage
-} = require(`./botReply/message/deleteCreatedFood.js`);
+} = require(`./reply/message/deleteCreatedFood.js`);
+
+const {
+	getHelpMessagePanel
+	,getCommandBlock_dishProcessMessage
+} = require(`./reply/message/help.js`);
 
 const TG_USERS_LAST_ACTION_TIME = {};
 
@@ -710,25 +714,6 @@ const isPreviousMessagePanelEqualToNewOne = (callbackQuery, newPanel) => {
 
 				
 
-
-const getHelpMessage = (selectedPage, pageCount, text, tgId) => {
-	const message = {};
-	
-	message.text = text;
-	message.inlineKeyboard = {};
-
-	if (pageCount > 1) {
-		const paging = getPagingForNButtonsOfPagingInlineKeyboardLine(pageCount, 3, selectedPage);
-		const buttons = getNButtonsForPagingInlineKeyboardLine(paging, `i${tgId}c`);
-		const pagingLine = makePagingInlineKeyboardLine(buttons);
-		
-		message.inlineKeyboard = telegraf.Markup.inlineKeyboard([pagingLine]);
-	}
-	
-	message.inlineKeyboard.parse_mode = 'HTML';
-
-	return message;
-}
 
 					const getDishMessage = (tgId, dish, ingredients, selectedPage) => {
 						const maxNumberOfLines = 20;
@@ -1393,6 +1378,9 @@ bot.on(`message`, async ctx => {
 	const reqDate = ctx.update.message.date * 1000;	
 	const creation_date = new Date(reqDate).toISOString();
 
+	const languageCode = `ru`;
+	userInfo.s__lang_code = languageCode;
+
 	const row = {};
 	row.tg_user_id = userInfo.tg_user_id;
 	row.creation_date = creation_date;
@@ -1547,13 +1535,9 @@ bot.on(`message`, async ctx => {
 		}
 
 		if(Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__HELP))){
-			const countOfPages = HTMLCommandMaker.fullDescCommandListPerPageCounts.length;
-			const pageNum = 1;
-			const text = HTMLCommandMaker.getFullDescCommandListPage(pageNum);
-
-			const m = getHelpMessage(pageNum, countOfPages, text, userInfo.tg_user_id);
+			const reply = getHelpMessagePanel(userInfo.s__lang_code, userInfo.tg_user_id);
 			
-			await sendMessageToChat(m.text, m.inlineKeyboard);
+			await sendMessageToChat(reply.text, reply.inlineKeyboard);
 
 			const row = getPredefinedRowForTelegramUserSendedCommands();
 			row.command = `HELP`;
@@ -2325,7 +2309,7 @@ bot.on(`message`, async ctx => {
 						return;
 					}
 
-					const htmlText = HTMLCommandMaker.dishProcess;
+					const htmlText = getCommandBlock_dishProcessMessage(languageCode);
 
 					const inlineKeyboard = telegraf.Markup.inlineKeyboard(
 							[
@@ -2919,7 +2903,7 @@ bot.on(`message`, async ctx => {
 						return;
 					}
 
-					const htmlText = HTMLCommandMaker.dishProcess;
+					const htmlText = getCommandBlock_dishProcessMessage(languageCode);
 
 					const inlineKeyboard = telegraf.Markup.inlineKeyboard(
 							[
@@ -3421,13 +3405,12 @@ bot.on(`callback_query`, async ctx => {
 
 	const chatId = callbackQuery.message.chat.id;
 	const messageId = callbackQuery.message.message_id;
+	const languageCode = `ru`;
 
 		if (Array.isArray(re_result = callbackQuery.data.match(reHelpPage))) {
-			const countOfPages = HTMLCommandMaker.fullDescCommandListPerPageCounts.length;
 			const pageNum = Number(re_result[2]);
-			const text = HTMLCommandMaker.getFullDescCommandListPage(pageNum);
 
-			const m = getHelpMessage(pageNum, countOfPages, text, userInfo.tg_user_id);
+			const m = getHelpMessagePanel(`ru`, userInfo.tg_user_id, pageNum);
 			
 			if(isPreviousMessagePanelEqualToNewOneBound(m)){
 				return;
@@ -3888,7 +3871,7 @@ bot.on(`callback_query`, async ctx => {
 				await sendMessage(chatId, comment);
 				
 			} else if (Array.isArray(re_result = callbackQuery.data.match(reCommands))) {// redirect if sequence of shit input > 2
-				const htmlText = HTMLCommandMaker.dishProcess;
+				const htmlText = getCommandBlock_dishProcessMessage(languageCode);
 
 				const inlineKeyboard = telegraf.Markup.inlineKeyboard(
 						[
@@ -4078,7 +4061,7 @@ bot.on(`callback_query`, async ctx => {
 				await sendMessage(chatId, commandComment);
 
 			} else if (Array.isArray(re_result = callbackQuery.data.match(reCommands))) {// redirect if sequence of shit input > 2
-				const htmlText = HTMLCommandMaker.dishProcess;
+				const htmlText = getCommandBlock_dishProcessMessage(languageCode);
 
 				const inlineKeyboard = telegraf.Markup.inlineKeyboard(
 						[

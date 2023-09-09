@@ -54,15 +54,13 @@ const getPagingForNButtonsOfPagingInlineKeyboardLine = (countOfPages, countOfBut
 		startPoint = countOfPages - countOfButtons + 1;
 	}
 
-	for(let i = 1; i <= countOfButtons; i++){
+	for(let i = 1; i <= countOfButtons; i++, startPoint++){
 		pages[i] = {};
 		pages[i].number = startPoint;
 
 		if(startPoint == selectedPage){
 			pages[i].selected = true;
 		}
-
-		startPoint++;
 	}
 	
 	return pages;
