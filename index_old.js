@@ -25,10 +25,10 @@ const {
 
 const {
 	getUserUTCOffset
-	,getUTCOffsetStr
-	,minifyPropNamesOfUserUTCOffset
-	,extendPropNamesOfUserUTCOffset
-} = require(`./reply/message/text/utils/userUTCOffset.js`);
+} = require(`./commandHandling/nonprocess/message/setUserUTC/setUserUTC.js`);
+const {minifyPropNamesOfUserUTCOffset, extendPropNamesOfUserUTCOffset} = require(`./commandHandling/utils/utcOffset.js`);
+const {getSetUserUTCMessage, getInvalidMessage_wholeData, getInvalidMessage_dayOfMonth} = require(`./reply/message/setUserUTC.js`);
+
 const {
 	addCharBeforeValue
 	,addCharBeforeDecimalValue
@@ -1178,8 +1178,6 @@ const execAndGetAllREResults = (str, re) => {
 }
 
 
-
-
 bot.use(async (ctx, next) => {
 	console.log(
 		`____use____________start`,
@@ -1549,7 +1547,7 @@ bot.on(`message`, async ctx => {
 			const dayOfMonth = Number(re_result[2]);
 
 			if(!dayOfMonth){
-				const invalidReply = `Некорректное число месяца.`;
+				const invalidReply = getInvalidMessage_dayOfMonth(userInfo.s__lang_code);
 				await completeInvalidCommandHandling(invalidReply);
 				return;
 			}
@@ -1560,13 +1558,13 @@ bot.on(`message`, async ctx => {
 			let userUTCOffset = getUserUTCOffset(dayOfMonth, hours, minutes, new Date(reqDate));
 
 			if (!userUTCOffset) {
-				const invalidReply = `Некорректные данные.`;
+				const invalidReply = getInvalidMessage_wholeData(userInfo.s__lang_code);
 				await completeInvalidCommandHandling(invalidReply);
 				return;
 			}
 
-			const reply = `Часовой пояс задан успешно. UTC ${getUTCOffsetStr(userUTCOffset)}`;
-			await sendMessageToChat(reply);
+			const reply = getSetUserUTCMessage(userInfo.s__lang_code, userUTCOffset);
+			await sendMessage(userInfo.tg_user_id, reply);
 
 			userUTCOffset = minifyPropNamesOfUserUTCOffset(userUTCOffset);
 			
