@@ -25,7 +25,8 @@ const {
 
 const {
 	getUserUTCOffset
-} = require(`./commandHandling/nonprocess/message/setUserUTC/setUserUTC.js`);
+	,handleSetUserUTCCommand
+} = require(`./commandHandling/nonprocess/message/setUserUTC.js`);
 const {minifyPropNamesOfUserUTCOffset, extendPropNamesOfUserUTCOffset} = require(`./commandHandling/utils/utcOffset.js`);
 const {getSetUserUTCMessage, getInvalidMessage_wholeData, getInvalidMessage_dayOfMonth} = require(`./reply/message/setUserUTC.js`);
 
@@ -173,7 +174,9 @@ const RE_RU_INLINE_COMMAND__SHARE_CREATED_FOOD_OR_DISH = /^(под|подели�
 
 
 
-
+const required = name => {
+	throw new Error(`Parameter ${name} is required.`);
+};
 
 
 	const tableNames = {};
@@ -1654,39 +1657,9 @@ const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowInt
 			const dayOfMonth = Number(re_result[2]);
 			const hours = Number(re_result[3]);
 			const minutes = Number(re_result[4]);
+			const currentDate = new Date(reqDate);
 
-			if(!dayOfMonth){
-				const invalidReply = getInvalidMessage_dayOfMonth(userInfo.s__lang_code);
-				await completeInvalidCommandHandling(invalidReply);
-				return;
-			}
-
-			let userUTCOffset = getUserUTCOffset(dayOfMonth, hours, minutes, new Date(reqDate));
-
-			if (!userUTCOffset) {
-				const invalidReply = getInvalidMessage_wholeData(userInfo.s__lang_code);
-				await completeInvalidCommandHandling(invalidReply);
-				return;
-			}
-
-			const reply = getSetUserUTCMessage(userInfo.s__lang_code, userUTCOffset);
-
-			await sendMessageToSetChat(reply);
-
-			userUTCOffset = minifyPropNamesOfUserUTCOffset(userUTCOffset);
-			
-			await pgClient.query(`
-				UPDATE telegram_users
-				SET s__utc_s_h_m = '${JSON.stringify(userUTCOffset)}'
-				WHERE tg_user_id = ${userInfo.tg_user_id}
-			;`);
-
-			const row = {
-				command : `SET_USER_UTC`
-				,data : JSON.stringify(userUTCOffset)
-			}
-
-			await insertCommandRowIntoTelegramUserSendedCommands(row);
+			await handleSetUserUTCCommand(commonFns, pgClient, userInfo, dayOfMonth, hours, minutes, currentDate);
 
 		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__CREATE_FOOD))) {
 			// console.log(re_result, `RE_RU_COMMAND__CREATE_FOOD`);
@@ -3532,7 +3505,6 @@ bot.on(`callback_query`, async ctx => {
 		,{editTextOfSetMessageInSetChat}
 		,{insertCommandRowIntoTelegramUserSendedCommands}
 	);
-
 
 
 	if (Array.isArray(re_result = callbackQuery.data.match(reHelpPage))) {
