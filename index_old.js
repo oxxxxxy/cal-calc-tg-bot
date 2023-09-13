@@ -83,7 +83,7 @@ const RE_RU_NUTRIENTS = [];
 /////////100% necessary START
 const RE_RU_COMMAND__HELP = /^(х|\/h)$/u;
 
-const RE_RU_COMMAND__SET_USER_LOCAL_TIME = /^зв(\s+|)([0-3][0-9]|[1-9])\s+([0-9]|[0-1][0-9]|2[0-3])\s+([0-9]|[0-5][0-9])$/u;
+const RE_RU_COMMAND__SET_USER_UTC = /^зв(\s+|)([0-3][0-9]|[1-9])\s+([0-9]|[0-1][0-9]|2[0-3])\s+([0-9]|[0-5][0-9])$/u;
 
 
 
@@ -613,7 +613,7 @@ const isPreviousMessagePanelEqualToNewOne = (callbackQuery, newPanel) => {
 		);
 	const areInlineKeyboardsEqual = isPreviousInlineKeyboardEqualToNewOne(
 			callbackQuery.message.reply_markup.inline_keyboard,
-			newPanel.inlineKeyboard.reply_markup.inline_keyboard
+			newPanel.reply_markup.inline_keyboard
 		);
 	
 	if (areTextEqual && areInlineKeyboardsEqual){
@@ -798,21 +798,108 @@ const isPreviousMessagePanelEqualToNewOne = (callbackQuery, newPanel) => {
 
 
 
-const memoizeOneArgument = a => {
-	return () => {
-		return a;
-	};
+const memoizeOneArgument = a => () => a;
+
+const sendMessage2 = async parameters => {
+	const chat_id = parameters.chat_id;
+	delete parameters.chat_id;
+	
+	const text = parameters.text;
+	delete parameters.text;
+
+	const remainingParameters = parameters;
+
+	try{
+		return await bot.telegram.sendMessage(
+			chat_id,
+			text,
+			remainingParameters
+		);
+	}catch(e){
+		console.log(chatId, text, e);
+		return false;
+	}
 };
 
-const makeFnSendMessageToChat = chatId => {
-	return async (...args) => {
-		return await sendMessage(chatId, ...args);
-	};
-};
+const makeFnSendMessageToSetChat = chat_id => {
+	if(typeof chat_id == `number` || typeof chat_id == `string`){
+		chat_id = { chat_id: chat_id};
+	}
 
-const makeFnCompleteInvalidCommandHandling = (sendMessageToChatFn, getPredefinedRowFn, insertFn, gotUserMessageId) => 
+	return parameters => {
+		if(typeof parameters == `string`){
+			parameters = {text: parameters};
+		}
+
+		return sendMessage2({...chat_id, ...parameters});
+	}
+}
+
+const editMessageText2 = async parameters => {
+	const chat_id = parameters.chat_id;
+	delete parameters.chat_id;
+	
+	const message_id = parameters.chat_id;
+	delete parameters.chat_id;
+	
+	const text = parameters.text;
+	delete parameters.text;
+
+	const remainingParameters = parameters;
+
+	try {
+		return await bot.telegram.editMessageText(
+			chat_id,
+			message_id,
+			``,
+			text,
+			remainingParameters
+		);
+	} catch(e) {
+		console.log(chatId, messageId, text, inlineKeyboard, e);
+		if(e.error_code == 400){
+			try{
+				return await bot.telegram.sendMessage(
+					chat_id,
+					text,
+					remainingParameters
+				);
+			}catch(e){
+				console.log(chatId, messageId, text, inlineKeyboard, e);
+				return false;
+			}
+		}
+	}
+}
+
+const makeFnEditTextOfSetMessageInSetChat = (chat_id, message_id) => {
+	if(typeof chat_id == `number` || typeof chat_id == `string`){
+		chat_id = { chat_id: chat_id};
+	}
+	
+	if(typeof message_id == `number` || typeof message_id == `string`){
+		chat_id.message_id = message_id;
+	}
+
+	return parameters => {
+		if(typeof parameters == `string`){
+			parameters = {text: parameters};
+		}
+
+		return editMessageText2({...chat_id, ...parameters});
+	}
+}
+
+const makeFnSendMessageToChat = chatId => 
+	(...args) => sendMessage(chatId, ...args);
+
+const makeFnCompleteInvalidCommandHandling = (sendMessageToSetChat, getPredefinedRowFn, insertFn, gotUserMessageId) => 
 	async invalidReply => {
-		const res = await sendMessageToChatFn(invalidReply);
+		const res = await sendMessageToSetChat(invalidReply);
+
+		if(!res){
+			return;
+		}
 
 		row = getPredefinedRowFn();
 		row.invalid_command = true;
@@ -877,6 +964,19 @@ const makeFnCompleteInvalidCommandHandling = (sendMessageToChatFn, getPredefined
 						LIMIT ${limit} 
 					;`;
 				}
+
+	const makeFnInsertCommandRowIntoTelegramUserSendedCommands = (getPredefinedRowForTelegramUserSendedCommands, insertIntoTelegramUserSendedCommands) =>
+		commandRow => {
+			let predefinedRow = getPredefinedRowForTelegramUserSendedCommands();
+		
+			if(typeof commandRow == `string`){
+					predefinedRow.command = commandRow;
+			} else {
+				predefinedRow = {...predefinedRow, ...commandRow};
+			}
+			
+			return insertIntoTelegramUserSendedCommands(predefinedRow);
+		}
 
 				
 
@@ -1165,19 +1265,6 @@ const cleanArrFromRecurringItems = arr => {
 	return arr;
 }
 
-const execAndGetAllREResults = (str, re) => {
-	if (!re.global) {
-		throw `RegExp has not global flag.`;
-	}
-	const result = [];
-	let arr;
-	while ((arr = re.exec(str)) !== null) {
-		result.push(arr[0]);
-	}
-	return result;
-}
-
-
 bot.use(async (ctx, next) => {
 	console.log(
 		`____use____________start`,
@@ -1386,13 +1473,18 @@ bot.on(`message`, async ctx => {
 	const getPredefinedRowForTelegramUserSendedCommands = memoizeOneArgument(row);
 	
 	const sendMessageToChat = makeFnSendMessageToChat(chatId);
+	const sendMessageToSetChat = makeFnSendMessageToSetChat(chatId);
 
 	const completeInvalidCommandHandling = makeFnCompleteInvalidCommandHandling(
-		sendMessageToChat
+		sendMessageToSetChat
 		,getPredefinedRowForTelegramUserSendedCommands
 		,insertIntoTelegramUserSendedCommandsPostgresTable
 		,gotUserMessageId
 	);
+
+const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowIntoTelegramUserSendedCommands(getPredefinedRowForTelegramUserSendedCommands, insertIntoTelegramUserSendedCommandsPostgresTable);
+
+
 
 	if(!ctx.update.message.text){
 		if (userSubprocess) {
@@ -1520,40 +1612,36 @@ bot.on(`message`, async ctx => {
 	if(!userSubprocess){
 
 		//delete last invalid user message and bot reply
-		if(userLastCommand.invalid_command){
+		if(userLastCommand.invalid_command && !userLastCommand.removed){
 			for(p in userLastCommand.data){
 				await deleteMessage(chatId, userLastCommand.data[p]);
 			}
 
 			await pgClient.query(`
 				UPDATE telegram_user_sended_commands
-				SET data = null
+				SET removed = true
 				WHERE id = ${userLastCommand.id}
 			;`);
 		}
 
 		if(Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__HELP))){
 			const reply = getHelpMessagePanel(userInfo.s__lang_code, userInfo.tg_user_id);
-			
-			await sendMessageToChat(reply.text, reply.inlineKeyboard);
 
-			const row = getPredefinedRowForTelegramUserSendedCommands();
-			row.command = `HELP`;
+			await sendMessageToSetChat(reply);
 
-			await insertIntoTelegramUserSendedCommandsPostgresTable(row);
+			await insertCommandRowIntoTelegramUserSendedCommands(`HELP`);
 
-		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SET_USER_LOCAL_TIME))) {
+		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SET_USER_UTC))) {
 
 			const dayOfMonth = Number(re_result[2]);
+			const hours = Number(re_result[3]);
+			const minutes = Number(re_result[4]);
 
 			if(!dayOfMonth){
 				const invalidReply = getInvalidMessage_dayOfMonth(userInfo.s__lang_code);
 				await completeInvalidCommandHandling(invalidReply);
 				return;
 			}
-
-			const hours = Number(re_result[3]);
-			const minutes = Number(re_result[4]);
 
 			let userUTCOffset = getUserUTCOffset(dayOfMonth, hours, minutes, new Date(reqDate));
 
@@ -1564,7 +1652,8 @@ bot.on(`message`, async ctx => {
 			}
 
 			const reply = getSetUserUTCMessage(userInfo.s__lang_code, userUTCOffset);
-			await sendMessage(userInfo.tg_user_id, reply);
+
+			await sendMessageToSetChat(reply);
 
 			userUTCOffset = minifyPropNamesOfUserUTCOffset(userUTCOffset);
 			
@@ -1573,11 +1662,13 @@ bot.on(`message`, async ctx => {
 				SET s__utc_s_h_m = '${JSON.stringify(userUTCOffset)}'
 				WHERE tg_user_id = ${userInfo.tg_user_id}
 			;`);
-			
-			const row = getPredefinedRowForTelegramUserSendedCommands();
-			row.command = `SET USER UTC`;
 
-			await insertIntoTelegramUserSendedCommandsPostgresTable(row);
+			const row = {
+				command : `SET_USER_UTC`
+				,data : JSON.stringify(userUTCOffset)
+			}
+
+			await insertCommandRowIntoTelegramUserSendedCommands(row);
 
 		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__CREATE_FOOD))) {
 			// console.log(re_result, `RE_RU_COMMAND__CREATE_FOOD`);
@@ -3404,24 +3495,30 @@ bot.on(`callback_query`, async ctx => {
 	const chatId = callbackQuery.message.chat.id;
 	const messageId = callbackQuery.message.message_id;
 	const languageCode = `ru`;
+	userInfo.s__lang_code = `ru`;
 
+	const row = {};
+	row.tg_user_id = userInfo.tg_user_id;
+	row.creation_date = creation_date;
+
+	const getPredefinedRowForTelegramUserSendedCommands = memoizeOneArgument(row);
+	const editTextOfSetMessageInSetChat = makeFnEditTextOfSetMessageInSetChat(chatId, messageId);
+
+const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowIntoTelegramUserSendedCommands(getPredefinedRowForTelegramUserSendedCommands, insertIntoTelegramUserSendedCommandsPostgresTable);
+	
 		if (Array.isArray(re_result = callbackQuery.data.match(reHelpPage))) {
 			const pageNum = Number(re_result[2]);
 
-			const m = getHelpMessagePanel(`ru`, userInfo.tg_user_id, pageNum);
+			const replyWithSelectedPage = getHelpMessagePanel(userInfo.s__lang_code, userInfo.tg_user_id, pageNum);
 			
-			if(isPreviousMessagePanelEqualToNewOneBound(m)){
+			if(isPreviousMessagePanelEqualToNewOneBound(replyWithSelectedPage)){
 				return;
 			}
 			
-			await editMessage(chatId, messageId, m.text, m.inlineKeyboard);
-			
-			const row = {};
-			row.tg_user_id = userInfo.tg_user_id;
-			row.creation_date = creation_date;
-			row.command = `HELP_PAGE`;
+			await editTextOfSetMessageInSetChat(replyWithSelectedPage);
 
-			await insertIntoTelegramUserSendedCommandsPostgresTable(row);
+			await insertCommandRowIntoTelegramUserSendedCommands(`HELP_PAGE`);
+
 		} else if (Array.isArray(re_result = callbackQuery.data.match(RE_CALLBACK_Q__LEAF_LIST_OF_CREATED_FOOD))) {
 			console.log(re_result);
 

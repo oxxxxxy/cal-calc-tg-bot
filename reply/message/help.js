@@ -5,10 +5,9 @@ const {
 const {makeHelpMessagePanelInlineKeyboard} = require(`./reply_markup/inlineKeyboard/index/help.js`);
 
 const getHelpMessagePanel = (languageCode, tg_user_id, selectedPage = 1) => {
-	const message = {};
+	const message = makeHelpMessagePanelInlineKeyboard(languageCode, selectedPage, tg_user_id);
 	message.text = makeHelpMessagePanelText(languageCode, selectedPage);
-	message.inlineKeyboard = makeHelpMessagePanelInlineKeyboard(languageCode, selectedPage, tg_user_id);
-	message.inlineKeyboard.parse_mode = 'HTML';
+	message.parse_mode = 'HTML';
 
 	return message;
 }; 

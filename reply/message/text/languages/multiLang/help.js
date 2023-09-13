@@ -75,7 +75,7 @@ const makeMultiLangHelpMessagePanelText = (title, commandBlockList, listOfPerPag
 
 	const commandBlockCountOnPage = listOfPerPageCountOfCommandBlocksForHelpMessagePanel[selectedPage - 1];
 	const skippedPagesOfCommandBlockCounts =	listOfPerPageCountOfCommandBlocksForHelpMessagePanel.slice(0, selectedPage - 1);
-	const countOfAllSkippedCommandBlockCounts = skippedPagesOfCommandBlockCounts.reduce((a, e) => a + e);
+	const countOfAllSkippedCommandBlockCounts = skippedPagesOfCommandBlockCounts.reduce((a, e) => a + e, 0);
 
 	let str = HTMLBold(HTMLUnderline(title)) + `\n\n`;
 
