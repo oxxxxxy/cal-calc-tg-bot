@@ -65,6 +65,13 @@ const {
 	,getCommandBlock_dishProcessMessage
 } = require(`./reply/message/help.js`);
 
+
+const {
+	handleHelpMessageCommand
+	,handleSetHelpPageOfMessagePanelCommand
+} = require(`./commandHandling/nonprocess/message/help.js`);
+
+
 const TG_USERS_LAST_ACTION_TIME = {};
 
 const ISofU = [];
@@ -978,7 +985,17 @@ const makeFnCompleteInvalidCommandHandling = (sendMessageToSetChat, getPredefine
 			return insertIntoTelegramUserSendedCommands(predefinedRow);
 		}
 
-				
+
+	const makeObjOfFnsFromObjsWith1Fn = (...objsWith1Fn) => {
+		const objOfFns = {};
+		
+		objsWith1Fn.forEach(e => {
+			const key = Object.keys(e)[0];
+			objOfFns[key] = e[key];
+		});
+
+		return objOfFns;
+	};
 
 
 
@@ -1484,7 +1501,11 @@ bot.on(`message`, async ctx => {
 
 const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowIntoTelegramUserSendedCommands(getPredefinedRowForTelegramUserSendedCommands, insertIntoTelegramUserSendedCommandsPostgresTable);
 
-
+	const commonFns = makeObjOfFnsFromObjsWith1Fn(
+		{sendMessageToSetChat}
+		,{insertCommandRowIntoTelegramUserSendedCommands}
+		,{completeInvalidCommandHandling}
+	);
 
 	if(!ctx.update.message.text){
 		if (userSubprocess) {
@@ -1625,11 +1646,8 @@ const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowInt
 		}
 
 		if(Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__HELP))){
-			const reply = getHelpMessagePanel(userInfo.s__lang_code, userInfo.tg_user_id);
 
-			await sendMessageToSetChat(reply);
-
-			await insertCommandRowIntoTelegramUserSendedCommands(`HELP`);
+			await handleHelpMessageCommand(commonFns, userInfo);
 
 		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SET_USER_UTC))) {
 
@@ -3504,77 +3522,80 @@ bot.on(`callback_query`, async ctx => {
 	const getPredefinedRowForTelegramUserSendedCommands = memoizeOneArgument(row);
 	const editTextOfSetMessageInSetChat = makeFnEditTextOfSetMessageInSetChat(chatId, messageId);
 
-const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowIntoTelegramUserSendedCommands(getPredefinedRowForTelegramUserSendedCommands, insertIntoTelegramUserSendedCommandsPostgresTable);
+	const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowIntoTelegramUserSendedCommands(
+		getPredefinedRowForTelegramUserSendedCommands
+		,insertIntoTelegramUserSendedCommandsPostgresTable
+	);
+		
+	const commonFns = makeObjOfFnsFromObjsWith1Fn(
+		{isPreviousMessagePanelEqualToNewOneBound}
+		,{editTextOfSetMessageInSetChat}
+		,{insertCommandRowIntoTelegramUserSendedCommands}
+	);
+
+
+
+	if (Array.isArray(re_result = callbackQuery.data.match(reHelpPage))) {
+		const selectedPage = Number(re_result[2]);
+
+		await handleSetHelpPageOfMessagePanelCommand(commonFns, userInfo, selectedPage);
+
+	} else if (Array.isArray(re_result = callbackQuery.data.match(RE_CALLBACK_Q__LEAF_LIST_OF_CREATED_FOOD))) {
+		console.log(re_result);
+
+		const selectedPage = re_result[9];
+
+		let dataPart = `i${userInfo.tg_user_id}suf`;
+		
+		let sqlBJUKCondition;
+		let bjukMoreLessCondition = re_result[2];
+		if (bjukMoreLessCondition) {
+			bjukMoreLessCondition = {};
+			bjukMoreLessCondition.nutrientAbbreviation = re_result[3];
+			bjukMoreLessCondition.moreLessSign = re_result[4];
+			bjukMoreLessCondition.value = Number(re_result[5]);
+			
+			dataPart += bjukMoreLessCondition.nutrientAbbreviation + bjukMoreLessCondition.moreLessSign + bjukMoreLessCondition.value;
+			
+			sqlBJUKCondition = getSqlBJUKCondition(bjukMoreLessCondition.nutrientAbbreviation, bjukMoreLessCondition.moreLessSign, bjukMoreLessCondition.value);
+		}
+
+		let sqlBJUKSorting;
+		let bjukAscDescSorting = re_result[6];
+		if (bjukAscDescSorting) {
+			bjukAscDescSorting = {};
+			bjukAscDescSorting.nutrientAbbreviation = re_result[7];
+			bjukAscDescSorting.sortingAbbreviation = re_result[8]; 
+			
+			dataPart += bjukAscDescSorting.nutrientAbbreviation + '_' + bjukAscDescSorting.sortingAbbreviation;
+
+			sqlBJUKSorting = getSqlBJUKSorting(bjukAscDescSorting.nutrientAbbreviation, bjukAscDescSorting.sortingAbbreviation);
+		}
+
+		const query = makeQueryForShowUserCreatedFoodCmd(sqlBJUKCondition, sqlBJUKSorting, userInfo.tg_user_id, (selectedPage - 1) * 20);
+		const res = await pgClient.query(query);
+		
+		res.rows.forEach(e => {
+			e = bjukToNum(e);
+		});
+
+		let countOfAllRows;
+		if(sqlBJUKCondition) {
+			countOfAllRows = res.rows[0].count;
+		} else {
+			countOfAllRows = userInfo.available_count_of_user_created_fi;
+		}
 	
-		if (Array.isArray(re_result = callbackQuery.data.match(reHelpPage))) {
-			const pageNum = Number(re_result[2]);
+		const user_language_code = `ru`;
+		const m = getUserFoodSheetMessagePanel(user_language_code, dataPart, res.rows, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting, selectedPage);
 
-			const replyWithSelectedPage = getHelpMessagePanel(userInfo.s__lang_code, userInfo.tg_user_id, pageNum);
-			
-			if(isPreviousMessagePanelEqualToNewOneBound(replyWithSelectedPage)){
-				return;
-			}
-			
-			await editTextOfSetMessageInSetChat(replyWithSelectedPage);
+		if(isPreviousMessagePanelEqualToNewOneBound(m)){
+			return;
+		}
+	
+		await editMessage(chatId, messageId, m.text, m.inlineKeyboard);
 
-			await insertCommandRowIntoTelegramUserSendedCommands(`HELP_PAGE`);
-
-		} else if (Array.isArray(re_result = callbackQuery.data.match(RE_CALLBACK_Q__LEAF_LIST_OF_CREATED_FOOD))) {
-			console.log(re_result);
-
-			const selectedPage = re_result[9];
-
-			let dataPart = `i${userInfo.tg_user_id}suf`;
-			
-			let sqlBJUKCondition;
-			let bjukMoreLessCondition = re_result[2];
-			if (bjukMoreLessCondition) {
-				bjukMoreLessCondition = {};
-				bjukMoreLessCondition.nutrientAbbreviation = re_result[3];
-				bjukMoreLessCondition.moreLessSign = re_result[4];
-				bjukMoreLessCondition.value = Number(re_result[5]);
-				
-				dataPart += bjukMoreLessCondition.nutrientAbbreviation + bjukMoreLessCondition.moreLessSign + bjukMoreLessCondition.value;
-				
-				sqlBJUKCondition = getSqlBJUKCondition(bjukMoreLessCondition.nutrientAbbreviation, bjukMoreLessCondition.moreLessSign, bjukMoreLessCondition.value);
-			}
-
-			let sqlBJUKSorting;
-			let bjukAscDescSorting = re_result[6];
-			if (bjukAscDescSorting) {
-				bjukAscDescSorting = {};
-				bjukAscDescSorting.nutrientAbbreviation = re_result[7];
-				bjukAscDescSorting.sortingAbbreviation = re_result[8]; 
-				
-				dataPart += bjukAscDescSorting.nutrientAbbreviation + '_' + bjukAscDescSorting.sortingAbbreviation;
-
-				sqlBJUKSorting = getSqlBJUKSorting(bjukAscDescSorting.nutrientAbbreviation, bjukAscDescSorting.sortingAbbreviation);
-			}
-
-			const query = makeQueryForShowUserCreatedFoodCmd(sqlBJUKCondition, sqlBJUKSorting, userInfo.tg_user_id, (selectedPage - 1) * 20);
-			const res = await pgClient.query(query);
-			
-			res.rows.forEach(e => {
-				e = bjukToNum(e);
-			});
-
-			let countOfAllRows;
-			if(sqlBJUKCondition) {
-				countOfAllRows = res.rows[0].count;
-			} else {
-				countOfAllRows = userInfo.available_count_of_user_created_fi;
-			}
-		
-			const user_language_code = `ru`;
-			const m = getUserFoodSheetMessagePanel(user_language_code, dataPart, res.rows, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting, selectedPage);
-
-			if(isPreviousMessagePanelEqualToNewOneBound(m)){
-				return;
-			}
-		
-			await editMessage(chatId, messageId, m.text, m.inlineKeyboard);
-
-		} else if (Array.isArray(re_result = callbackQuery.data.match(reDishLookingPage))) {
+	} else if (Array.isArray(re_result = callbackQuery.data.match(reDishLookingPage))) {
 			console.log(`code me`, re_result);
 			const dish_items_id = re_result[2];
 			const selectedPageNum = Number(re_result[3]);
