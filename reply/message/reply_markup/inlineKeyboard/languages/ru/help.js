@@ -4,11 +4,11 @@ const {
 	getPagingForNButtonsOfPagingInlineKeyboardLine
 	,getNButtonsForPagingInlineKeyboardLine
 	,makePagingInlineKeyboardLine
-} = require(`../../utils/inlineKeyboard.js`);
+} = require(`../../utils/pagingInlineKeyboard.js`);
 const {listOfPerPageCountOfRuCommandBlocksForHelpMessagePanel} = require(`../../../../text/languages/ru/help.js`);
 
 const makeRuHelpMessagePanelInlineKeyboard = (selectedPage, tg_user_id) => {
-	let inlineKeyboard = {};
+	let reply_markup = {};
 
 	const pageCount = listOfPerPageCountOfRuCommandBlocksForHelpMessagePanel.length;
 
@@ -17,9 +17,9 @@ const makeRuHelpMessagePanelInlineKeyboard = (selectedPage, tg_user_id) => {
 		const buttons = getNButtonsForPagingInlineKeyboardLine(paging, `i${tg_user_id}c`);
 		const pagingLine = makePagingInlineKeyboardLine(buttons);
 		
-		inlineKeyboard = telegraf.Markup.inlineKeyboard([pagingLine]);
+		reply_markup = telegraf.Markup.inlineKeyboard([pagingLine]).reply_markup;
 	}
 	
-	return inlineKeyboard;
+	return reply_markup;
 }
 exports.makeRuHelpMessagePanelInlineKeyboard = makeRuHelpMessagePanelInlineKeyboard;

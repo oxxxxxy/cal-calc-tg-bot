@@ -1,13 +1,13 @@
 const {getHelpMessagePanel} = require(`../../../reply/message/help.js`);
 
-const handleHelpMessageCommand = async (fns, userInfo) => {
+const handleHelpCommand = async (fns, userInfo) => {
 	const reply = getHelpMessagePanel(userInfo.s__lang_code, userInfo.tg_user_id);
 
 	await fns.sendMessageToSetChat(reply);
 
 	await fns.insertCommandRowIntoTelegramUserSendedCommands(`HELP`);
 };
-exports.handleHelpMessageCommand = handleHelpMessageCommand;
+exports.handleHelpCommand = handleHelpCommand;
 
 const handleSetHelpPageOfMessagePanelCommand = async (fns, userInfo, selectedPage) => {
 	const replyWithSelectedPage = getHelpMessagePanel(userInfo.s__lang_code, userInfo.tg_user_id, selectedPage);

@@ -6,7 +6,7 @@ const {
 const getDeleteCreatedFoodMessage = (languageCode, foodList) => {
 	const message = {};
 	message.text = makeDeleteCreatedFoodText(languageCode, foodList);
-	message.reply_markup = {parse_mode:`HTML`};
+	message.parse_mode = `HTML`;
 	return message;
 }
 exports.getDeleteCreatedFoodMessage = getDeleteCreatedFoodMessage;

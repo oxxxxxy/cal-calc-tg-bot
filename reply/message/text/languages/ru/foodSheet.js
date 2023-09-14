@@ -7,7 +7,11 @@ const {
 	makeNumForSheetLine
 	,makeBJUKValueForSheetLine
 } = require(`../../utils/textFormatting.js`);
+const {commandBlock_dishProcess} = require(`./static/botCommandList.js`);
+const {makeMultiLangCommandTextFromCommandBlock} = require(`../multiLang/help.js`);
 
+const ruCommandBlock_dishProcessText = makeMultiLangCommandTextFromCommandBlock(commandBlock_dishProcess);
+exports.ruCommandBlock_dishProcessText = ruCommandBlock_dishProcessText;
 
 const makeCriterionDescForRuHeaderBeforeFoodDishSheet = (bjukMoreLessCondition, bjukAscDescSorting) => {
 	const makeConditionPart = bjukMoreLessCondition => {

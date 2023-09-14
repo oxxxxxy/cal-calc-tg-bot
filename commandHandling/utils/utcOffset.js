@@ -1,22 +1,16 @@
+const makeUserUTCOffsetString = userUTCOffset => 
+	userUTCOffset.sign + userUTCOffset.hours + ':' + userUTCOffset.minutes;
+exports.makeUserUTCOffsetString = makeUserUTCOffsetString;
 
-const minifyPropNamesOfUserUTCOffset = (userUTCOffset) => {
-	const obj = {};
+const parseUserUTCOffsetString = userUTCOffsetString => {
+	const re = /(.)(\d+):(\d+)/;
+	const reResult = userUTCOffsetString.match(re);
 
-	obj.s = userUTCOffset.sign;
-	obj.h = userUTCOffset.hours;
-	obj.m = userUTCOffset.minutes;
+	const userUTCOffset = {};
+	userUTCOffset.sign = reResult[1];
+	userUTCOffset.hours = Number(reResult[2]);
+	userUTCOffset.minutes = Number(reResult[3]);
 
-	return obj;
+	return userUTCOffset;
 };
-exports.minifyPropNamesOfUserUTCOffset = minifyPropNamesOfUserUTCOffset;
-
-const extendPropNamesOfUserUTCOffset = (minifiedUserUTCOffset) => {
-	const obj = {};
-
-	obj.sign = minifiedUserUTCOffset.s;
-	obj.hours = minifiedUserUTCOffset.h;
-	obj.minutes = minifiedUserUTCOffset.m;
-
-	return obj;
-};
-exports.extendPropNamesOfUserUTCOffset = extendPropNamesOfUserUTCOffset;
+exports.parseUserUTCOffsetString = parseUserUTCOffsetString;

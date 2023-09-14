@@ -16,7 +16,7 @@ exports.commandBlock_help = commandBlock_help;
 const commandBlock_settings = {
 	header:`НАСТРОЙКИ`
 	,setTime:{
-		commandTitle:`Задать текущее время в 24ч формате`
+		commandTitle:`Задать число и время для определения часового пояса`
 		,command:`зв`
 		,parameters:`N месяца N часов N минут`
 		,parameterDescription:`Необходимо задать для подсчета съеденного. По умолчанию задано время по МСК (UTC+3). На примере ниже 26 число текущего месяца 13 часов 37 минут.`

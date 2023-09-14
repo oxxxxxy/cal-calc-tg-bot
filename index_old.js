@@ -51,7 +51,7 @@ const {
 	,getPagingForNButtonsOfPagingInlineKeyboardLine
 	,getNButtonsForPagingInlineKeyboardLine
 	,makePagingInlineKeyboardLine
-} = require(`./reply/message/reply_markup/inlineKeyboard/utils/inlineKeyboard.js`);
+} = require(`./reply/message/reply_markup/inlineKeyboard/utils/pagingInlineKeyboard.js`);
 const {
 	getUserFoodSheetMessagePanel
 	} = require(`./reply/message/foodSheet.js`);
@@ -66,9 +66,13 @@ const {
 	,getCommandBlock_dishProcessMessage
 } = require(`./reply/message/help.js`);
 
+const {
+	getLanguageHasBeenChangedMessage
+	,getChangeLanguageMessage} = require(`./reply/message/changeLanguage.js`);
+
 
 const {
-	handleHelpMessageCommand
+	handleHelpCommand
 	,handleSetHelpPageOfMessagePanelCommand
 } = require(`./commandHandling/nonprocess/message/help.js`);
 
@@ -89,56 +93,60 @@ const RE_RU_NUTRIENTS = [];
 	*/
 
 /////////100% necessary START
-const RE_RU_COMMAND__HELP = /^(х|\/h)$/u;
 
-const RE_RU_COMMAND__SET_USER_UTC = /^зв(\s+|)([0-3][0-9]|[1-9])\s+([0-9]|[0-1][0-9]|2[0-3])\s+([0-9]|[0-5][0-9])$/u;
-
-
-
-const RE_RU_COMMAND__CREATE_DISH = /^(сб\s+)((([а-яА-Яa-zA-Z0-9]+)(\s+|))+)$/u;
-const RE_RU_COMMAND__EDIT_DISH = /^рб\s+([0-9]+)$/u;
-const RE_RU_COMMAND__RENAME_DISH = /^перб(\s+)(\d+)\s+(.*)/u;
-	const RE_RU_SUBCOMMAND__RENAME_DISH = /^п\s+(.*)/u;
+const RE_RU_MESSAGE__CREATE_DISH = /^(сб\s+)((([а-яА-Яa-zA-Z0-9]+)(\s+|))+)$/u;
+const RE_RU_MESSAGE__EDIT_DISH = /^рб\s+([0-9]+)$/u;
+const RE_RU_MESSAGE__RENAME_DISH = /^перб(\s+)(\d+)\s+(.*)/u;
+	const RE_RU_SUBMESSAGE__RENAME_DISH = /^п\s+(.*)/u;
 	const RE__RESOLVE_FD_ID_WEIGHT_FROM_InlQuery = /(f|d)([0-9]+)w(.*)/;
-	const RE_RU_SUBCOMMAND__DELETE_INGREDIENTs_FROM_DISH = /^у\s+[0-9]+/u;
-	const RE_RU_SUBCOMMAND__EDIT_INGREDIENT_WEIGHT_IN_DISH = /^ви\s+([0-9]+)\s+(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)$/u;
-	const RE_RU_SUBCOMMAND__DISH_TOTAL_WEIGHT = /^и\s+(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)$/u;
+	const RE_RU_SUBMESSAGE__DELETE_INGREDIENTs_FROM_DISH = /^у\s+[0-9]+/u;
+	const RE_RU_SUBMESSAGE__EDIT_INGREDIENT_WEIGHT_IN_DISH = /^ви\s+([0-9]+)\s+(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)$/u;
+	const RE_RU_SUBMESSAGE__DISH_TOTAL_WEIGHT = /^и\s+(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)$/u;
 
 
 
 
 
 /////////100% necessary END
+const RE_RU_MESSAGE__HELP = /^(х|\/h)$/u;
+const RE_CALLBACK_QUERY__LEAF_LIST_OF_HELP_PANEL = /^i(\d+)cp(\d+)$/;
+
+const RE_RU_MESSAGE__SET_USER_UTC = /^зв(\s+|)([0-3][0-9]|[1-9])\s+([0-9]|[0-1][0-9]|2[0-3])\s+([0-9]|[0-5][0-9])$/u;
+
+const RE_RU_MESSAGE__CHANGE_LANGUAGE = /^сменить\s+язык$/u;
+const RE_CALLBACK_QUERY__CHOOSE_LANGUAGE = /^i(\d+)chLa_(.+)$/;
 
 
+
+////bad or uncoded
 
 const RE_RU_YES = /^д$/u;
 const RE_RU_NO = /^н$/u;
-const RE_RU_COMMAND__DELETE_LAST_ACTION = /^у$/u;
-const RE_RU_COMMAND__CANCEL_LAST_ACTION = /^о$/u;
+const RE_RU_MESSAGE__DELETE_LAST_ACTION = /^у$/u;
+const RE_RU_MESSAGE__CANCEL_LAST_ACTION = /^о$/u;
 
 
-const RE_RU_COMMAND__CREATE_FOOD = /^(се\s+)((([а-яА-Яa-zA-Z0-9]+)(\s+|))+)\./u;
+const RE_RU_MESSAGE__CREATE_FOOD = /^(се\s+)((([а-яА-Яa-zA-Z0-9]+)(\s+|))+)\./u;
 // /^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\((\s+|)((([а-яА-Яa-zA-Z0-9]+)(\s+|):(\s+|)(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)(\s+|)(г|мкг|мг|ккал)(\s+|))+)\)$/u;
 // ^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\((\s+|)([а-яА-Яa-zA-Z0-9\s]+)(\s+|)\)$
 // ^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\(
-const RE_RU_COMMAND__SHOW_CREATED_FOOD = /^псе(\s+(б|ж|у|к)(\s+|)(>|<)(\s+|)(\d+)|)(\s+(б|ж|у|к)(\s+|)п(\s+|)(у|в)|)$/u;
-const RE_CALLBACK_Q__LEAF_LIST_OF_CREATED_FOOD = /^i(\d+)suf((p|f|c|cal)(>|<)(\d+)|)((p|f|c|cal)_(d|a)|)p(\d+)$/;
-const RE_RU_COMMAND__DELETE_CREATED_FOOD_IDs = /^уе(\s+|)([(\d+)\s+|(\d+)]+)$/u;//(([0-9]+(\s+|)|[0-9]+)+)$/u;
+const RE_RU_MESSAGE__SHOW_CREATED_FOOD = /^псе(\s+(б|ж|у|к)(\s+|)(>|<)(\s+|)(\d+)|)(\s+(б|ж|у|к)(\s+|)п(\s+|)(у|в)|)$/u;
+const RE_CALLBACK_QUERY__LEAF_LIST_OF_CREATED_FOOD_PANEL = /^i(\d+)suf((p|f|c|cal)(>|<)(\d+)|)((p|f|c|cal)_(d|a)|)p(\d+)$/;
+const RE_RU_MESSAGE__DELETE_CREATED_FOOD_IDs = /^уе(\s+|)([(\d+)\s+|(\d+)]+)$/u;//(([0-9]+(\s+|)|[0-9]+)+)$/u;
 
-const RE_RU_COMMAND__DELETE_CREATED_DISH_IDs = /^уб\s+/u; 
-const RE_RU_COMMAND__SHOW_CREATED_DISHES = /^псб$/u;
+const RE_RU_MESSAGE__DELETE_CREATED_DISH_IDs = /^уб\s+/u; 
+const RE_RU_MESSAGE__SHOW_CREATED_DISHES = /^псб$/u;
 
-const RE_RU_COMMAND__SHOW_EATEN_TODAY = /^пс$/u;
-const RE_RU_COMMAND__SHOW_EATEN_YESTODAY = /^псв$/u;
-const RE_RU_COMMAND__SHOW_EATEN_OF_ALL_TIME = /^псз$/u;
-const RE_RU_COMMAND__SHOW_EATEN_IN_DAY = /^псд\s+/u;//BY DATE
-const RE_RU_COMMAND__EDIT_WEIGHT_OF_EATEN_TODAY_Num = /^ив\s+/u;// num of eaten item, new weight
-const RE_RU_COMMAND__EDIT_WEIGHT_OF_EATEN_YESTODAY_Num = /^ивв\s+/u;// num of eaten item, new weight
-const RE_RU_COMMAND__EDIT_WEIGHT_OF_EATEN_IN_DAY_Num = /^ивд\s+/u;// num of eaten item, new weight
-const RE_RU_COMMAND__DELETE_EATEN_TODAY_Num = /^ус\s+/u;
-const RE_RU_COMMAND__DELETE_EATEN_YESTODAY_Num = /^усв\s+/u;
-const RE_RU_COMMAND__DELETE_EATEN_IN_DAY_Num = /^усд\s+/u;
+const RE_RU_MESSAGE__SHOW_EATEN_TODAY = /^пс$/u;
+const RE_RU_MESSAGE__SHOW_EATEN_YESTODAY = /^псв$/u;
+const RE_RU_MESSAGE__SHOW_EATEN_OF_ALL_TIME = /^псз$/u;
+const RE_RU_MESSAGE__SHOW_EATEN_IN_DAY = /^псд\s+/u;//BY DATE
+const RE_RU_MESSAGE__EDIT_WEIGHT_OF_EATEN_TODAY_Num = /^ив\s+/u;// num of eaten item, new weight
+const RE_RU_MESSAGE__EDIT_WEIGHT_OF_EATEN_YESTODAY_Num = /^ивв\s+/u;// num of eaten item, new weight
+const RE_RU_MESSAGE__EDIT_WEIGHT_OF_EATEN_IN_DAY_Num = /^ивд\s+/u;// num of eaten item, new weight
+const RE_RU_MESSAGE__DELETE_EATEN_TODAY_Num = /^ус\s+/u;
+const RE_RU_MESSAGE__DELETE_EATEN_YESTODAY_Num = /^усв\s+/u;
+const RE_RU_MESSAGE__DELETE_EATEN_IN_DAY_Num = /^усд\s+/u;
 
 const RE_RU_INLINE_COMMAND__WILL_EAT = /^([0-9]+)г\s+/u;//([0-9]+)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){2,})$/u; //в поиске выдавать с подсчитанным БЖУКом 
 	const RE_RU_INLINE_COMMAND__ADD_INGREDIENT_TO_DISH = /^(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)\s+(((б|ж|у|к)(\s+|)(>|<)(\s+|)(\d+))|)/u;
@@ -146,8 +154,8 @@ const RE_RU_INLINE_COMMAND__LOOK_AT_FOOD_OR_DISH = /^п\s+/u;// фильтры: 
 
 
 
-const RE_RU_COMMAND__SET_DAY_BJUK = /^/u;
-const RE_RU_COMMAND__SET_LOCAL_TIME = /^([0-1][0-9]|[2][0-3])(\s+|):(\s+|)([0-5][0-9])$/u;
+const RE_RU_MESSAGE__SET_DAY_BJUK = /^/u;
+const RE_RU_MESSAGE__SET_LOCAL_TIME = /^([0-1][0-9]|[2][0-3])(\s+|):(\s+|)([0-5][0-9])$/u;
 
 	
 
@@ -156,13 +164,13 @@ const RE_RU_COMMAND__SET_LOCAL_TIME = /^([0-1][0-9]|[2][0-3])(\s+|):(\s+|)([0-5]
 
 
 
-const RE_RU_COMMAND__CREATE_AIM = /^(с|создать)(\s+|)(ц|цель)(\s+|)((п|повторять)(\s+|)\((\s+|)(([0-9]+)(\s+|)д(\s+|)\((\s+|)(([а-яА-Я]+)(\s+|):(\s+|)(([0-9]+)(\s+|)(,|.|)(\s+|)([0-9]+|)(\s+|)(г|%|к))(\s+|)(,|)(\s+|))+(\s+|)\)(\s+|)(,|)(\s+|))+\)(\s+|)((вт|в(\s+|)течении)(\s+|)([0-9]+)(\s+|)(д|м)|)|(([0-9]+)(\s+|)д(\s+|)\((\s+|)(([а-яА-Я]+)(\s+|):(\s+|)(([0-9]+)(\s+|)(,|.|)(\s+|)([0-9]+|)(\s+|)(г|%|к))(\s+|)(,|)(\s+|))+(\s+|)\)(\s+|)(,|)(\s+|))+)$/u; // не больше 365 дней или 12 месяцев,
-const RE_RU_COMMAND__COMPLETE_AIM = /^(з|завершить)(\s+|)(ц|цель)(\s+|)([0-9]+)$/u;
-const RE_RU_COMMAND__SHOW_AIMS = /^(п|показать)(\s+|)(ц|цели)(\s+|)((а|активные)|(з|завершенные)|(у|удаленные)|)$/u;//???? кнопки
-const RE_RU_COMMAND__DELETE_AIM = /^(у|удалить)(\s+|)(ц|цель)$/u; //only active
+const RE_RU_MESSAGE__CREATE_AIM = /^(с|создать)(\s+|)(ц|цель)(\s+|)((п|повторять)(\s+|)\((\s+|)(([0-9]+)(\s+|)д(\s+|)\((\s+|)(([а-яА-Я]+)(\s+|):(\s+|)(([0-9]+)(\s+|)(,|.|)(\s+|)([0-9]+|)(\s+|)(г|%|к))(\s+|)(,|)(\s+|))+(\s+|)\)(\s+|)(,|)(\s+|))+\)(\s+|)((вт|в(\s+|)течении)(\s+|)([0-9]+)(\s+|)(д|м)|)|(([0-9]+)(\s+|)д(\s+|)\((\s+|)(([а-яА-Я]+)(\s+|):(\s+|)(([0-9]+)(\s+|)(,|.|)(\s+|)([0-9]+|)(\s+|)(г|%|к))(\s+|)(,|)(\s+|))+(\s+|)\)(\s+|)(,|)(\s+|))+)$/u; // не больше 365 дней или 12 месяцев,
+const RE_RU_MESSAGE__COMPLETE_AIM = /^(з|завершить)(\s+|)(ц|цель)(\s+|)([0-9]+)$/u;
+const RE_RU_MESSAGE__SHOW_AIMS = /^(п|показать)(\s+|)(ц|цели)(\s+|)((а|активные)|(з|завершенные)|(у|удаленные)|)$/u;//???? кнопки
+const RE_RU_MESSAGE__DELETE_AIM = /^(у|удалить)(\s+|)(ц|цель)$/u; //only active
 
-const RE_RU_COMMAND__ADD_WEIGHTING = /^(в|вес)(\s+|)([0-9]+|[0-9]+(\s+|)(,|.)(\s+|)[0-9]+)$/u;
-const RE_RU_COMMAND__DELETE_LAST_ADDED_WEIGHTING = /^(у|удалить)(\s+|)(в|вес)$/u;
+const RE_RU_MESSAGE__ADD_WEIGHTING = /^(в|вес)(\s+|)([0-9]+|[0-9]+(\s+|)(,|.)(\s+|)[0-9]+)$/u;
+const RE_RU_MESSAGE__DELETE_LAST_ADDED_WEIGHTING = /^(у|удалить)(\s+|)(в|вес)$/u;
 
 
 const RE_RU_BOT_AND_INLINE_COMMAND__GET_STATS = /^(п|показать)(\s+|)(ст|статистику)(\s+|)(\s+|)((в|вес)|(п|потребление)|(ц|цели)|)(\s+|)((([0-9]+)(\s+|)(д|м|г))|(за(\s+|)вс(ё|е)(\s+|)время)|)$/u; // body or eaten food or aims //ras v chas
@@ -826,7 +834,7 @@ const sendMessage2 = async parameters => {
 			remainingParameters
 		);
 	}catch(e){
-		console.log(chatId, text, e);
+		console.log(chat_id, text, e);
 		return false;
 	}
 };
@@ -866,7 +874,7 @@ const editMessageText2 = async parameters => {
 			remainingParameters
 		);
 	} catch(e) {
-		console.log(chatId, messageId, text, inlineKeyboard, e);
+		console.log(chat_id, message_id, text, remainingParameters, e);
 		if(e.error_code == 400){
 			try{
 				return await bot.telegram.sendMessage(
@@ -875,7 +883,7 @@ const editMessageText2 = async parameters => {
 					remainingParameters
 				);
 			}catch(e){
-				console.log(chatId, messageId, text, inlineKeyboard, e);
+				console.log(chat_id, message_id, text, remainingParameters, e);
 				return false;
 			}
 		}
@@ -1449,8 +1457,6 @@ bot.on(`message`, async ctx => {
 		`________MESSAGE________end`
 	) 
 
-
-
 	if (!(ctx.update.message.chat.type == `private`)) {
 		return;
 	}
@@ -1481,7 +1487,9 @@ bot.on(`message`, async ctx => {
 	const gotUserMessageId = ctx.update.message.message_id;
 	
 	const reqDate = ctx.update.message.date * 1000;	
-	const creation_date = new Date(reqDate).toISOString();
+	const requestDateEpoch = ctx.update.message.date * 1000;
+	const requestDate = new Date(requestDateEpoch);
+	const creation_date = requestDate.toISOString();
 
 	const languageCode = `ru`;
 	userInfo.s__lang_code = languageCode;
@@ -1502,9 +1510,12 @@ bot.on(`message`, async ctx => {
 		,gotUserMessageId
 	);
 
-const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowIntoTelegramUserSendedCommands(getPredefinedRowForTelegramUserSendedCommands, insertIntoTelegramUserSendedCommandsPostgresTable);
+	const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowIntoTelegramUserSendedCommands(
+		getPredefinedRowForTelegramUserSendedCommands
+		,insertIntoTelegramUserSendedCommandsPostgresTable
+	);
 
-	const commonFns = makeObjOfFnsFromObjsWith1Fn(
+	const fns = makeObjOfFnsFromObjsWith1Fn(
 		{sendMessageToSetChat}
 		,{insertCommandRowIntoTelegramUserSendedCommands}
 		,{completeInvalidCommandHandling}
@@ -1648,21 +1659,34 @@ const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowInt
 			;`);
 		}
 
-		if(Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__HELP))){
+		if(Array.isArray(re_result = text.toLowerCase().match(RE_RU_MESSAGE__HELP))){
 
-			await handleHelpMessageCommand(commonFns, userInfo);
+			await handleHelpCommand(fns, userInfo);
 
-		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SET_USER_UTC))) {
+		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_MESSAGE__SET_USER_UTC))) {
 
 			const dayOfMonth = Number(re_result[2]);
 			const hours = Number(re_result[3]);
 			const minutes = Number(re_result[4]);
-			const currentDate = new Date(reqDate);
 
-			await handleSetUserUTCCommand(commonFns, pgClient, userInfo, dayOfMonth, hours, minutes, currentDate);
+			await handleSetUserUTCCommand(fns, pgClient, userInfo, dayOfMonth, hours, minutes, requestDate);
 
-		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__CREATE_FOOD))) {
-			// console.log(re_result, `RE_RU_COMMAND__CREATE_FOOD`);
+		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_MESSAGE__CHANGE_LANGUAGE))) {
+			console.log(re_result);
+
+			//make message with inline_keyboard
+			const dataPart = `i${userInfo.tg_user_id}chLa_`;
+
+			const reply = getChangeLanguageMessage(dataPart);
+
+			const res = await sendMessageToSetChat(reply);	
+
+			//send message and get message_id
+			//create userSubprocess 
+			//insert command
+
+		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_MESSAGE__CREATE_FOOD))) {
+			// console.log(re_result, `RE_RU_MESSAGE__CREATE_FOOD`);
 
 			let limit_count_of_user_created_fidi = 100;
 			if (!userInfo.privilege_type && userInfo.limit_count_of_user_created_fidi >= limit_count_of_user_created_fidi) {
@@ -1850,7 +1874,7 @@ const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowInt
 
 			await sendMessageToChat(m.text, m.reply_markup);
 
-			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SHOW_CREATED_FOOD))) {
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_MESSAGE__SHOW_CREATED_FOOD))) {
 				console.log(re_result);
 
 				const user_language_code = `ru`;
@@ -1921,16 +1945,16 @@ const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowInt
 					countOfAllRows = userInfo.available_count_of_user_created_fi;
 				}
 				
-				const m = getUserFoodSheetMessagePanel(user_language_code, dataPart, res.rows, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting);
+				const reply = getUserFoodSheetMessagePanel(user_language_code, dataPart, res.rows, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting);
 
-				await sendMessageToChat(m.text, m.inlineKeyboard);
+				await sendMessageToSetChat(reply);
 
 				const row = getPredefinedRowForTelegramUserSendedCommands();
 				row.command = `SHOW_CREATED_FOOD`;
 				
 				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
 
-			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_CREATED_FOOD_IDs))) {
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_MESSAGE__DELETE_CREATED_FOOD_IDs))) {
 				
 				const num_re = /\d+/g;
 				const fi_id_for_userArr = [...re_result[2].matchAll(num_re)].map(e => e[0]);
@@ -1972,9 +1996,9 @@ const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowInt
 					WHERE id = ${userInfo.r_user_id}
 				;`);
 
-				await sendMessageToChat(m.text, m.reply_markup);
+				await sendMessageToSetChat(m);
 					
-		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_LAST_ACTION))) {
+		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_MESSAGE__DELETE_LAST_ACTION))) {
 		
 			console.log(userLastCommand);
 
@@ -2025,7 +2049,7 @@ const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowInt
 				ctx.reply(`code me`)
 			}
 
-		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__CANCEL_LAST_ACTION))) {
+		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_MESSAGE__CANCEL_LAST_ACTION))) {
 
 			const userLastCommand = await getUserLastCommand(DB_CLIENT, userInfo.tg_user_id);
 			console.log(userLastCommand);
@@ -2113,7 +2137,7 @@ const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowInt
 			console.log(`code me`)
 			ctx.reply(`code me`)
 			console.log(re_result);			
-		} else if (Array.isArray(re_result = text.match(RE_RU_COMMAND__CREATE_DISH))) {
+		} else if (Array.isArray(re_result = text.match(RE_RU_MESSAGE__CREATE_DISH))) {
 				console.log(re_result);			
 				
 				let limit_count_of_user_created_fidi = 100;
@@ -2231,7 +2255,7 @@ const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowInt
 				paramQuery.values = getArrOfValuesFromObj(row);
 				await DB_CLIENT.query(paramQuery);
 
-			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__EDIT_DISH))) {
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_MESSAGE__EDIT_DISH))) {
 				const di_id_for_user = re_result[1];
 
 				//select by di_id_for_user, tg_user_id
@@ -2329,7 +2353,7 @@ const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowInt
 				paramQuery.values = getArrOfValuesFromObj(row);
 				await DB_CLIENT.query(paramQuery);
 
-			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__SHOW_CREATED_DISHES))) {
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_MESSAGE__SHOW_CREATED_DISHES))) {
 
 				console.log(re_result);
 			
@@ -2342,7 +2366,7 @@ const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowInt
 				}
 				
 
-			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__DELETE_CREATED_DISH_IDs))) {
+			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_MESSAGE__DELETE_CREATED_DISH_IDs))) {
 					ctx.reply(`code me, btch`)
 					console.log(`code me`)
 			} else {
@@ -2360,7 +2384,7 @@ const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowInt
 			const dishSheetMessageId = userSubprocess.state.message_id;
 
 			if (userSubprocess.process_name == `DISH_CREATING`){
-				if(Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__HELP))){
+				if(Array.isArray(re_result = text.toLowerCase().match(RE_RU_MESSAGE__HELP))){
 					const subCommand = `get help`;
 					if (userSubprocess.state.interface == `help`) {
 						userSubprocess.sequence.push(getSequenceAction(userMessageId));
@@ -2433,7 +2457,7 @@ const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowInt
 	
 					await updateUserSubprocess(userSubprocess);
 
-				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_SUBCOMMAND__RENAME_DISH))){
+				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_SUBMESSAGE__RENAME_DISH))){
 					const subCommand = `rename dish`;
 					console.log(re_result);
 						
@@ -2573,7 +2597,7 @@ const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowInt
 
 					await completeSubrocessCommand(userMessageId, userSubprocess, validComment, subCommand);
 
-				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_SUBCOMMAND__DELETE_INGREDIENTs_FROM_DISH))) {
+				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_SUBMESSAGE__DELETE_INGREDIENTs_FROM_DISH))) {
 					const subCommand = `deleteIngrFromDish`;
 
 					//row.data.action = {delete ingredient, ingredients}
@@ -2667,7 +2691,7 @@ const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowInt
 
 					await completeSubrocessCommand(userMessageId, userSubprocess, validComment, subCommand);
 
-				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_SUBCOMMAND__EDIT_INGREDIENT_WEIGHT_IN_DISH))) {
+				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_SUBMESSAGE__EDIT_INGREDIENT_WEIGHT_IN_DISH))) {
 					const subCommand = `deleteIngrFromDish`;
 
 					const ingredientNum = Number(re_result[1]);
@@ -2730,7 +2754,7 @@ const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowInt
 
 					await completeSubrocessCommand(userMessageId, userSubprocess, validComment, subCommand);
 
-				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_SUBCOMMAND__DISH_TOTAL_WEIGHT))) {
+				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_SUBMESSAGE__DISH_TOTAL_WEIGHT))) {
 					const subCommand = `dishTotalWeight`;
 
 					const totalWeight = Number(re_result[1].replace(/\,/, '.'));
@@ -2954,7 +2978,7 @@ const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowInt
 				await DB_CLIENT.query(paramQuery);
 			}	else if (userSubprocess.process_name == `DISH_EDITING`){
 				console.log(`DISH_EDITING`);
-				if(Array.isArray(re_result = text.toLowerCase().match(RE_RU_COMMAND__HELP))){
+				if(Array.isArray(re_result = text.toLowerCase().match(RE_RU_MESSAGE__HELP))){
 					const subCommand = `get help`;
 					if (userSubprocess.state.interface == `help`) {
 						userSubprocess.sequence.push(getSequenceAction(userMessageId));
@@ -3026,7 +3050,7 @@ const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowInt
 					}
 	
 					await updateUserSubprocess(userSubprocess);
-				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_SUBCOMMAND__RENAME_DISH))){
+				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_SUBMESSAGE__RENAME_DISH))){
 					const subCommand = `rename dish`;
 					console.log(re_result);
 						
@@ -3167,7 +3191,7 @@ const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowInt
 
 					await completeSubrocessCommand(userMessageId, userSubprocess, validComment, subCommand);
 
-				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_SUBCOMMAND__DELETE_INGREDIENTs_FROM_DISH))) {
+				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_SUBMESSAGE__DELETE_INGREDIENTs_FROM_DISH))) {
 					const subCommand = `deleteIngrFromDish`;
 
 					//row.data.action = {delete ingredient, ingredients}
@@ -3264,7 +3288,7 @@ const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowInt
 
 					await completeSubrocessCommand(userMessageId, userSubprocess, validComment, subCommand);
 
-				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_SUBCOMMAND__EDIT_INGREDIENT_WEIGHT_IN_DISH))) {
+				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_SUBMESSAGE__EDIT_INGREDIENT_WEIGHT_IN_DISH))) {
 					const subCommand = `deleteIngrFromDish`;
 
 					const ingredientNum = Number(re_result[1]);
@@ -3327,7 +3351,7 @@ const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowInt
 
 					await completeSubrocessCommand(userMessageId, userSubprocess, validComment, subCommand);
 
-				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_SUBCOMMAND__DISH_TOTAL_WEIGHT))) {
+				} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_SUBMESSAGE__DISH_TOTAL_WEIGHT))) {
 					const subCommand = `dishTotalWeight`;
 
 					const totalWeight = Number(re_result[1].replace(/\,/, '.'));
@@ -3481,7 +3505,6 @@ bot.on(`callback_query`, async ctx => {
 	const reCancel = /^i(\d+)cancel$/;
 
 	const reCommands = /^i(\d+)commands$/;
-	const reHelpPage = /^i(\d+)cp(\d+)$/;
 
 	const chatId = callbackQuery.message.chat.id;
 	const messageId = callbackQuery.message.message_id;
@@ -3500,19 +3523,19 @@ bot.on(`callback_query`, async ctx => {
 		,insertIntoTelegramUserSendedCommandsPostgresTable
 	);
 		
-	const commonFns = makeObjOfFnsFromObjsWith1Fn(
+	const fns = makeObjOfFnsFromObjsWith1Fn(
 		{isPreviousMessagePanelEqualToNewOneBound}
 		,{editTextOfSetMessageInSetChat}
 		,{insertCommandRowIntoTelegramUserSendedCommands}
 	);
 
 
-	if (Array.isArray(re_result = callbackQuery.data.match(reHelpPage))) {
+	if (Array.isArray(re_result = callbackQuery.data.match(RE_CALLBACK_QUERY__LEAF_LIST_OF_HELP_PANEL))) {
 		const selectedPage = Number(re_result[2]);
 
-		await handleSetHelpPageOfMessagePanelCommand(commonFns, userInfo, selectedPage);
+		await handleSetHelpPageOfMessagePanelCommand(fns, userInfo, selectedPage);
 
-	} else if (Array.isArray(re_result = callbackQuery.data.match(RE_CALLBACK_Q__LEAF_LIST_OF_CREATED_FOOD))) {
+	} else if (Array.isArray(re_result = callbackQuery.data.match(RE_CALLBACK_QUERY__LEAF_LIST_OF_CREATED_FOOD_PANEL))) {
 		console.log(re_result);
 
 		const selectedPage = re_result[9];
@@ -3565,7 +3588,7 @@ bot.on(`callback_query`, async ctx => {
 			return;
 		}
 	
-		await editMessage(chatId, messageId, m.text, m.inlineKeyboard);
+		await editTextOfSetMessageInSetChat(m);
 
 	} else if (Array.isArray(re_result = callbackQuery.data.match(reDishLookingPage))) {
 			console.log(`code me`, re_result);
@@ -4027,6 +4050,12 @@ bot.on(`callback_query`, async ctx => {
 				userSubprocess.state.message_id = res.message_id;
 
 				await updateUserSubprocess(userSubprocess);
+			}
+		} else if(userSubprocess.process_name == `LANGUAGE_CHANGING`){
+			if (Array.isArray(re_result = callbackQuery.data.match(RE_CALLBACK_QUERY__CHOOSE_LANGUAGE))) {
+				console.log(re_result);
+
+
 			}
 		} else if(userSubprocess.process_name == `DISH_EDITING`){
 			if(Array.isArray(re_result = callbackQuery.data.match(reCancel))){

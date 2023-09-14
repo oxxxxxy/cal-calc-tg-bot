@@ -1,4 +1,4 @@
-const {minifyPropNamesOfUserUTCOffset} = require(`../..//utils/utcOffset.js`);
+const {makeUserUTCOffsetString} = require(`../..//utils/utcOffset.js`);
 const {getSetUserUTCMessage, getInvalidMessage_wholeData, getInvalidMessage_dayOfMonth} = require(`../../../reply/message/setUserUTC.js`);
 
 const months = [
@@ -102,9 +102,9 @@ const getMonthByNum = (n) => {
 	return months[n];
 };
 
-const getUserDayOffset = (dayOfMonth, currentDate) => {
-	const UTCDate = currentDate.getUTCDate();
-	const UTCMonth = currentDate.getUTCMonth();
+const getUserDayOffset = (dayOfMonth, requestDate) => {
+	const UTCDate = requestDate.getUTCDate();
+	const UTCMonth = requestDate.getUTCMonth();
 	//ud 31  cd 1
 	if(dayOfMonth > UTCDate + 1 && dayOfMonth == getMonthByNum(UTCMonth - 1).dayLength){
 		return `yesterday`;
@@ -181,15 +181,15 @@ const calcUserUTCOffsetWhenUHoursOffsetNegative = (userUTCHoursOffset, userMinut
 	return userUTCOffset;
 }
 
-const getUserUTCOffset = (userDayOfMonth, userHours, userMinutes, currentDate) => {
-	const userDayOffset = getUserDayOffset(userDayOfMonth, currentDate);
+const getUserUTCOffset = (userDayOfMonth, userHours, userMinutes, requestDate) => {
+	const userDayOffset = getUserDayOffset(userDayOfMonth, requestDate);
 	
 	if(!userDayOffset){
 		return false;
 	}
 	
-	const UTCHours = currentDate.getUTCHours();
-	const UTCMinutes = currentDate.getUTCMinutes();
+	const UTCHours = requestDate.getUTCHours();
+	const UTCMinutes = requestDate.getUTCMinutes();
 
 	let userUTCOffset = {
 		sign:`+`
@@ -234,14 +234,14 @@ const getUserUTCOffset = (userDayOfMonth, userHours, userMinutes, currentDate) =
 }
 exports.getUserUTCOffset = getUserUTCOffset;
 
-const handleSetUserUTCCommand = async (fns, pgClient, userInfo, dayOfMonth, hours, minutes, currentDate) => {
+const handleSetUserUTCCommand = async (fns, pgClient, userInfo, dayOfMonth, hours, minutes, requestDate) => {
 	if(!dayOfMonth){
 		const invalidReply = getInvalidMessage_dayOfMonth(userInfo.s__lang_code);
 		await fns.completeInvalidCommandHandling(invalidReply);
 		return;
 	}
 
-	let userUTCOffset = getUserUTCOffset(dayOfMonth, hours, minutes, currentDate);
+	let userUTCOffset = getUserUTCOffset(dayOfMonth, hours, minutes, requestDate);
 
 	if (!userUTCOffset) {
 		const invalidReply = getInvalidMessage_wholeData(userInfo.s__lang_code);
@@ -253,17 +253,17 @@ const handleSetUserUTCCommand = async (fns, pgClient, userInfo, dayOfMonth, hour
 
 	await fns.sendMessageToSetChat(reply);
 
-	userUTCOffset = minifyPropNamesOfUserUTCOffset(userUTCOffset);
+	userUTCOffset = makeUserUTCOffsetString(userUTCOffset);
 	
 	await pgClient.query(`
 		UPDATE telegram_users
-		SET s__utc_s_h_m = '${JSON.stringify(userUTCOffset)}'
+		SET s__utc_s_h_m = '${userUTCOffset}'
 		WHERE tg_user_id = ${userInfo.tg_user_id}
 	;`);
 
 	const row = {
 		command : `SET_USER_UTC`
-		,data : JSON.stringify(userUTCOffset)
+		,data : JSON.stringify([userUTCOffset])
 	}
 
 	await fns.insertCommandRowIntoTelegramUserSendedCommands(row);

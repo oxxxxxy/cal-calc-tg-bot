@@ -2,6 +2,7 @@ const {
 	makeRuHeaderBeforeUserFoodSheet
 	,makeRuFoodSheetHeader
 	,makeRuFoodSheetContent
+	,ruCommandBlock_dishProcessText
 } = require(`../languages/ru/foodSheet.js`);
 
 const makeUserFoodSheetMessageText = (language_code, foodList, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting) => {
@@ -17,3 +18,16 @@ const makeUserFoodSheetMessageText = (language_code, foodList, countOfAllRows, b
 	}
 }
 exports.makeUserFoodSheetMessageText = makeUserFoodSheetMessageText;
+
+const getCommandBlock_dishProcessText = (languageCode) => {
+	switch (languageCode) {
+	 	case 'ru':
+	 		return ruCommandBlock_dishProcessText;
+	 	case 'en':
+			return `code me`;
+	 	default:
+	 		return `code me`;
+	}
+};
+exports.getCommandBlock_dishProcessText = getCommandBlock_dishProcessText;
+
