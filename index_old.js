@@ -473,6 +473,43 @@ const extendBJUKnWNOfIngredients = ingredients => {
 		);
 	};
 	
+const createUserSubprocessAndGetItId = async (pgClient, row) => {
+	if(!row.state){
+		throw new Error(`row.state is required.`);
+	}
+
+	if(!row.data){
+		row.data = {};
+	}
+
+	if(!row.sequence){
+		row.sequence = [];
+	}
+
+	row.data = JSON.stringify(row.data);
+	row.sequence = JSON.stringify(row.sequence);
+	row.state = JSON.stringify(row.state);
+	
+	const paramQuery = {};
+	paramQuery.text = `
+		INSERT INTO telegram_user_subprocesses
+		(${objKeysToColumnStr(row)})
+		VALUES
+		(${objKeysToColumn$IndexesStr(row)})
+		RETURNING id
+	;`;
+	paramQuery.values = getArrOfValuesFromObj(row);
+
+	const res = await pgClient.query(paramQuery);
+	return res.rows[0].id;
+};
+
+const makePredefinedFnCreateUserSubprocessAndGetItId = (pgClient, getPredefinedRow) => row => {
+	row = {...row, ...getPredefinedRow()};
+
+	return createUserSubprocessAndGetItId(pgClient, row);
+}
+
 	const completeUserSubprocess = async (userSubprocessId, obj) => {
 		let row = {};
 		if(obj){
@@ -983,9 +1020,9 @@ const makeFnCompleteInvalidCommandHandling = (sendMessageToSetChat, getPredefine
 					;`;
 				}
 
-	const makeFnInsertCommandRowIntoTelegramUserSendedCommands = (getPredefinedRowForTelegramUserSendedCommands, insertIntoTelegramUserSendedCommands) =>
+	const makeFnInsertCommandRowIntoTelegramUserSendedCommands = (getPredefinedRowWithDateTgUserId, insertIntoTelegramUserSendedCommands) =>
 		commandRow => {
-			let predefinedRow = getPredefinedRowForTelegramUserSendedCommands();
+			let predefinedRow = getPredefinedRowWithDateTgUserId();
 		
 			if(typeof commandRow == `string`){
 					predefinedRow.command = commandRow;
@@ -1498,20 +1535,20 @@ bot.on(`message`, async ctx => {
 	row.tg_user_id = userInfo.tg_user_id;
 	row.creation_date = creation_date;
 
-	const getPredefinedRowForTelegramUserSendedCommands = memoizeOneArgument(row);
+	const getPredefinedRowWithDateTgUserId = memoizeOneArgument(row);
 	
 	const sendMessageToChat = makeFnSendMessageToChat(chatId);
 	const sendMessageToSetChat = makeFnSendMessageToSetChat(chatId);
 
 	const completeInvalidCommandHandling = makeFnCompleteInvalidCommandHandling(
 		sendMessageToSetChat
-		,getPredefinedRowForTelegramUserSendedCommands
+		,getPredefinedRowWithDateTgUserId
 		,insertIntoTelegramUserSendedCommandsPostgresTable
 		,gotUserMessageId
 	);
 
 	const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowIntoTelegramUserSendedCommands(
-		getPredefinedRowForTelegramUserSendedCommands
+		getPredefinedRowWithDateTgUserId
 		,insertIntoTelegramUserSendedCommandsPostgresTable
 	);
 
@@ -1674,16 +1711,39 @@ bot.on(`message`, async ctx => {
 		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_MESSAGE__CHANGE_LANGUAGE))) {
 			console.log(re_result);
 
-			//make message with inline_keyboard
-			const dataPart = `i${userInfo.tg_user_id}chLa_`;
+			const createUserSubprocessAndGetItIdPredefined = makePredefinedFnCreateUserSubprocessAndGetItId(pgClient, getPredefinedRowWithDateTgUserId);
 
-			const reply = getChangeLanguageMessage(dataPart);
+			const extendedFns = {...fns, ...makeObjOfFnsFromObjsWith1Fn({createUserSubprocessAndGetItIdPredefined})};
 
-			const res = await sendMessageToSetChat(reply);	
+			const handleChangeLanguageCommand = async (fns, userInfo) => {
+				const dataPart = `i${userInfo.tg_user_id}chLa_`;
 
-			//send message and get message_id
-			//create userSubprocess 
-			//insert command
+				const reply = getChangeLanguageMessage(dataPart);
+
+				const res = await fns.sendMessageToSetChat(reply);	
+
+				if(!res){
+					return;
+				}
+
+				let row = {
+					process_name : `LANGUAGE_CHANGING`
+					,state : {
+						message_id : res.message_id
+					}
+				}
+
+				const subprocess_id = await fns.createUserSubprocessAndGetItIdPredefined(row);
+
+				row = {
+					command : `CREATE_DISH`
+					,subprocess_id : subprocess_id
+				};
+
+				await fns.insertCommandRowIntoTelegramUserSendedCommands(row);
+			};
+
+			await handleChangeLanguageCommand(extendedFns, userInfo);
 
 		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_MESSAGE__CREATE_FOOD))) {
 			// console.log(re_result, `RE_RU_MESSAGE__CREATE_FOOD`);
@@ -1843,7 +1903,7 @@ bot.on(`message`, async ctx => {
 
 			await MSDB.addDocuments([doc]);
 
-			row = getPredefinedRowForTelegramUserSendedCommands();
+			row = getPredefinedRowWithDateTgUserId();
 			row.command = `CREATE_FOOD`;
 			row.can_it_be_removed = true;
 
@@ -1949,7 +2009,7 @@ bot.on(`message`, async ctx => {
 
 				await sendMessageToSetChat(reply);
 
-				const row = getPredefinedRowForTelegramUserSendedCommands();
+				const row = getPredefinedRowWithDateTgUserId();
 				row.command = `SHOW_CREATED_FOOD`;
 				
 				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
@@ -1982,7 +2042,7 @@ bot.on(`message`, async ctx => {
 					filter:`food_items_id IN [${res.rows.map(e => e.id).join()}]`
 				});
 				
-				let row = getPredefinedRowForTelegramUserSendedCommands();
+				let row = getPredefinedRowWithDateTgUserId();
 				row.command = `DELETE_FOOD`;
 				
 				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
@@ -2031,7 +2091,7 @@ bot.on(`message`, async ctx => {
 				`);
 
 				//telegram_user_sended_commands add deletion
-				const row = getPredefinedRowForTelegramUserSendedCommands();
+				const row = getPredefinedRowWithDateTgUserId();
 				row.command = `DELETE_FOOD`;
 				row.can_it_be_canceled = true;
 
@@ -2207,7 +2267,7 @@ bot.on(`message`, async ctx => {
 				console.log(response);
 
 				//add to telegram_user_sended_commands
-				let row = getPredefinedRowForTelegramUserSendedCommands();
+				let row = getPredefinedRowWithDateTgUserId();
 				row.command = `CREATE_DISH`;
 				row.is_process_c = true;
 
@@ -3515,11 +3575,11 @@ bot.on(`callback_query`, async ctx => {
 	row.tg_user_id = userInfo.tg_user_id;
 	row.creation_date = creation_date;
 
-	const getPredefinedRowForTelegramUserSendedCommands = memoizeOneArgument(row);
+	const getPredefinedRowWithDateTgUserId = memoizeOneArgument(row);
 	const editTextOfSetMessageInSetChat = makeFnEditTextOfSetMessageInSetChat(chatId, messageId);
 
 	const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowIntoTelegramUserSendedCommands(
-		getPredefinedRowForTelegramUserSendedCommands
+		getPredefinedRowWithDateTgUserId
 		,insertIntoTelegramUserSendedCommandsPostgresTable
 	);
 		
