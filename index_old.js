@@ -449,7 +449,7 @@ const extendBJUKnWNOfIngredients = ingredients => {
 	}
 
 	const updateTelegramUserSubprocessPostgresTable = async (id, row) => {
-		let paramQuery = {};
+		const paramQuery = {};
 		paramQuery.text = `
 			UPDATE telegram_user_subprocesses
 			SET	${getStrOfColumnNamesAndTheirSettedValues(row)}
@@ -470,10 +470,14 @@ const extendBJUKnWNOfIngredients = ingredients => {
 		row.sequence = JSON.stringify(row.sequence);
 		row.state = JSON.stringify(row.state);
 
-		await updateTelegramUserSubprocessPostgresTable(
-			userSubprocess.id,
-			row
-		);
+		try{
+			await updateTelegramUserSubprocessPostgresTable(
+				userSubprocess.id,
+				row
+			);
+		} catch(e) {
+			console.log(e);
+		}
 	};
 	
 const createUserSubprocessAndGetItId = async (pgClient, row) => {
@@ -694,7 +698,7 @@ const isPreviousMessagePanelEqualToNewOne = (callbackQuery, newPanel) => {
 					}
 
 					const deletePreviousUserInput = async userSubprocess => {
-						const userPreviousInput = userSubprocess.sequence.findLast(e => e.fromUser && e.message_id && !e.deleted);
+						const userPreviousInput = userSubprocess.sequence.findLast(e => e.user && e.message_id && !e.deleted);
 
 						if(userPreviousInput){
 							userPreviousInput.deleted = await deleteMessage(
@@ -703,6 +707,33 @@ const isPreviousMessagePanelEqualToNewOne = (callbackQuery, newPanel) => {
 								);
 						}
 					};
+
+const criterionFn_getBotReplyInsideSubprocessSequence = e => e.bot && e.message_id && !e.deleted;
+const criterionFn_getUserMessageInsideSubprocessSequence = e => e.user && e.message_id && !e.deleted;
+
+const findAndDeleteLastMessageOfSubprocessByCriterionFn = async (userSubprocess, criterionFn) => {
+	const last = userSubprocess.sequence.findLast(criterionFn);
+
+	if(last) {
+		last.deleted = await deleteMessage(
+				userSubprocess.tg_user_id,
+				last.message_id
+			);
+	}
+}
+
+const makePredefinedFnFindAndDeleteLastMessageOfSubprocess = criterionFn => 
+	async userSubprocess => {
+		await findAndDeleteLastMessageOfSubprocessByCriterionFn(userSubprocess, criterionFn);
+	}
+
+const deletePreviousBotReplyIfExists = makePredefinedFnFindAndDeleteLastMessageOfSubprocess(
+	criterionFn_getBotReplyInsideSubprocessSequence
+);
+					
+const deletePreviousUserMessageIfExists = makePredefinedFnFindAndDeleteLastMessageOfSubprocess(
+	criterionFn_getUserMessageInsideSubprocessSequence
+);
 					
 				const getInvalidUserAction = message_id => ({
 					message_id: message_id
@@ -2432,9 +2463,8 @@ bot.on(`message`, async ctx => {
 		} else {
 			console.log(`user has last command, main tree, subprocess`);
 
-			await deletePreviousUserInput(userSubprocess);
-
-//			await deletePreviousBotUserSequenceIfExists(userSubprocess);
+			await deletePreviousBotReplyIfExists(userSubprocess);
+			await deletePreviousUserMessageIfExists(userSubprocess);
 
 			const userMessageId = ctx.update.message.message_id;
 			const chatId = ctx.update.message.chat.id;

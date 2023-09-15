@@ -48,6 +48,14 @@ const getStrOfColumnNamesAndTheirSettedValues = obj => {
 			str  += `'${obj[k]}'`;
 		} else if (typeof obj[k] == 'boolean') {
 			str  += obj[k];
+		} else if (typeof obj[k] == 'object') {
+			if(obj[k] === null){
+				str += obj[k];
+			} else {
+
+				throw `typeof obj[k] == object and not null; unknown data type for adding in database. add code inside me, honey\n${obj[k]}`
+			}
+
 		} else {
 			throw `unknown data type for adding in database. add code inside me, honey\n${obj[k]}`
 		}
