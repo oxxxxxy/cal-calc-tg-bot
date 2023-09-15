@@ -716,7 +716,7 @@ const findAndDeleteLastMessageOfSubprocessByCriterionFn = async (userSubprocess,
 
 	if(last) {
 		last.deleted = await deleteMessage(
-				userSubprocess.tg_user_id,
+				userSubprocess.state.chat_id,
 				last.message_id
 			);
 	}
@@ -734,6 +734,8 @@ const deletePreviousBotReplyIfExists = makePredefinedFnFindAndDeleteLastMessageO
 const deletePreviousUserMessageIfExists = makePredefinedFnFindAndDeleteLastMessageOfSubprocess(
 	criterionFn_getUserMessageInsideSubprocessSequence
 );
+
+
 					
 				const getInvalidUserAction = message_id => ({
 					message_id: message_id
@@ -753,8 +755,8 @@ const deletePreviousUserMessageIfExists = makePredefinedFnFindAndDeleteLastMessa
 					,bot:true
 				});
 
-				const makePredefinedFnCompleteHandlingOfSubprocessForInvalidInput = (sendMessageToSetChat, updateUserSubprocess, userSubprocess, userMessageId) => 
-					async (invalidReply) => {
+				const makePredefinedFnCompleteHandlingOfSubprocessForInvalidInput = (sendMessageToSetChat, updateUserSubprocess, userMessageId) => 
+					async (userSubprocess, invalidReply) => {
 
 							userSubprocess.sequence.push(getInvalidUserAction(userMessageId));
 
@@ -2474,7 +2476,6 @@ bot.on(`message`, async ctx => {
 			const completeHandlingOfSubprocessForInvalidInput_Predefined = makePredefinedFnCompleteHandlingOfSubprocessForInvalidInput(
 				sendMessageToSetChat
 				,updateUserSubprocess
-				,userSubprocess
 				,userMessageId
 			);
 
@@ -3519,8 +3520,38 @@ bot.on(`message`, async ctx => {
 
 			} else if (userSubprocess.process_name == `LANGUAGE_CHANGING`) {
 
+				const checkExistanceOfSubprocessInterfaceMessage = async userSubprocess => {
+					console.log(userSubprocess);
+					let message;
+					let error;
+					try {
+						message = await bot.telegram.copyMessage(
+							process.env.DEV_NULL_CHAT,
+							userSubprocess.state.chat_id,
+							userSubprocess.state.message_id
+						);
+					} catch(e){
+						error = true;
+						console.log(e);
+					}
+
+					if(error){
+						return `error`;
+					}
+
+					if(message){
+						return true;
+					} else {
+						return false;
+					}
+				}
+
+				await checkExistanceOfSubprocessInterfaceMessage(userSubprocess);
+
+
+
 				await handleInvalidInputForChangeLanguageSubprocess(
-					completeHandlingOfSubprocessForInvalidInput_Predefined
+					completeHandlingOfSubprocessForInvalidInput_Predefined.bind(null, userSubprocess)
 				);
 
 			} else {

@@ -1,7 +1,10 @@
 const {getChangeLanguageMessage} = require(`../../../reply/main/message/changeLanguage.js`);
 
+const makeDataPart = tg_user_id => `i${tg_user_id}chLa_`;
+exports.makeDataPart = makeDataPart;
+
 const handleChangeLanguageCommand = async (fns, userInfo) => {
-	const dataPart = `i${userInfo.tg_user_id}chLa_`;
+	const dataPart = makeDataPart(userInfo.tg_user_id);
 
 	const reply = getChangeLanguageMessage(dataPart);
 
@@ -13,7 +16,10 @@ const handleChangeLanguageCommand = async (fns, userInfo) => {
 
 	let row = {};
 	row.process_name = `LANGUAGE_CHANGING`;
-	row.state = { message_id : res.message_id };
+	row.state = {
+		message_id : res.message_id
+		,chat_id : res.chat.id
+	};
 
 	const subprocess_id = await fns.createUserSubprocessAndGetItIdPredefined(row);
 
