@@ -23,12 +23,6 @@ const {
 	COMMAND__CREATE_FOOD__NO
 } = require(`./modules/user_commands/create_food_funcs.js`);
 
-const {
-	getUserUTCOffset
-	,handleSetUserUTCCommand
-} = require(`./commandHandling/nonprocess/message/setUserUTC.js`);
-const {minifyPropNamesOfUserUTCOffset, extendPropNamesOfUserUTCOffset} = require(`./commandHandling/utils/utcOffset.js`);
-const {getSetUserUTCMessage, getInvalidMessage_wholeData, getInvalidMessage_dayOfMonth} = require(`./reply/message/setUserUTC.js`);
 
 const {
 	addCharBeforeValue
@@ -39,42 +33,49 @@ const {
 	,HTMLItalic 
 	,HTMLBold
 	,HTMLUnderline 
-} = require(`./reply/message/text/utils/textFormatting.js`);
+} = require(`./reply/main/message/text/utils/textFormatting.js`);
 
 const {
 	getEngBJUKAbbreviationFromForeignAbbr
 	,getEngSortingAbbreviationFromForeignAbbr
-} = require(`./reply/message/text/utils/getAbbreviationFns.js`);
-const { findEngNutrientNameByItsAbbreviation } = require('./reply/message/text/utils/findEngFns.js');
+} = require(`./reply/main/message/text/utils/getAbbreviationFns.js`);
+const { findEngNutrientNameByItsAbbreviation } = require('./reply/main/message/text/utils/findEngFns.js');
 const {
 	getCountOfPages
 	,getPagingForNButtonsOfPagingInlineKeyboardLine
 	,getNButtonsForPagingInlineKeyboardLine
 	,makePagingInlineKeyboardLine
-} = require(`./reply/message/reply_markup/inlineKeyboard/utils/pagingInlineKeyboard.js`);
+} = require(`./reply/main/message/reply_markup/inlineKeyboard/utils/pagingInlineKeyboard.js`);
 const {
 	getUserFoodSheetMessagePanel
-	} = require(`./reply/message/foodSheet.js`);
-const { getCreatedFoodMessage } = require(`./reply/message/createFood.js`);
+	} = require(`./reply/main/message/foodSheet.js`);
+const { getCreatedFoodMessage } = require(`./reply/main/message/createFood.js`);
 const {
 	getDeleteCreatedFoodMessage
 	,getDeleteCreatedFoodAlreadyDeletedMessage
-} = require(`./reply/message/deleteCreatedFood.js`);
+} = require(`./reply/main/message/deleteCreatedFood.js`);
 
 const {
 	getHelpMessagePanel
 	,getCommandBlock_dishProcessMessage
-} = require(`./reply/message/help.js`);
+} = require(`./reply/main/message/help.js`);
 
 const {
 	getLanguageHasBeenChangedMessage
-	,getChangeLanguageMessage} = require(`./reply/message/changeLanguage.js`);
+	,getChangeLanguageMessage} = require(`./reply/main/message/changeLanguage.js`);
 
 
 const {
 	handleHelpCommand
 	,handleSetHelpPageOfMessagePanelCommand
-} = require(`./commandHandling/nonprocess/message/help.js`);
+} = require(`./commandHandling/main/message/help.js`);
+const {handleSetUserUTCCommand} = require(`./commandHandling/main/message/setUserUTC.js`);
+const {handleChangeLanguageCommand} = require(`./commandHandling/main/message/changeLanguage.js`);
+
+
+const {handleInvalidInputForChangeLanguageSubprocess} = require(`./commandHandling/subprocess/message/changeLanguage.js`);
+
+
 
 
 const TG_USERS_LAST_ACTION_TIME = {};
@@ -458,10 +459,12 @@ const extendBJUKnWNOfIngredients = ingredients => {
 	};
 
 	const updateUserSubprocess = async userSubprocess => {
-		let row = {};
-		row.data = userSubprocess.data;
-		row.sequence = userSubprocess.sequence;
-		row.state = userSubprocess.state;
+		const row = Object.assign({}, userSubprocess);
+
+		delete row.id;
+		delete row.tg_user_id;
+		delete row.creation_date;
+		delete row.process_name;
 
 		row.data = JSON.stringify(row.data);
 		row.sequence = JSON.stringify(row.sequence);
@@ -701,8 +704,44 @@ const isPreviousMessagePanelEqualToNewOne = (callbackQuery, newPanel) => {
 						}
 					};
 					
+				const getInvalidUserAction = message_id => ({
+					message_id: message_id
+					,invalid:true
+					,user:true
+				});
+
+				const getValidUserAction = (message_id, subCommand, data) => ({
+					message_id: message_id
+					,subCommand: subCommand
+					,data: data
+					,user:true
+				});
+
+				const getBotReplyAction = message_id => ({
+					message_id: message_id
+					,bot:true
+				});
+
+				const makePredefinedFnCompleteHandlingOfSubprocessForInvalidInput = (sendMessageToSetChat, updateUserSubprocess, userSubprocess, userMessageId) => 
+					async (invalidReply) => {
+
+							userSubprocess.sequence.push(getInvalidUserAction(userMessageId));
+
+							const res = await sendMessageToSetChat(invalidReply);
+
+							if(res){
+								userSubprocess.sequence.push(getBotReplyAction(res.message_id));
+							}
+
+							await updateUserSubprocess(userSubprocess);
+						};
+
 						const completeSubrocessCommand = async (userMessageId, userSubprocess, comment, subCommand, cause) => {
 							// add mark of user valid/invalid input
+
+							// user message id
+							// invalid true
+							
 							userSubprocess.sequence.push(getSequenceAction(
 								userMessageId ? userMessageId:undefined,
 								subCommand?subCommand:undefined,
@@ -710,7 +749,8 @@ const isPreviousMessagePanelEqualToNewOne = (callbackQuery, newPanel) => {
 							));
 
 							await deletePreviousBotComment(userSubprocess);
-	
+
+
 	 						//use for funny reply if sequence of the same bad user input
 	 						/*
 	 					
@@ -1201,6 +1241,8 @@ const cleanSubprocessesAfter1H = async () => {
 					messageText = `Редактирование блюда отменено.`
 				}	else if ( userSubprocess.process_name == `DISH_CREATING__RENAMING` ){
 					messageText = `Переимнование блюда отменено`;
+				} else {
+					messageText = `Время ожидания истекло.`
 				}
 
 				let response;
@@ -1221,9 +1263,6 @@ const cleanSubprocessesAfter1H = async () => {
 				}
 				
  				let row = {};
-				row.data = JSON.stringify({});
-				row.sequence = JSON.stringify({});
-				row.state = JSON.stringify({});
 				row.completed = true;
 				row.canceled_by_service = true;
   
@@ -1233,22 +1272,6 @@ const cleanSubprocessesAfter1H = async () => {
 					SET ${getStrOfColumnNamesAndTheirSettedValues(row)}
 					WHERE id = ${userSubprocess.id}
 				;`;
-				await DB_CLIENT.query(paramQuery);
-				
-				row = {};
-				row.creation_date = creation_date;
-				row.command = `CANCEL__${userSubprocess.process_name}`.slice(0, 64);
-				row.tg_user_id = userSubprocess.tg_user_id;
-				row.process_id = userSubprocess.id;
-
-				paramQuery = {};
-				paramQuery.text = `
-					INSERT INTO telegram_user_sended_commands
-					(${objKeysToColumnStr(row)})
-					VALUES
-					(${objKeysToColumn$IndexesStr(row)})
-				;`;
-				paramQuery.values = getArrOfValuesFromObj(row);
 				await DB_CLIENT.query(paramQuery);
 
 				await delay(150);
@@ -1714,34 +1737,6 @@ bot.on(`message`, async ctx => {
 			const createUserSubprocessAndGetItIdPredefined = makePredefinedFnCreateUserSubprocessAndGetItId(pgClient, getPredefinedRowWithDateTgUserId);
 
 			const extendedFns = {...fns, ...makeObjOfFnsFromObjsWith1Fn({createUserSubprocessAndGetItIdPredefined})};
-
-			const handleChangeLanguageCommand = async (fns, userInfo) => {
-				const dataPart = `i${userInfo.tg_user_id}chLa_`;
-
-				const reply = getChangeLanguageMessage(dataPart);
-
-				const res = await fns.sendMessageToSetChat(reply);	
-
-				if(!res){
-					return;
-				}
-
-				let row = {
-					process_name : `LANGUAGE_CHANGING`
-					,state : {
-						message_id : res.message_id
-					}
-				}
-
-				const subprocess_id = await fns.createUserSubprocessAndGetItIdPredefined(row);
-
-				row = {
-					command : `CREATE_DISH`
-					,subprocess_id : subprocess_id
-				};
-
-				await fns.insertCommandRowIntoTelegramUserSendedCommands(row);
-			};
 
 			await handleChangeLanguageCommand(extendedFns, userInfo);
 
@@ -2439,9 +2434,21 @@ bot.on(`message`, async ctx => {
 
 			await deletePreviousUserInput(userSubprocess);
 
+//			await deletePreviousBotUserSequenceIfExists(userSubprocess);
+
 			const userMessageId = ctx.update.message.message_id;
 			const chatId = ctx.update.message.chat.id;
 			const dishSheetMessageId = userSubprocess.state.message_id;
+
+			
+			const completeHandlingOfSubprocessForInvalidInput_Predefined = makePredefinedFnCompleteHandlingOfSubprocessForInvalidInput(
+				sendMessageToSetChat
+				,updateUserSubprocess
+				,userSubprocess
+				,userMessageId
+			);
+
+
 
 			if (userSubprocess.process_name == `DISH_CREATING`){
 				if(Array.isArray(re_result = text.toLowerCase().match(RE_RU_MESSAGE__HELP))){
@@ -3480,8 +3487,31 @@ bot.on(`message`, async ctx => {
 					await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, 'undefined', cause);
 				}
 
+			} else if (userSubprocess.process_name == `LANGUAGE_CHANGING`) {
+
+				await handleInvalidInputForChangeLanguageSubprocess(
+					completeHandlingOfSubprocessForInvalidInput_Predefined
+				);
+
 			} else {
-				console.log(`main tree`);
+				//invalid handling in subprocesses where no need message input
+				
+				//add action to userSubprocess.sequence
+				//user sended message id
+				//invalid true
+
+				//reply user
+				//add bot reply message_id
+
+
+
+				const invalidComment = `Ne ponimayu komandu.`;
+				const cause = `Ne ponimayu komandu`;
+
+				await completeSubrocessCommand(userMessageId, userSubprocess, invalidComment, 'undefined', cause);
+
+
+				console.log(`userSubprocess main ifelse tree`);
 			}
 			console.log(text, re_result)
 
@@ -3844,7 +3874,54 @@ bot.on(`callback_query`, async ctx => {
 		console.log(`!userSubprocess, main tree`);
 
 	if(userSubprocess){
-		if(userSubprocess.process_name == `DISH_CREATING__RENAMING`){
+		if(userSubprocess.process_name == `LANGUAGE_CHANGING`){
+			if (Array.isArray(re_result = callbackQuery.data.match(RE_CALLBACK_QUERY__CHOOSE_LANGUAGE))) {
+				console.log(re_result);
+
+				const chosenLanguage = re_result[2];
+				//add sequence in any other command input type if invalid input interface type or input
+
+
+				//update message
+				const reply = getLanguageHasBeenChangedMessage(chosenLanguage);
+				
+				const res = await editTextOfSetMessageInSetChat(reply);
+
+				if(!res){
+					return;
+				}
+
+				userSubprocess.state.message_id = res.message_id;
+			
+				const updateTgUser = async tgUser => {
+					const row = Object.assign({}, tgUser);
+
+					delete row.tg_user_id;
+					delete row.creation_date;
+
+					await updateTelegramUsersPostgresTable(tgUser.tg, row);
+				};
+
+				//update telegram_users //recode userInfo
+				await pgClient.query(`
+					UPDATE telegram_users
+					SET s__lang_code = ${chosenLanguage}
+					WHERE tg_user_id = ${userInfo.tg_user_id}
+					;`);
+
+				//insert command
+				const row = {};
+				row.command = `CHOOSE_LANGUAGE`;
+				row.data = JSON.stringify([chosenLanguage]);
+
+				await insertCommandRowIntoTelegramUserSendedCommands(row);
+
+				//update subprocess 
+				userSubprocess.completed = true;
+
+				await updateUserSubprocess(userSubprocess);
+			}
+		} else if(userSubprocess.process_name == `DISH_CREATING__RENAMING`){
 			if(Array.isArray(re_result = callbackQuery.data.match(reCancel))){
 				console.log(re_result);
 
@@ -4110,12 +4187,6 @@ bot.on(`callback_query`, async ctx => {
 				userSubprocess.state.message_id = res.message_id;
 
 				await updateUserSubprocess(userSubprocess);
-			}
-		} else if(userSubprocess.process_name == `LANGUAGE_CHANGING`){
-			if (Array.isArray(re_result = callbackQuery.data.match(RE_CALLBACK_QUERY__CHOOSE_LANGUAGE))) {
-				console.log(re_result);
-
-
 			}
 		} else if(userSubprocess.process_name == `DISH_EDITING`){
 			if(Array.isArray(re_result = callbackQuery.data.match(reCancel))){

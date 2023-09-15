@@ -15,7 +15,6 @@ const renamedColumnsOfTablesTgUsersAndRegUsers = `
 	tu.s__delete_old_ucfi,
 	tu.s__delete_old_ucdi,
 	ru.internal_use_only AS ru_internal_use_only,
-	tu.internal_use_only AS tu_internal_use_only,
 	ru.id AS r_user_id,
 	ru.creation_date AS ru_creation_date,
 	tu.creation_date AS tu_creation_date,

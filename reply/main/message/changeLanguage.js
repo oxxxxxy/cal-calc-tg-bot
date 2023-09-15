@@ -16,3 +16,4 @@ const getLanguageHasBeenChangedMessage = languageCode => {
 	return message;
 } 
 exports.getLanguageHasBeenChangedMessage = getLanguageHasBeenChangedMessage;  
+

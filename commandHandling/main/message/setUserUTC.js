@@ -1,5 +1,5 @@
 const {makeUserUTCOffsetString} = require(`../..//utils/utcOffset.js`);
-const {getSetUserUTCMessage, getInvalidMessage_wholeData, getInvalidMessage_dayOfMonth} = require(`../../../reply/message/setUserUTC.js`);
+const {getSetUserUTCMessage, getInvalidMessage_wholeData, getInvalidMessage_dayOfMonth} = require(`../../../reply/main/message/setUserUTC.js`);
 
 const months = [
 	{
