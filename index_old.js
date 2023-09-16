@@ -69,14 +69,15 @@ const {
 	handleHelpCommand
 	,handleSetHelpPageOfMessagePanelCommand
 } = require(`./commandHandling/main/message/help.js`);
+
 const {handleSetUserUTCCommand} = require(`./commandHandling/main/message/setUserUTC.js`);
+
 const {handleChangeLanguageCommand} = require(`./commandHandling/main/message/changeLanguage.js`);
-
-
 const {
 	handleInvalidInputForChangeLanguageSubprocess
 	,handleDeletionOfChangeLanguageInterfaceMessage
 } = require(`./commandHandling/subprocess/message/changeLanguage.js`);
+const {handleChooseLanguage} = require(`./commandHandling/subprocess/callback_query/changeLanguage.js`);
 
 
 
@@ -450,6 +451,16 @@ const extendBJUKnWNOfIngredients = ingredients => {
 		paramQuery.values = getArrOfValuesFromObj(row);
 		await DB_CLIENT.query(paramQuery);
 	}
+	
+const updateTelegramUsersPostgresTable = async (tg_user_id, row) => {
+		const paramQuery = {};
+		paramQuery.text = `
+			UPDATE telegram_users
+			SET	${getStrOfColumnNamesAndTheirSettedValues(row)}
+			WHERE tg_user_id = ${tg_user_id}
+		;`;
+		await DB_CLIENT.query(paramQuery);
+	};
 
 	const updateTelegramUserSubprocessPostgresTable = async (id, row) => {
 		const paramQuery = {};
@@ -814,7 +825,7 @@ const deletePreviousUserMessageIfExists = makePredefinedFnFindAndDeleteLastMessa
 					}
 
 					if(!isInterfaceMessageDeleted){
-						await handleDeletion(userSubprocess);
+						await handleDeletion();
 					}
 				};
 
@@ -1519,7 +1530,12 @@ bot.use(async (ctx, next) => {
 		date = date * 1000;
 	}
 
-	const reqDate = date;
+	const reqDate = date;	
+	const requestDateEpoch = date;
+	const requestDate = new Date(requestDateEpoch);
+	const creation_date = requestDate.toISOString();
+
+	await HZ.checkTelegramUserExistentAndCreateHimIfNotExists(pgClient, from.id, from.is_bot, creation_date);
 
 
 	//antispam validaciya
@@ -1534,11 +1550,6 @@ bot.use(async (ctx, next) => {
 	} */
 
 	if (!from.is_bot){
-		await HZ.checkTelegramUserExistentAndRegistryHimIfNotExists(DB_CLIENT, from.id, from.is_bot);
-
-		if (process.env.TRACKMODE) {
-			await HZ.trackTelegramUserAccountDataChanges(DB_CLIENT, from);
-		}
 
 		const userInfo = await HZ.getTelegramUserInfo(DB_CLIENT, from.id);
 			console.log(userInfo)
@@ -1635,7 +1646,7 @@ bot.on(`message`, async ctx => {
 	const requestDate = new Date(requestDateEpoch);
 	const creation_date = requestDate.toISOString();
 
-	const languageCode = `ru`;
+	const languageCode = !userInfo.s__lang_code ? `ru` : userInfo.s__lang_code;
 	userInfo.s__lang_code = languageCode;
 
 	const row = {};
@@ -1659,10 +1670,13 @@ bot.on(`message`, async ctx => {
 		,insertIntoTelegramUserSendedCommandsPostgresTable
 	);
 
+	const updateTelegramUsersPostgresTableBound = updateTelegramUsersPostgresTable.bind(null, userInfo.tg_user_id);
+
 	const fns = makeObjOfFnsFromObjsWith1Fn(
 		{sendMessageToSetChat}
 		,{insertCommandRowIntoTelegramUserSendedCommands}
 		,{completeInvalidCommandHandling}
+		,{updateTelegramUsersPostgresTableBound}
 	);
 
 	if(!ctx.update.message.text){
@@ -1816,13 +1830,10 @@ bot.on(`message`, async ctx => {
 			await handleSetUserUTCCommand(fns, pgClient, userInfo, dayOfMonth, hours, minutes, requestDate);
 
 		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_MESSAGE__CHANGE_LANGUAGE))) {
-			console.log(re_result);
 
 			const createUserSubprocessAndGetItIdPredefined = makePredefinedFnCreateUserSubprocessAndGetItId(pgClient, getPredefinedRowWithDateTgUserId);
 
 			const extendedFns = {...fns, ...makeObjOfFnsFromObjsWith1Fn({createUserSubprocessAndGetItIdPredefined})};
-
-
 
 			await handleChangeLanguageCommand(extendedFns, userInfo);
 
@@ -3574,7 +3585,7 @@ bot.on(`message`, async ctx => {
 			} else if (userSubprocess.process_name == `LANGUAGE_CHANGING`) {
 
 				await checkInterfaceMessageDeletionAndSendItIfWasDeleted(
-					handleDeletionOfChangeLanguageInterfaceMessage.bind(null, fns)
+					handleDeletionOfChangeLanguageInterfaceMessage.bind(null, fns, userSubprocess)
 					,userSubprocess
 				);
 				
@@ -3706,6 +3717,7 @@ bot.on(`callback_query`, async ctx => {
 		{isPreviousMessagePanelEqualToNewOneBound}
 		,{editTextOfSetMessageInSetChat}
 		,{insertCommandRowIntoTelegramUserSendedCommands}
+		,{updateUserSubprocess}
 	);
 
 
@@ -3965,50 +3977,11 @@ bot.on(`callback_query`, async ctx => {
 	if(userSubprocess){
 		if(userSubprocess.process_name == `LANGUAGE_CHANGING`){
 			if (Array.isArray(re_result = callbackQuery.data.match(RE_CALLBACK_QUERY__CHOOSE_LANGUAGE))) {
-				console.log(re_result);
 
 				const chosenLanguage = re_result[2];
-				//add sequence in any other command input type if invalid input interface type or input
 
+				await handleChooseLanguage(fns, userInfo, userSubprocess, chosenLanguage);
 
-				//update message
-				const reply = getLanguageHasBeenChangedMessage(chosenLanguage);
-				
-				const res = await editTextOfSetMessageInSetChat(reply);
-
-				if(!res){
-					return;
-				}
-
-				userSubprocess.state.message_id = res.message_id;
-			
-				const updateTgUser = async tgUser => {
-					const row = Object.assign({}, tgUser);
-
-					delete row.tg_user_id;
-					delete row.creation_date;
-
-					await updateTelegramUsersPostgresTable(tgUser.tg, row);
-				};
-
-				//update telegram_users //recode userInfo
-				await pgClient.query(`
-					UPDATE telegram_users
-					SET s__lang_code = ${chosenLanguage}
-					WHERE tg_user_id = ${userInfo.tg_user_id}
-					;`);
-
-				//insert command
-				const row = {};
-				row.command = `CHOOSE_LANGUAGE`;
-				row.data = JSON.stringify([chosenLanguage]);
-
-				await insertCommandRowIntoTelegramUserSendedCommands(row);
-
-				//update subprocess 
-				userSubprocess.completed = true;
-
-				await updateUserSubprocess(userSubprocess);
 			}
 		} else if(userSubprocess.process_name == `DISH_CREATING__RENAMING`){
 			if(Array.isArray(re_result = callbackQuery.data.match(reCancel))){

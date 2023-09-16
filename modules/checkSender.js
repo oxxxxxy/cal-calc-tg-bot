@@ -1,8 +1,44 @@
 const {
 	objKeysToColumnStr,
 	objKeysToColumn$IndexesStr,
+	getArrOfValuesFromObj,
 	objKeysValuesToColumnValuesStr
 } = require(`./queryUtils.js`);
+
+
+const createTelegramUser = async (pgClient, tg_user_id, is_bot, creation_date) => {
+	const row = {};
+	row.tg_user_id = tg_user_id;
+	row.is_bot = is_bot;
+	row.creation_date = creation_date;
+
+	const paramQuery = {};
+	paramQuery.text = `
+			INSERT INTO telegram_users
+			(${objKeysToColumnStr(row)})
+			VALUES
+			(${objKeysToColumn$IndexesStr(row)})
+		;`;
+	paramQuery.values = getArrOfValuesFromObj(row);
+	
+	await pgClient.query(paramQuery);
+}
+exports.createTelegramUser = createTelegramUser;
+
+const checkTelegramUserExistentAndCreateHimIfNotExists = async (pgClient, tg_user_id, is_bot, creation_date) => {
+	const res = await pgClient.query(`
+			SELECT tg_user_id
+			FROM telegram_users
+			WHERE tg_user_id = ${tg_user_id}
+		;`);
+
+	if(!res.rows.length){
+		await createTelegramUser (pgClient, tg_user_id, is_bot, creation_date);
+	}
+}
+exports.checkTelegramUserExistentAndCreateHimIfNotExists = checkTelegramUserExistentAndCreateHimIfNotExists;
+
+
 
 
 const renamedColumnsOfTablesTgUsersAndRegUsers = `
@@ -28,6 +64,19 @@ const renamedColumnsOfTablesTgUsersAndRegUsers = `
 	ru.last_online
 `;
 
+const getTelegramUserInfo = async (pgClient, tg_user_id) => {
+	const res = await pgClient.query(`
+		SELECT *
+		FROM telegram_users
+		WHERE tg_user_id = ${tg_user_id}
+	;`);
+
+	return res.rows[0];
+};
+exports.getTelegramUserInfo = getTelegramUserInfo;
+
+/*
+
 const getTelegramUserInfo = async (db, tg_user_id) => {
 	const res = await db.query(`SELECT
 		${renamedColumnsOfTablesTgUsersAndRegUsers}
@@ -39,6 +88,8 @@ const getTelegramUserInfo = async (db, tg_user_id) => {
 	return res.rows[0];
 };
 exports.getTelegramUserInfo = getTelegramUserInfo;
+
+*/
 
 const registryTelegramUser = async (db, tg_user_id, is_bot) => {
 

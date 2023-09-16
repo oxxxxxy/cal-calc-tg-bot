@@ -51,6 +51,8 @@ const getStrOfColumnNamesAndTheirSettedValues = obj => {
 		} else if (typeof obj[k] == 'object') {
 			if(obj[k] === null){
 				str += obj[k];
+			} else if (Object.prototype.toString.call(obj[k]) === `[object Date]`){
+				str += `'${obj[k].toISOString()}'`;
 			} else {
 
 				throw `typeof obj[k] == object and not null; unknown data type for adding in database. add code inside me, honey\n${obj[k]}`

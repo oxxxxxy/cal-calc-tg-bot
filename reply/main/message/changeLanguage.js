@@ -10,10 +10,3 @@ const getChangeLanguageMessage = dataPart => {
 };
 exports.getChangeLanguageMessage = getChangeLanguageMessage;
 
-const getLanguageHasBeenChangedMessage = languageCode => {
-	const message = {};
-	message.text = makeLanguageHasBeenChangedMessageText(languageCode);
-	return message;
-} 
-exports.getLanguageHasBeenChangedMessage = getLanguageHasBeenChangedMessage;  
-
