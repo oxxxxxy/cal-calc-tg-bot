@@ -73,7 +73,10 @@ const {handleSetUserUTCCommand} = require(`./commandHandling/main/message/setUse
 const {handleChangeLanguageCommand} = require(`./commandHandling/main/message/changeLanguage.js`);
 
 
-const {handleInvalidInputForChangeLanguageSubprocess} = require(`./commandHandling/subprocess/message/changeLanguage.js`);
+const {
+	handleInvalidInputForChangeLanguageSubprocess
+	,handleDeletionOfChangeLanguageInterfaceMessage
+} = require(`./commandHandling/subprocess/message/changeLanguage.js`);
 
 
 
@@ -769,6 +772,54 @@ const deletePreviousUserMessageIfExists = makePredefinedFnFindAndDeleteLastMessa
 							await updateUserSubprocess(userSubprocess);
 						};
 
+
+				const checkExistanceOfSubprocessInterfaceMessage = async userSubprocess => {
+					let message;
+					let error;
+					try {
+						message = await bot.telegram.copyMessage(
+							process.env.DEV_NULL_CHAT,
+							userSubprocess.state.chat_id,
+							userSubprocess.state.message_id
+						);
+					} catch(e){
+						if(e.response.error_code != 400){
+							error = true;
+							console.log(e);
+						}
+					}
+
+					if(error){
+						return `error`;
+					}
+
+					if(message){
+						return true;
+					} else {
+						return false;
+					}
+				}
+
+				const checkSequenceOfLastTwoUserInvalidActions = userSubprocess => {
+					const userActions = userSubprocess.sequence.filter(e => e.user);
+					const lastTwoUserActions = userActions.slice(userActions.length - 2)
+					return lastTwoUserActions.every(e => e.invalid);
+				}
+
+				const checkInterfaceMessageDeletionAndSendItIfWasDeleted = async (handleDeletion, userSubprocess) => {
+
+					let isInterfaceMessageDeleted;
+					if(checkSequenceOfLastTwoUserInvalidActions(userSubprocess)){
+						isInterfaceMessageDeleted = await checkExistanceOfSubprocessInterfaceMessage(userSubprocess);	
+					}
+
+					if(!isInterfaceMessageDeleted){
+						await handleDeletion(userSubprocess);
+					}
+				};
+
+
+
 						const completeSubrocessCommand = async (userMessageId, userSubprocess, comment, subCommand, cause) => {
 							// add mark of user valid/invalid input
 
@@ -1294,7 +1345,7 @@ const cleanSubprocessesAfter1H = async () => {
 				if(!response){
 					return;
 				}
-				
+			
  				let row = {};
 				row.completed = true;
 				row.canceled_by_service = true;
@@ -1770,6 +1821,8 @@ bot.on(`message`, async ctx => {
 			const createUserSubprocessAndGetItIdPredefined = makePredefinedFnCreateUserSubprocessAndGetItId(pgClient, getPredefinedRowWithDateTgUserId);
 
 			const extendedFns = {...fns, ...makeObjOfFnsFromObjsWith1Fn({createUserSubprocessAndGetItIdPredefined})};
+
+
 
 			await handleChangeLanguageCommand(extendedFns, userInfo);
 
@@ -3520,36 +3573,11 @@ bot.on(`message`, async ctx => {
 
 			} else if (userSubprocess.process_name == `LANGUAGE_CHANGING`) {
 
-				const checkExistanceOfSubprocessInterfaceMessage = async userSubprocess => {
-					console.log(userSubprocess);
-					let message;
-					let error;
-					try {
-						message = await bot.telegram.copyMessage(
-							process.env.DEV_NULL_CHAT,
-							userSubprocess.state.chat_id,
-							userSubprocess.state.message_id
-						);
-					} catch(e){
-						error = true;
-						console.log(e);
-					}
-
-					if(error){
-						return `error`;
-					}
-
-					if(message){
-						return true;
-					} else {
-						return false;
-					}
-				}
-
-				await checkExistanceOfSubprocessInterfaceMessage(userSubprocess);
-
-
-
+				await checkInterfaceMessageDeletionAndSendItIfWasDeleted(
+					handleDeletionOfChangeLanguageInterfaceMessage.bind(null, fns)
+					,userSubprocess
+				);
+				
 				await handleInvalidInputForChangeLanguageSubprocess(
 					completeHandlingOfSubprocessForInvalidInput_Predefined.bind(null, userSubprocess)
 				);
