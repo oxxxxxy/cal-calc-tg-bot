@@ -73,7 +73,7 @@ const {
 } = require(`./commandHandling/subprocess/message/changeLanguage.js`);
 const {handleChooseLanguage} = require(`./commandHandling/subprocess/callback_query/changeLanguage.js`);
 
-const cf = require('./commandHandling/main/message/createFood.js');
+const cf = require('./commandHandling/main/message/createFood/createFood.js');
 const BJUKWords = cf.BJUKWords;
 
 const TG_USERS_LAST_ACTION_TIME = {};
@@ -1078,7 +1078,7 @@ const makeFnSendMessageToChat = chatId =>
 	(...args) => sendMessage(chatId, ...args);
 
 const makeFnCompleteInvalidCommandHandling = (sendMessageToSetChat, getPredefinedRowFn, insertFn, gotUserMessageId) => 
-	async (invalidReply, command) => {
+	async (invalidReply, commandName, invalidCause) => {
 		const res = await sendMessageToSetChat(invalidReply);
 
 		if(!res){
@@ -1088,8 +1088,12 @@ const makeFnCompleteInvalidCommandHandling = (sendMessageToSetChat, getPredefine
 		row = getPredefinedRowFn();
 		row.invalid_command = true;
 
-		if(command){
-			row.command = command;
+		if(commandName){
+			row.name = commandName;
+		}
+
+		if(invalidCause){
+			row.invalid_cause = invalidCause;
 		}
 				
 		row.data = {};
@@ -1157,8 +1161,8 @@ const makeFnCompleteInvalidCommandHandling = (sendMessageToSetChat, getPredefine
 		commandRow => {
 			let predefinedRow = getPredefinedRowWithDateTgUserId();
 		
-			if(typeof commandRow == `string`){
-					predefinedRow.command = commandRow;
+			if(typeof commandRow === `number`){
+					predefinedRow.name = commandRow;
 			} else {
 				predefinedRow = {...predefinedRow, ...commandRow};
 			}
@@ -1925,33 +1929,31 @@ bot.on(`message`, async ctx => {
 			}
 
 
-			let invalidReplyOfBJUK = ``;
+			let invalidReplyOfBJUKValues = ``;
 			let sumOfBJU = 0;
 
+			if (foodNutrients.caloric_content.value > 900) {
+				invalidReplyOfBJUKValues += `\nКалорийность не может превышать 900 ккал.`
+			}
+
 			keysOfFoodNutrients.forEach(e => {
-				if(e === `caloric_content`){
-					if (foodNutrients.caloric_content.value > 900) {
-						invalidReplyOfBJUK += `\nКалорийность не может превышать 900 ккал.`
+				if (e !== `caloric_content`) {
+					sumOfBJU += foodNutrients[e].value;
+
+					if (foodNutrients[e].value > 100) {
+						invalidReplyOfBJUKValues += `\n${
+							foodNutrients[e].name.slice(0,1).toUpperCase() + foodNutrients[e].name.slice(1)
+						} не могут превышать 100 грамм.`;
 					}
-					return;
 				}
-
-				sumOfBJU += foodNutrients[e].value;
-
-				if(foodNutrients[e].value > 100){
-					invalidReplyOfBJUK += `\n${
-						foodNutrients[e].name.slice(0,1).toUpperCase() + foodNutrients[e].name.slice(1)
-					} не могут превышать 100 грамм.`;
-				}
-
 			});
 			
 			if (sumOfBJU > 100) {
-				invalidReplyOfBJUK += `\nСумма БЖУ не может превышать 100 грамм.`
+				invalidReplyOfBJUKValues += `\nСумма БЖУ не может превышать 100 грамм.`
 			}
 
-			if(invalidReplyOfBJUK){
-				await completeInvalidCommandHandling(invalidReplyOfBJUK, COMMAND_NAME);
+			if(invalidReplyOfBJUKValues){
+				await completeInvalidCommandHandling(invalidReplyOfBJUKValues, COMMAND_NAME);
 				return;
 			}
 
@@ -2007,7 +2009,7 @@ bot.on(`message`, async ctx => {
 			await meiliFDIndex.addDocuments([doc]);
 
 			row = getPredefinedRowWithDateTgUserId();
-			row.command = `CREATE_FOOD`;
+			row.name = `CREATE_FOOD`;
 			row.can_it_be_removed = true;
 
 			row.data = {};
@@ -2113,7 +2115,7 @@ bot.on(`message`, async ctx => {
 				await sendMessageToSetChat(reply);
 
 				const row = getPredefinedRowWithDateTgUserId();
-				row.command = `SHOW_CREATED_FOOD`;
+				row.name = `SHOW_CREATED_FOOD`;
 				
 				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
 
@@ -2146,7 +2148,7 @@ bot.on(`message`, async ctx => {
 				});
 				
 				let row = getPredefinedRowWithDateTgUserId();
-				row.command = `DELETE_FOOD`;
+				row.name = `DELETE_FOOD`;
 				
 				await insertIntoTelegramUserSendedCommandsPostgresTable(row);
 
@@ -2171,7 +2173,7 @@ bot.on(`message`, async ctx => {
 				return;
 			}
 			
-			if (userLastCommand.command == `CREATE_FOOD`) {
+			if (userLastCommand.name == `CREATE_FOOD`) {
 				//deleted true food_items
 				await DB_CLIENT.query(`
 					UPDATE food_items
@@ -2195,7 +2197,7 @@ bot.on(`message`, async ctx => {
 
 				//telegram_user_sended_commands add deletion
 				const row = getPredefinedRowWithDateTgUserId();
-				row.command = `DELETE_FOOD`;
+				row.name = `DELETE_FOOD`;
 				row.can_it_be_canceled = true;
 
 				row.data = {};
@@ -2207,7 +2209,7 @@ bot.on(`message`, async ctx => {
 			
 				//predlojit' otmenu
 				ctx.reply(`Удалено. Отменить? *"о/отмена"*.\n\nМем на тему удаления.`, {parse_mode:`Markdown`})
-			} else if (userLastCommand.command) {
+			} else if (userLastCommand.name) {
 				console.log(`code me`)
 				ctx.reply(`code me`)
 			}
@@ -2222,7 +2224,7 @@ bot.on(`message`, async ctx => {
 				return;
 			}
 			
-			if (userLastCommand.command == `DELETE_FOOD`) {
+			if (userLastCommand.name == `DELETE_FOOD`) {
 				//cancel deleted true food_items
 				const res = await DB_CLIENT.query(`
 					WITH updated AS (
@@ -2273,7 +2275,7 @@ bot.on(`message`, async ctx => {
 				const row = {};
 				row.tg_user_id = userInfo.tg_user_id;
 				row.creation_date = new Date(reqDate).toISOString();
-				row.command = `CANCEL__DELETE_FOOD`;
+				row.name = `CANCEL__DELETE_FOOD`;
 
 				row.data = {};
 				row.data.food_items_ids = userLastCommand.data.food_items_ids;
@@ -2291,7 +2293,7 @@ bot.on(`message`, async ctx => {
 			
 				//predlojit' otmenu
 				ctx.reply(`Удаление отменено\\.\n\n_Галя, у нас отмена\\.\\.\\._`, {parse_mode:`MarkdownV2`})
-			} else if (userLastCommand.command) {
+			} else if (userLastCommand.name) {
 				console.log(`code me`)
 				ctx.reply(`code me`)
 			}
@@ -2371,7 +2373,7 @@ bot.on(`message`, async ctx => {
 
 				//add to telegram_user_sended_commands
 				let row = getPredefinedRowWithDateTgUserId();
-				row.command = `CREATE_DISH`;
+				row.name = `CREATE_DISH`;
 				row.is_process_c = true;
 
 				let paramQuery = {};
@@ -2441,7 +2443,7 @@ bot.on(`message`, async ctx => {
 
 					let row = {};
 					row.creation_date = creation_date;
-					row.command = `EDIT_DISH`;
+					row.name = `EDIT_DISH`;
 					row.tg_user_id = userInfo.tg_user_id;
 					row.invalid_command = true;
 					row.invalid_cause = `row with this di_id_for_user doesn't exist or has been removed`;
@@ -2466,7 +2468,7 @@ bot.on(`message`, async ctx => {
 				
 				let row = {};
 				row.creation_date = creation_date;
-				row.command = `EDIT_DISH`;
+				row.name = `EDIT_DISH`;
 				row.tg_user_id = userInfo.tg_user_id;
 				row.is_process_c = true;
 
@@ -3090,7 +3092,7 @@ bot.on(`message`, async ctx => {
 
 				row = {};
 				row.creation_date = creation_date;
-				row.command = `CREATE_DISH`;
+				row.name = `CREATE_DISH`;
 				row.tg_user_id = userInfo.tg_user_id;
 				row.is_process_c = true;
 
@@ -3733,6 +3735,7 @@ bot.on(`callback_query`, async ctx => {
 		,{insertCommandRowIntoTelegramUserSendedCommands}
 		,{updateUserSubprocess}
 		,{updateTelegramUsersPostgresTableBound}
+		,{getPredefinedRowWithDateTgUserId}
 	);
 
 
@@ -3845,7 +3848,7 @@ bot.on(`callback_query`, async ctx => {
 			const row = {};
 			row.tg_user_id = userInfo.tg_user_id;
 			row.creation_date = creation_date;
-			row.command = `DISH_LOOKING_PAGE`;
+			row.name = `DISH_LOOKING_PAGE`;
 
 			await insertIntoTelegramUserSendedCommandsPostgresTable(row);
 
@@ -4027,7 +4030,7 @@ bot.on(`callback_query`, async ctx => {
 				
 				const row = {};
 				row.creation_date = creation_date;
-				row.command = `CANCEL__CREATE_DISH`;
+				row.name = `CANCEL__CREATE_DISH`;
 				row.tg_user_id = userSubprocess.tg_user_id;
 				row.process_id = userSubprocess.id;
 
@@ -4062,7 +4065,7 @@ bot.on(`callback_query`, async ctx => {
 				
 				const row = {};
 				row.creation_date = creation_date;
-				row.command = `CANCEL__CREATE_DISH`;
+				row.name = `CANCEL__CREATE_DISH`;
 				row.tg_user_id = userInfo.tg_user_id;
 				row.process_id = userSubprocess.id;
 				
@@ -4138,7 +4141,7 @@ bot.on(`callback_query`, async ctx => {
 				//insert telegram_user_sended_commands
 				row = {};
 				row.creation_date = creation_date;
-				row.command = 'SAVE_DISH';
+				row.name = 'SAVE_DISH';
 				row.tg_user_id = userSubprocess.tg_user_id;
 				row.can_it_be_removed = true;
 				row.process_id = userSubprocess.id;
@@ -4293,7 +4296,7 @@ bot.on(`callback_query`, async ctx => {
 				
 				const row = {};
 				row.creation_date = creation_date;
-				row.command = `CANCEL__EDIT_DISH`;
+				row.name = `CANCEL__EDIT_DISH`;
 				row.tg_user_id = userInfo.tg_user_id;
 				row.process_id = userSubprocess.id;
 				
@@ -4351,7 +4354,7 @@ bot.on(`callback_query`, async ctx => {
 				//insert telegram_user_sended_commands
 				row = {};
 				row.creation_date = creation_date;
-				row.command = 'SAVE_DISH';
+				row.name = 'SAVE_DISH';
 				row.tg_user_id = userSubprocess.tg_user_id;
 				row.can_it_be_removed = true;
 				row.process_id = userSubprocess.id;

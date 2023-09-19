@@ -1,3 +1,4 @@
+const commandNameCodes = require(`../../codes/commandNameCodes.js`);
 const {makeUserUTCOffsetString} = require(`../..//utils/utcOffset.js`);
 const {getSetUserUTCMessage, getInvalidMessage_wholeData, getInvalidMessage_dayOfMonth} = require(`../../../reply/main/message/setUserUTC.js`);
 
@@ -232,7 +233,6 @@ const getUserUTCOffset = (userDayOfMonth, userHours, userMinutes, requestDate) =
 
 	return userUTCOffset;
 }
-exports.getUserUTCOffset = getUserUTCOffset;
 
 const handleSetUserUTCCommand = async (fns, pgClient, userInfo, dayOfMonth, hours, minutes, requestDate) => {
 	if(!dayOfMonth){
@@ -262,7 +262,7 @@ const handleSetUserUTCCommand = async (fns, pgClient, userInfo, dayOfMonth, hour
 	;`);
 
 	const row = {
-		command : `SET_USER_UTC`
+		name : commandNameCodes.SET_USER_UTC
 		,data : JSON.stringify(userUTCOffset)
 	}
 

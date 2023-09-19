@@ -11,3 +11,4 @@ const makeRuCreatedFoodMessageText = food =>
 		HTMLMonospace('уе ' + food.fi_id_for_user)}.`;
 
 exports.makeRuCreatedFoodMessageText = makeRuCreatedFoodMessageText;
+

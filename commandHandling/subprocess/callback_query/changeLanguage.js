@@ -1,3 +1,4 @@
+const commandNameCodes = require(`../../codes/commandNameCodes.js`);
 const {getLanguageHasBeenChangedMessage} = require(`../../../reply/subprocess/message/changeLanguage.js`);
 
 const handleChooseLanguage = async (fns, userSubprocess, chosenLanguage) => {
@@ -19,8 +20,8 @@ const handleChooseLanguage = async (fns, userSubprocess, chosenLanguage) => {
 	await fns.updateTelegramUsersPostgresTableBound(row);
 
 	//insert command
-	row = {};
-	row.command = `CHOOSE_LANGUAGE`;
+	row = fns.getPredefinedRowWithDateTgUserId();
+	row.name = commandNameCodes.CHOOSE_LANGUAGE;
 	row.data = JSON.stringify(chosenLanguage);
 
 	await fns.insertCommandRowIntoTelegramUserSendedCommands(row);

@@ -11,9 +11,9 @@ const buttonOptions = [
 	}
 ];
 
-const makeChangeLanguageMessageInlineKeyboardLine = (buttons, dataPart) => {
+const makeChangeLanguageMessageInlineKeyboardLine = (buttons, userInfo) => {
 	buttons.forEach(e => {
-		e.callback_data = dataPart + e.callback_data;
+		e.callback_data = `i${userInfo.tg_user_id}chLa_` + e.callback_data;
 	});
 
 	return buttons;

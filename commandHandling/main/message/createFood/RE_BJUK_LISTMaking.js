@@ -1,5 +1,6 @@
-const ru = require(`../../../reply/main/message/text/languages/ru/static/words.js`);
-const en = require(`../../../reply/main/message/text/languages/en/static/words.js`);
+const ru = require(`../../../../reply/main/message/text/languages/ru/static/words.js`);
+const en = require(`../../../../reply/main/message/text/languages/en/static/words.js`);
+
 
 const makeREToMatchBJUKParameter = (abbreviation, flagString) =>
 	new RegExp(`${abbreviation}(\\s+|)(\\d+(\\s+|)(,|\\.)(\\s+|)\\d+|\\d+)`, flagString);
@@ -41,3 +42,4 @@ const getRE_BJUK_LIST = languageCode => {
 			throw new Error(`New language detected: ${languageCode }. But there is no handler for this language.`);
 	}
 };
+exports.getRE_BJUK_LIST = getRE_BJUK_LIST;

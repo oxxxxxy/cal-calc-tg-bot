@@ -1,12 +1,9 @@
+const commandNameCodes = require(`../../codes/commandNameCodes.js`);
+const processNameCodes = require(`../../codes/processNameCodes.js`);
 const {getChangeLanguageMessage} = require(`../../../reply/main/message/changeLanguage.js`);
 
-const makeDataPart = tg_user_id => `i${tg_user_id}chLa_`;
-exports.makeDataPart = makeDataPart;
-
 const handleChangeLanguageCommand = async (fns, userInfo) => {
-	const dataPart = makeDataPart(userInfo.tg_user_id);
-
-	const reply = getChangeLanguageMessage(dataPart);
+	const reply = getChangeLanguageMessage(userInfo);
 
 	const res = await fns.sendMessageToSetChat(reply);	
 
@@ -15,7 +12,7 @@ const handleChangeLanguageCommand = async (fns, userInfo) => {
 	}
 
 	let row = {};
-	row.process_name = `LANGUAGE_CHANGING`;
+	row.process_name = processNameCodes.LANGUAGE_CHANGING;
 	row.state = {
 		message_id : res.message_id
 		,chat_id : res.chat.id
@@ -24,7 +21,7 @@ const handleChangeLanguageCommand = async (fns, userInfo) => {
 	const subprocess_id = await fns.createUserSubprocessAndGetItIdPredefined(row);
 
 	row = {
-		command : `CREATE_DISH`
+		name : commandNameCodes.CHANGE_LANGUAGE
 		,subprocess_id : subprocess_id
 	};
 
