@@ -4,7 +4,6 @@ const pg = require(`pg`);
 const { MeiliSearch, ContentTypeEnum } = require(`meilisearch`);
 //console.log(meiliS)
 
-
 require('dotenv').config()
 
 const inlineQuery = require(`./modules/inlineQuery.js`);
@@ -17,11 +16,6 @@ const {
 	getStrOfColumnNamesAndTheirSettedValues
 
 } = require(`./modules/queryUtils.js`);
-const {
-	COMMAND__CREATE_FOOD,
-	COMMAND__CREATE_FOOD__YES,
-	COMMAND__CREATE_FOOD__NO
-} = require(`./modules/user_commands/create_food_funcs.js`);
 
 
 const {
@@ -79,8 +73,8 @@ const {
 } = require(`./commandHandling/subprocess/message/changeLanguage.js`);
 const {handleChooseLanguage} = require(`./commandHandling/subprocess/callback_query/changeLanguage.js`);
 
-
-
+const cf = require('./commandHandling/main/message/createFood.js');
+const BJUKWords = cf.BJUKWords;
 
 const TG_USERS_LAST_ACTION_TIME = {};
 
@@ -131,7 +125,7 @@ const RE_RU_MESSAGE__DELETE_LAST_ACTION = /^у$/u;
 const RE_RU_MESSAGE__CANCEL_LAST_ACTION = /^о$/u;
 
 
-const RE_RU_MESSAGE__CREATE_FOOD = /^(се\s+)((([а-яА-Яa-zA-Z0-9]+)(\s+|))+)\./u;
+const RE_RU_MESSAGE__CREATE_FOOD = /^се\s+(.+)\.:(.+)$/u;
 // /^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\((\s+|)((([а-яА-Яa-zA-Z0-9]+)(\s+|):(\s+|)(\d+(\s+|)(,|\.)(\s+|)\d+|\d+)(\s+|)(г|мкг|мг|ккал)(\s+|))+)\)$/u;
 // ^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\((\s+|)([а-яА-Яa-zA-Z0-9\s]+)(\s+|)\)$
 // ^(с|создать)(\s+|)(е|еду)\s+((([а-яА-Яa-zA-Z0-9]+)(\s+|)){5,})(\s+|)\(
@@ -301,7 +295,7 @@ const required = name => {
 		const arr = [];
 		
 		a.forEach(e => {
-			const obj = Object.assign({}, e);
+			const obj = {...e};
 			arr.push(obj);
 		});
 
@@ -310,7 +304,7 @@ const required = name => {
 					
 
 	const calcDishBJUKnW = (d, ings) => {
-		let dish = Object.assign({}, d);
+		let dish = {...d};
 		const ingredients = makeCopyOfObjArray(ings);
 		
 		dish = setZeroBJUKnW(dish);
@@ -381,7 +375,7 @@ const makeDishSheetLine = (ingreNum, protein, fat, carb, cal, weight, name) => {
 	};
 
 const makeDishSheet = (d, ings) => {
-	let dish = Object.assign({}, d);
+	let dish = {...d};
 	const ingredients = makeCopyOfObjArray(ings);
 
 	let dishSheet = ``;
@@ -473,7 +467,7 @@ const updateTelegramUsersPostgresTable = async (tg_user_id, row) => {
 	};
 
 	const updateUserSubprocess = async userSubprocess => {
-		const row = Object.assign({}, userSubprocess);
+		const row = {...userSubprocess};
 
 		delete row.id;
 		delete row.tg_user_id;
@@ -1084,7 +1078,7 @@ const makeFnSendMessageToChat = chatId =>
 	(...args) => sendMessage(chatId, ...args);
 
 const makeFnCompleteInvalidCommandHandling = (sendMessageToSetChat, getPredefinedRowFn, insertFn, gotUserMessageId) => 
-	async invalidReply => {
+	async (invalidReply, command) => {
 		const res = await sendMessageToSetChat(invalidReply);
 
 		if(!res){
@@ -1093,6 +1087,10 @@ const makeFnCompleteInvalidCommandHandling = (sendMessageToSetChat, getPredefine
 
 		row = getPredefinedRowFn();
 		row.invalid_command = true;
+
+		if(command){
+			row.command = command;
+		}
 				
 		row.data = {};
 		row.data.u = gotUserMessageId;
@@ -1198,11 +1196,11 @@ const DB_CLIENT = new pg.Client({
 
 const pgClient = DB_CLIENT;
 
-const meiliSClient = new MeiliSearch({
+const meiliSearchClient = new MeiliSearch({
 	host:process.env.MEILISEARCH_HOST,
 	apiKey: process.env.MEILISEARCH_API_KEY
-})
-const MSDB = meiliSClient.index('foodDishNames');
+});
+const meiliFDIndex = meiliSearchClient.index('foodDishNames');
 
 
 const APP_STATE = {};
@@ -1259,7 +1257,7 @@ NUTRIENTS.forEach(i => {
 	}
 );
 
-//console.log(NUTRIENTS, RE_RU_NUTRIENTS)
+console.log(NUTRIENTS, RE_RU_NUTRIENTS)
 
 const cleanFromOldUserCommands = async () => {
 	while (true) {
@@ -1840,112 +1838,125 @@ bot.on(`message`, async ctx => {
 		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_MESSAGE__CREATE_FOOD))) {
 			// console.log(re_result, `RE_RU_MESSAGE__CREATE_FOOD`);
 
-			let limit_count_of_user_created_fidi = 100;
+			const foodName = re_result[1].slice(0, 128).replaceAll(/\s+/g, ` `).replaceAll(/['"\\]/g, ``).trim();
+			const foodNutrientString = re_result[2].toLowerCase();
+
+
+			const COMMAND_NAME = `CREATE_FOOD`;
+
+
+			const limit_count_of_user_created_fidi = 100;
 			if (!userInfo.privilege_type && userInfo.limit_count_of_user_created_fidi >= limit_count_of_user_created_fidi) {
 				const invalidReply =`Вы не можете создавать еду или блюда больше ${limit_count_of_user_created_fidi} раз за 24ч.`;
-				await completeInvalidCommandHandling(invalidReply);
+				await completeInvalidCommandHandling(invalidReply, COMMAND_NAME);
 				return;
 			}
 			
-			const foodName = text.slice(re_result[1].length-1, re_result[2].length + re_result[1].length).slice(0, 128).replaceAll(/['"\\]/ug, ``).trim();
-			// console.log( foodName, re_result);return;
-			
+
 			if (foodName.length < 4) {
 				const invalidReply = `Название еды должно состоять из хотя бы 4 символов.`;
-				await completeInvalidCommandHandling(invalidReply);
+				await completeInvalidCommandHandling(invalidReply, COMMAND_NAME);
 				return;
 			}
 
-			let findIdenticalNameResponse = await MSDB.search(foodName, {
-				filter: `name__lang_code_ru = '${foodName}' AND tg_user_id = ${userInfo.tg_user_id} AND food_items_id IS NOT EMPTY`
+
+			const findIdenticalNameResponse = await meiliFDIndex.search(foodName, {
+				filter: `name__lang_code_ru = '${foodName}' AND tg_user_id = ${userInfo.tg_user_id}`
 			});
 
 			if (findIdenticalNameResponse?.hits?.length) {
 				const invalidReply = `Еда с таким названием уже существует.`;
-				await completeInvalidCommandHandling(invalidReply);
+				await completeInvalidCommandHandling(invalidReply, COMMAND_NAME);
 				return;
 			}
+
 
 			const foodNutrients = {};
 
-			let nutrientPart = re_result.input.slice(re_result[2].length);
+			const RE_BJUK_LIST = getRE_BJUK_LIST(BJUKWords, 'u');
+			RE_BJUK_LIST.forEach(e => {
+				const match = foodNutrientString.match(e.re);
 
-			RE_RU_NUTRIENTS.forEach((el, i) => {
-				const match = nutrientPart.match(el);
-			
-				const nutrientName = NUTRIENTS[i].lang_code_en.replaceAll(/\s+/g, `_`);
-				foodNutrients[nutrientName] = NUTRIENTS[i];
+				foodNutrients[e.columnName] = e;
 
-				if (Array.isArray(match)){
-					let strNutrientValue = match[3].replace(`,`, `.`);
-					const dotMatch = strNutrientValue.match(/\./);
-					if (Array.isArray(dotMatch)) {
-						strNutrientValue = strNutrientValue.slice(0, dotMatch.index + 2);
+				if(Array.isArray(match)){
+					let nutrientValueString = match[2].replace(`,`, `.`);
+
+					const dotMatch = nutrientValueString.match(/\./);
+					if(Array.isArray(dotMatch)){
+						nutrientValueString = nutrientValueString.slice(0, dotMatch.index + 2);
 					}
+					
+					foodNutrients[e.columnName].value = Number(nutrientValueString);
 
-					foodNutrients[nutrientName].nutrientValue = Number(strNutrientValue);
 					return;
 				}
-				
-				foodNutrients[nutrientName].nutrientValue = 0;
-			});	
 
+				foodNutrients[e.columnName].value = 0;
+			});
 
-			const foodNutrientKeys = Object.keys(foodNutrients);
+			const keysOfFoodNutrients = Object.keys(foodNutrients);
 
-			if (foodNutrientKeys.length == 0){
+			if (keysOfFoodNutrients.every(e => foodNutrients[e].value === undefined)) {
 				const invalidReply = `Нутриентов не обнаружено.`;
-				await completeInvalidCommandHandling(invalidReply);
+				await completeInvalidCommandHandling(invalidReply, COMMAND_NAME);
 				return;
 			}
 
-			if (!foodNutrients.caloric_content.nutrientValue){
-				foodNutrients.caloric_content.nutrientValue	= 0;
 
-				foodNutrientKeys.forEach(e =>{
-					if(e == `caloric_content`){
+			if (foodNutrients.caloric_content.value === undefined) {
+				foodNutrients.caloric_content.value	= 0;
+
+				keysOfFoodNutrients.forEach(e =>{
+
+					if(e === `caloric_content`){
 						return;
 					}
-					if(e == `fat`){
-						foodNutrients.caloric_content.nutrientValue	+= foodNutrients[e].nutrientValue * 9;
+
+					if(e === `fat`){
+						foodNutrients.caloric_content.value	+= foodNutrients[e].value * 9;
 					}
-					foodNutrients.caloric_content.nutrientValue	+= foodNutrients[e].nutrientValue * 4;
+
+					foodNutrients.caloric_content.value += foodNutrients[e].value * 4;
+
 				});
 
-				foodNutrients.caloric_content.nutrientValue = Number(foodNutrients.caloric_content.nutrientValue.toFixed(1));
+				foodNutrients.caloric_content.value = Number(foodNutrients.caloric_content.value.toFixed(1));
 			}
 
-			let invalidReply = ``;
+
+			let invalidReplyOfBJUK = ``;
 			let sumOfBJU = 0;
 
-			foodNutrientKeys.forEach(e => {
-				if(e == `caloric_content`){
-					if (foodNutrients.caloric_content.nutrientValue > 900) {
-						invalidReply += `\nКалорийность не может превышать 900 ккал.`
+			keysOfFoodNutrients.forEach(e => {
+				if(e === `caloric_content`){
+					if (foodNutrients.caloric_content.value > 900) {
+						invalidReplyOfBJUK += `\nКалорийность не может превышать 900 ккал.`
 					}
 					return;
 				}
 
-				sumOfBJU += foodNutrients[e].nutrientValue;
+				sumOfBJU += foodNutrients[e].value;
 
-				if(foodNutrients[e].nutrientValue > 100){
-					invalidReply += `\n${
-						foodNutrients[e].lang_code_ru.slice(0,1).toUpperCase() + foodNutrients[e].lang_code_ru.slice(1)
+				if(foodNutrients[e].value > 100){
+					invalidReplyOfBJUK += `\n${
+						foodNutrients[e].name.slice(0,1).toUpperCase() + foodNutrients[e].name.slice(1)
 					} не могут превышать 100 грамм.`;
 				}
 
 			});
 			
 			if (sumOfBJU > 100) {
-				invalidReply += `\nСумма БЖУ не может превышать 100 грамм.`
+				invalidReplyOfBJUK += `\nСумма БЖУ не может превышать 100 грамм.`
 			}
 
-			if(invalidReply){
-				await completeInvalidCommandHandling(invalidReply);
+			if(invalidReplyOfBJUK){
+				await completeInvalidCommandHandling(invalidReplyOfBJUK, COMMAND_NAME);
 				return;
 			}
 
-			userInfo.count_of_user_created_fi = userInfo.count_of_user_created_fi ? Number(userInfo.count_of_user_created_fi) + 1 : 1;
+
+			userInfo.count_of_user_created_fi = userInfo.count_of_user_created_fi + 1;
 
 			const doc = {};
 			doc.name__lang_code_ru = foodName;
@@ -1957,9 +1968,9 @@ bot.on(`message`, async ctx => {
 			row.name__lang_code_ru = foodName;
 			row.fi_id_for_user = Number(userInfo.count_of_user_created_fi);
 
-			foodNutrientKeys.forEach(e => {
-				row[e] = foodNutrients[e].nutrientValue;
-				doc[e] = foodNutrients[e].nutrientValue;
+			keysOfFoodNutrients.forEach(e => {
+				row[e] = foodNutrients[e].value;
+				doc[e] = foodNutrients[e].value;
 			});
 
 			const m = getCreatedFoodMessage(`ru`, row);
@@ -1993,7 +2004,7 @@ bot.on(`message`, async ctx => {
 			doc.id = Number(res.rows[0].fdifmid),
 			doc.food_items_id = Number(res.rows[0].food_items_id);
 
-			await MSDB.addDocuments([doc]);
+			await meiliFDIndex.addDocuments([doc]);
 
 			row = getPredefinedRowWithDateTgUserId();
 			row.command = `CREATE_FOOD`;
@@ -2109,8 +2120,8 @@ bot.on(`message`, async ctx => {
 			} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_MESSAGE__DELETE_CREATED_FOOD_IDs))) {
 				
 				const num_re = /\d+/g;
-				const fi_id_for_userArr = [...re_result[2].matchAll(num_re)].map(e => e[0]);
-				const uniqueFi_id_for_userArr = fi_id_for_userArr.filter((e, i, a) => i == a.findIndex(ae => ae == e ) ? e : false).slice(0, 20);
+				const fi_id_for_userArr = Array.from(re_result[2].matchAll(num_re), e => e[0]);
+				const uniqueFi_id_for_userArr = fi_id_for_userArr.filter((e, i, a) => i === a.findIndex(ae => ae === e ) ? e : false).slice(0, 20);
 
 				const res = await DB_CLIENT.query(`
 					UPDATE food_items
@@ -2130,7 +2141,7 @@ bot.on(`message`, async ctx => {
 					return;
 				}
 				
-				await MSDB.deleteDocuments({
+				await meiliFDIndex.deleteDocuments({
 					filter:`food_items_id IN [${res.rows.map(e => e.id).join()}]`
 				});
 				
@@ -2169,7 +2180,7 @@ bot.on(`message`, async ctx => {
 				;`);
 
 				// delete doc with the same food_items_id from meilisearch
-				await MSDB.deleteDocuments({
+				await meiliFDIndex.deleteDocuments({
 					filter:`food_items_id IN [${userLastCommand.data.food_items_ids.join()}]`
 				});
 
@@ -2231,7 +2242,7 @@ bot.on(`message`, async ctx => {
 						group by id, name__lang_code_ru, tg_user_id, protein, carbohydrate, fat, caloric_content) upd
 					ON (fdifm.food_items_id = upd.id)
 				;`);
-				//add doc to MSDB
+				//add doc to meiliFDIndex
 				let documents = [];
 				res.rows.forEach(el =>{
 					let doc = {};
@@ -2247,7 +2258,7 @@ bot.on(`message`, async ctx => {
 					doc.caloric_content = Number(el.caloric_content);
 					documents.push(doc);
 				});
-				await MSDB.addDocuments(documents);
+				await meiliFDIndex.addDocuments(documents);
  
 					//registered_users available_count_of_user_created_fi - 1 //add check for all users					
 					userInfo.available_count_of_user_created_fi = Number(userInfo.available_count_of_user_created_fi) + userLastCommand.data.food_items_ids.length;
@@ -2307,7 +2318,7 @@ bot.on(`message`, async ctx => {
 					return;
 				}
 
-				let findIdenticalNameResponse = await MSDB.search(dishName, {
+				let findIdenticalNameResponse = await meiliFDIndex.search(dishName, {
 					filter: `name__lang_code_ru = '${dishName}' AND tg_user_id = ${userInfo.tg_user_id} AND dish_items_id IS NOT EMPTY`
 				});
 				
@@ -2480,7 +2491,7 @@ bot.on(`message`, async ctx => {
 				
 				row.data = {};
 				row.data.dish_items_id = dish.id;
-				row.data.dish = Object.assign({}, dish);
+				row.data.dish = {...dish};
 				delete row.data.dish.id;
 				delete row.data.dish.fooddish_gweight_items_json;
 				row.data.ingredients = ingredients;
@@ -2635,7 +2646,7 @@ bot.on(`message`, async ctx => {
 					}
 
 
-	 				let findIdenticalNameResponse = await MSDB.search(dishName, {
+	 				let findIdenticalNameResponse = await meiliFDIndex.search(dishName, {
 						filter: `name__lang_code_ru = '${dishName}' AND tg_user_id = ${userInfo.tg_user_id} AND dish_items_id IS NOT EMPTY`
 					});
 
@@ -2763,7 +2774,7 @@ bot.on(`message`, async ctx => {
 					const subCommand = `deleteIngrFromDish`;
 
 					//row.data.action = {delete ingredient, ingredients}
-					let listNums = [...re_result.input.matchAll(/[0-9]+/g)].map(e => e);
+					let listNums = Array.from(re_result.input.matchAll(/[0-9]+/g), e => e);
 					
 					console.log(listNums);
 
@@ -2998,7 +3009,7 @@ bot.on(`message`, async ctx => {
 				}
 
 
- 				let findIdenticalNameResponse = await MSDB.search(dishName, {
+ 				let findIdenticalNameResponse = await meiliFDIndex.search(dishName, {
 					filter: `name__lang_code_ru = '${dishName}' AND tg_user_id = ${userInfo.tg_user_id} AND dish_items_id IS NOT EMPTY`
 				});
 
@@ -3228,7 +3239,7 @@ bot.on(`message`, async ctx => {
 					}
 
 
-	 				let findIdenticalNameResponse = await MSDB.search(dishName, {
+	 				let findIdenticalNameResponse = await meiliFDIndex.search(dishName, {
 						filter: `name__lang_code_ru = '${dishName}' AND tg_user_id = ${userInfo.tg_user_id} AND dish_items_id IS NOT EMPTY`
 					});
 
@@ -3712,12 +3723,16 @@ bot.on(`callback_query`, async ctx => {
 		getPredefinedRowWithDateTgUserId
 		,insertIntoTelegramUserSendedCommandsPostgresTable
 	);
+	
+	const updateTelegramUsersPostgresTableBound = updateTelegramUsersPostgresTable.bind(null, userInfo.tg_user_id);
+
 		
 	const fns = makeObjOfFnsFromObjsWith1Fn(
 		{isPreviousMessagePanelEqualToNewOneBound}
 		,{editTextOfSetMessageInSetChat}
 		,{insertCommandRowIntoTelegramUserSendedCommands}
 		,{updateUserSubprocess}
+		,{updateTelegramUsersPostgresTableBound}
 	);
 
 
@@ -3980,7 +3995,7 @@ bot.on(`callback_query`, async ctx => {
 
 				const chosenLanguage = re_result[2];
 
-				await handleChooseLanguage(fns, userInfo, userSubprocess, chosenLanguage);
+				await handleChooseLanguage(fns, userSubprocess, chosenLanguage);
 
 			}
 		} else if(userSubprocess.process_name == `DISH_CREATING__RENAMING`){
@@ -4068,7 +4083,7 @@ bot.on(`callback_query`, async ctx => {
 
 				let ingredients = minifyBJUKnWNOfIngredients(userSubprocess.data.ingredients);
 
-				let dish = Object.assign({}, userSubprocess.data.dish);
+				let dish = {...userSubprocess.data.dish};
 				//insert into dish_items
 				let row = dish;
 				row.creation_date = creation_date;
@@ -4104,7 +4119,7 @@ bot.on(`callback_query`, async ctx => {
 				const fdIdsForMSId = res.rows[0].id;
 
 				//insert into meilisearch
-				dish = Object.assign({}, userSubprocess.data.dish);
+				dish = {...userSubprocess.data.dish};
 				dish = bjukToNum(dish);
 				delete dish.di_id_for_user;
 				delete dish.g_weight;
@@ -4118,7 +4133,7 @@ bot.on(`callback_query`, async ctx => {
 				doc.created_by_project = false;
 				documents.push(doc);
 
-				await MSDB.addDocuments(documents);
+				await meiliFDIndex.addDocuments(documents);
 
 				//insert telegram_user_sended_commands
 				row = {};
@@ -4299,7 +4314,7 @@ bot.on(`callback_query`, async ctx => {
 
 				let ingredients = minifyBJUKnWNOfIngredients(userSubprocess.data.ingredients);
 
-				let dish = Object.assign({}, userSubprocess.data.dish);
+				let dish = {...userSubprocess.data.dish};
 
 				//insert into dish_items
 				let row = dish;
@@ -4322,7 +4337,7 @@ bot.on(`callback_query`, async ctx => {
 					`)).rows[0].id;
 
 				//insert into meilisearch
-				dish = Object.assign({}, userSubprocess.data.dish);
+				dish = {...userSubprocess.data.dish};
 				dish = bjukToNum(dish);
 				delete dish.di_id_for_user;
 				delete dish.g_weight;
@@ -4331,7 +4346,7 @@ bot.on(`callback_query`, async ctx => {
 				const doc = dish;
 				doc.id = Number(fdIdsForMSId);
 
-				await MSDB.updateDocuments([doc]);
+				await meiliFDIndex.updateDocuments([doc]);
 
 				//insert telegram_user_sended_commands
 				row = {};
@@ -4546,7 +4561,7 @@ bot.on(`inline_query`, async ctx => {
 					userAdditionFilter += ` AND ${filter_NutrientName} ${filter_lessMore} ${re_result[11]}`;
 				}
 
-				//search in MSDB
+				//search in meiliFDIndex
 				const res = await meiliSClient.multiSearch({
 					queries:[
 						{
@@ -4704,7 +4719,7 @@ bot.on(`inline_query`, async ctx => {
 					userAdditionFilter += ` AND ${filter_NutrientName} ${filter_lessMore} ${re_result[11]}`;
 				}
 
-				//search in MSDB
+				//search in meiliFDIndex
 				const res = await meiliSClient.multiSearch({
 					queries:[
 						{

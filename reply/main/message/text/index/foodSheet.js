@@ -7,10 +7,11 @@ const {
 
 const makeUserFoodSheetMessageText = (language_code, foodList, countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting) => {
 	switch (language_code) {
-	 	case 'ru':
+	 	case 'ru':{
 	 		return makeRuHeaderBeforeUserFoodSheet(countOfAllRows, bjukMoreLessCondition, bjukAscDescSorting)
 				+ makeRuFoodSheetHeader(true)
-				+ makeRuFoodSheetContent(foodList);
+			+ makeRuFoodSheetContent(foodList);
+		}
 	 	case 'en':
 			return `code me`;
 	 	default:

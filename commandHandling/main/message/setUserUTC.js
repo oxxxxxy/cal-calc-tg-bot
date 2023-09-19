@@ -263,7 +263,7 @@ const handleSetUserUTCCommand = async (fns, pgClient, userInfo, dayOfMonth, hour
 
 	const row = {
 		command : `SET_USER_UTC`
-		,data : JSON.stringify([userUTCOffset])
+		,data : JSON.stringify(userUTCOffset)
 	}
 
 	await fns.insertCommandRowIntoTelegramUserSendedCommands(row);

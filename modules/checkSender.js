@@ -64,6 +64,9 @@ const renamedColumnsOfTablesTgUsersAndRegUsers = `
 	ru.last_online
 `;
 
+const getNumberFromNumberColumnValue = v =>
+	typeof v === null ? 0 : Number(v);
+
 const getTelegramUserInfo = async (pgClient, tg_user_id) => {
 	const res = await pgClient.query(`
 		SELECT *
@@ -71,7 +74,27 @@ const getTelegramUserInfo = async (pgClient, tg_user_id) => {
 		WHERE tg_user_id = ${tg_user_id}
 	;`);
 
-	return res.rows[0];
+	const userInfo = res.rows[0];
+
+	userInfo.limit_count_of_user_created_fidi = getNumberFromNumberColumnValue(
+		userInfo.limit_count_of_user_created_fidi
+	);
+
+	userInfo.count_of_user_created_fi = getNumberFromNumberColumnValue(
+		userInfo.count_of_user_created_fi
+	);
+	userInfo.available_count_of_user_created_fi = getNumberFromNumberColumnValue(
+		userInfo.available_count_of_user_created_fi
+	);
+
+	userInfo.count_of_user_created_di = getNumberFromNumberColumnValue(
+		userInfo.count_of_user_created_di
+	);
+	userInfo.available_count_of_user_created_di = getNumberFromNumberColumnValue(
+		userInfo.available_count_of_user_created_di
+	);
+
+	return userInfo;
 };
 exports.getTelegramUserInfo = getTelegramUserInfo;
 
