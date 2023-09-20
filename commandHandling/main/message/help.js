@@ -7,6 +7,6 @@ const handleHelpCommand = async (fns, userInfo) => {
 
 	await fns.sendMessageToSetChat(reply);
 
-	await fns.insertCommandRowIntoTelegramUserSendedCommands(commandNameCodes.HELP);
+	await fns.insertCommandIntoTelegramUserSendedCommands(commandNameCodes.HELP);
 };
 exports.handleHelpCommand = handleHelpCommand;

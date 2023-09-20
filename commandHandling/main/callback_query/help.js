@@ -12,10 +12,10 @@ const handleSetHelpPageCommand = async (fns, userInfo, selectedPage) => {
 	await fns.editTextOfSetMessageInSetChat(replyWithSelectedPage);
 
 	const row = {
-		name: commandNameCodes.CHOOSE_HELP_PAGE
-		,data: JSON.stringify({selectedPage:selectedPage})
+		name_code: commandNameCodes.CHOOSE_HELP_PAGE
+		,data: JSON.stringify(selectedPage)
 	};
 
-	await fns.insertCommandRowIntoTelegramUserSendedCommands(row);
+	await fns.insertCommandIntoTelegramUserSendedCommands(row);
 }
 exports.handleSetHelpPageCommand = handleSetHelpPageCommand;

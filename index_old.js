@@ -61,10 +61,12 @@ const {
 
 const {
 	handleHelpCommand
-	,handleSetHelpPageOfMessagePanelCommand
 } = require(`./commandHandling/main/message/help.js`);
+const {
+	handleSetHelpPageCommand
+} = require(`./commandHandling/main/callback_query/help.js`);
 
-const {handleSetUserUTCCommand} = require(`./commandHandling/main/message/setUserUTC.js`);
+const {handleSetUserUTCCommand} = require(`./commandHandling/main/message/setUserUTC/setUserUTC.js`);
 
 const {handleChangeLanguageCommand} = require(`./commandHandling/main/message/changeLanguage.js`);
 const {
@@ -75,6 +77,16 @@ const {handleChooseLanguage} = require(`./commandHandling/subprocess/callback_qu
 
 const cf = require('./commandHandling/main/message/createFood/createFood.js');
 const BJUKWords = cf.BJUKWords;
+
+
+const inputTypeCodes = require(`./commandHandling/codes/inputTypeCodes.js`);
+
+
+
+
+
+
+
 
 const TG_USERS_LAST_ACTION_TIME = {};
 
@@ -1077,23 +1089,19 @@ const makeFnEditTextOfSetMessageInSetChat = (chat_id, message_id) => {
 const makeFnSendMessageToChat = chatId => 
 	(...args) => sendMessage(chatId, ...args);
 
-const makeFnCompleteInvalidCommandHandling = (sendMessageToSetChat, getPredefinedRowFn, insertFn, gotUserMessageId) => 
-	async (invalidReply, commandName, invalidCause) => {
+const makeFnCompleteInvalidCommandHandling = (sendMessageToSetChat, insertCommandIntoTelegramUserSendedCommands, gotUserMessageId) => 
+	async (commandNameCode, invalidReply, invalidCauseCode) => {
 		const res = await sendMessageToSetChat(invalidReply);
 
 		if(!res){
 			return;
 		}
+		
+		const row = {};	
+		row.name_code = commandNameCode;
 
-		row = getPredefinedRowFn();
-		row.invalid_command = true;
-
-		if(commandName){
-			row.name = commandName;
-		}
-
-		if(invalidCause){
-			row.invalid_cause = invalidCause;
+		if(invalidCauseCode){
+			row.invalid_cause_code = invalidCauseCode;
 		}
 				
 		row.data = {};
@@ -1101,7 +1109,9 @@ const makeFnCompleteInvalidCommandHandling = (sendMessageToSetChat, getPredefine
 		row.data.b = res.message_id;
 		row.data = JSON.stringify(row.data);
 
-		await insertFn(row);
+		await insertCommandIntoTelegramUserSendedCommands(row);
+
+		return res;//think
 	};
 
 
@@ -1157,17 +1167,17 @@ const makeFnCompleteInvalidCommandHandling = (sendMessageToSetChat, getPredefine
 					;`;
 				}
 
-	const makeFnInsertCommandRowIntoTelegramUserSendedCommands = (getPredefinedRowWithDateTgUserId, insertIntoTelegramUserSendedCommands) =>
+	const makeFnInsertCommandIntoTelegramUserSendedCommands = (predefinedRowWithTgUserIdNDateNInputType, insertIntoTelegramUserSendedCommands) =>
 		commandRow => {
-			let predefinedRow = getPredefinedRowWithDateTgUserId();
+			let row = predefinedRowWithTgUserIdNDateNInputType;
 		
 			if(typeof commandRow === `number`){
-					predefinedRow.name = commandRow;
+					row.name_code = commandRow;
 			} else {
-				predefinedRow = {...predefinedRow, ...commandRow};
+				row = {...row, ...commandRow};
 			}
 			
-			return insertIntoTelegramUserSendedCommands(predefinedRow);
+			return insertIntoTelegramUserSendedCommands(row);
 		}
 
 
@@ -1657,26 +1667,29 @@ bot.on(`message`, async ctx => {
 
 	const getPredefinedRowWithDateTgUserId = memoizeOneArgument(row);
 	
+	const insertCommandIntoTelegramUserSendedCommands = makeFnInsertCommandIntoTelegramUserSendedCommands(
+		{
+			...getPredefinedRowWithDateTgUserId()
+			,input_type_code : inputTypeCodes.MESSAGE
+		}
+		,insertIntoTelegramUserSendedCommandsPostgresTable
+	);
+	
 	const sendMessageToChat = makeFnSendMessageToChat(chatId);
 	const sendMessageToSetChat = makeFnSendMessageToSetChat(chatId);
 
 	const completeInvalidCommandHandling = makeFnCompleteInvalidCommandHandling(
 		sendMessageToSetChat
-		,getPredefinedRowWithDateTgUserId
-		,insertIntoTelegramUserSendedCommandsPostgresTable
+		,insertCommandIntoTelegramUserSendedCommands
 		,gotUserMessageId
 	);
 
-	const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowIntoTelegramUserSendedCommands(
-		getPredefinedRowWithDateTgUserId
-		,insertIntoTelegramUserSendedCommandsPostgresTable
-	);
 
 	const updateTelegramUsersPostgresTableBound = updateTelegramUsersPostgresTable.bind(null, userInfo.tg_user_id);
 
 	const fns = makeObjOfFnsFromObjsWith1Fn(
 		{sendMessageToSetChat}
-		,{insertCommandRowIntoTelegramUserSendedCommands}
+		,{insertCommandIntoTelegramUserSendedCommands}
 		,{completeInvalidCommandHandling}
 		,{updateTelegramUsersPostgresTableBound}
 	);
@@ -1825,11 +1838,7 @@ bot.on(`message`, async ctx => {
 
 		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_MESSAGE__SET_USER_UTC))) {
 
-			const dayOfMonth = Number(re_result[2]);
-			const hours = Number(re_result[3]);
-			const minutes = Number(re_result[4]);
-
-			await handleSetUserUTCCommand(fns, pgClient, userInfo, dayOfMonth, hours, minutes, requestDate);
+			await handleSetUserUTCCommand(fns, pgClient, userInfo, re_result, requestDate);
 
 		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_MESSAGE__CHANGE_LANGUAGE))) {
 
@@ -3719,20 +3728,31 @@ bot.on(`callback_query`, async ctx => {
 	row.creation_date = creation_date;
 
 	const getPredefinedRowWithDateTgUserId = memoizeOneArgument(row);
-	const editTextOfSetMessageInSetChat = makeFnEditTextOfSetMessageInSetChat(chatId, messageId);
 
-	const insertCommandRowIntoTelegramUserSendedCommands = makeFnInsertCommandRowIntoTelegramUserSendedCommands(
-		getPredefinedRowWithDateTgUserId
+	const insertCommandIntoTelegramUserSendedCommands = makeFnInsertCommandIntoTelegramUserSendedCommands(
+		{
+			...getPredefinedRowWithDateTgUserId()
+			,input_type_code : inputTypeCodes.CALLBACK_QUERY
+		}
 		,insertIntoTelegramUserSendedCommandsPostgresTable
 	);
 	
+	const sendMessageToSetChat = makeFnSendMessageToSetChat(chatId);
+	const editTextOfSetMessageInSetChat = makeFnEditTextOfSetMessageInSetChat(chatId, messageId);
+
+	/* const completeInvalidCommandHandling = makeFnCompleteInvalidCommandHandling(
+		sendMessageToSetChat
+		,insertCommandIntoTelegramUserSendedCommands
+		,gotUserMessageId
+	); */
+
 	const updateTelegramUsersPostgresTableBound = updateTelegramUsersPostgresTable.bind(null, userInfo.tg_user_id);
 
 		
 	const fns = makeObjOfFnsFromObjsWith1Fn(
 		{isPreviousMessagePanelEqualToNewOneBound}
 		,{editTextOfSetMessageInSetChat}
-		,{insertCommandRowIntoTelegramUserSendedCommands}
+		,{insertCommandIntoTelegramUserSendedCommands}
 		,{updateUserSubprocess}
 		,{updateTelegramUsersPostgresTableBound}
 		,{getPredefinedRowWithDateTgUserId}
@@ -3742,7 +3762,7 @@ bot.on(`callback_query`, async ctx => {
 	if (Array.isArray(re_result = callbackQuery.data.match(RE_CALLBACK_QUERY__LEAF_LIST_OF_HELP_PANEL))) {
 		const selectedPage = Number(re_result[2]);
 
-		await handleSetHelpPageOfMessagePanelCommand(fns, userInfo, selectedPage);
+		await handleSetHelpPageCommand(fns, userInfo, selectedPage);
 
 	} else if (Array.isArray(re_result = callbackQuery.data.match(RE_CALLBACK_QUERY__LEAF_LIST_OF_CREATED_FOOD_PANEL))) {
 		console.log(re_result);

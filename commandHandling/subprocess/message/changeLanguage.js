@@ -4,7 +4,7 @@ const {getInvalidInputMessageOfChangeLanguageSubprocess} = require(`../../../rep
 const {getChangeLanguageMessage} = require(`../../../reply/main/message/changeLanguage.js`);
 
 const handleInvalidInputForChangeLanguageSubprocess = async completeHandlingOfSubprocessForInvalidInput_Predefined => {
-	const invalidCause = invalidCauseCodes;
+	const invalidCause = invalidCauseCodes.INPUT_TYPE_NOT_SPECIFIED_FOR_THAT_COMMAND;
 	const invalidReply = getInvalidInputMessageOfChangeLanguageSubprocess();
 				
 	await completeHandlingOfSubprocessForInvalidInput_Predefined(invalidReply);
