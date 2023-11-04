@@ -19,7 +19,7 @@ const handleCreateFoodCommand = async (fns, re_result, userInfo) => {
 	if (!userInfo.privilege_type && userInfo.limit_count_of_user_created_fidi >= limit_count_of_user_created_fidi) {
 		const invalidReply = getFoodCreationLimitationMessage(userInfo.s__lang_code, limit_count_of_user_created_fidi);
 
-		await fns.completeInvalidCommandHandling(invalidReply, commandNameCodes.CREATE_FOOD, invalidCauseCodes.DAY_FOOD_DISH_CREATION_LIMIT);
+		await fns.completeInvalidMessageCommandHandling(invalidReply, commandNameCodes.CREATE_FOOD, invalidCauseCodes.DAY_FOOD_DISH_CREATION_LIMIT);
 		return;
 	}
 
@@ -27,7 +27,7 @@ const handleCreateFoodCommand = async (fns, re_result, userInfo) => {
 	if (foodName.length < 4) {
 		const invalidReply = getFoodNameLengthRequiredCriterionMessage(userInfo.s__lang_code);
 
-		await completeInvalidCommandHandling(invalidReply, commandNameCodes.CREATE_FOOD, invalidCauseCodes.FOOD_DISH_NAME_LESS_THAN_4_CHARS);
+		await completeInvalidMessageCommandHandling(invalidReply, commandNameCodes.CREATE_FOOD, invalidCauseCodes.FOOD_DISH_NAME_LESS_THAN_4_CHARS);
 		return;
 	}
 

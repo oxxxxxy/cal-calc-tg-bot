@@ -12,11 +12,11 @@ const handleSetUserUTCCommand = async (fns, pgClient, userInfo, re_result, reque
 	const hours = Number(re_result[3]);
 	const minutes = Number(re_result[4]);
 
-	const completeInvalidCommandHandlingBound = fns.completeInvalidCommandHandling.bind(null, commandNameCodes.SET_USER_UTC);
+	const completeInvalidMessageCommandHandlingBound = fns.completeInvalidMessageCommandHandling.bind(null, commandNameCodes.SET_USER_UTC);
 
 	if(!dayOfMonth){
 		const invalidReply = getInvalidMessage_dayOfMonth(userInfo.s__lang_code);
-		await completeInvalidCommandHandlingBound(invalidReply, invalidCauseCodes.DAY_OF_MONTH_EQUAL_TO_0);
+		await completeInvalidMessageCommandHandlingBound(invalidReply, invalidCauseCodes.DAY_OF_MONTH_EQUAL_TO_0);
 		return;
 	}
 
@@ -24,7 +24,7 @@ const handleSetUserUTCCommand = async (fns, pgClient, userInfo, re_result, reque
 
 	if (!userUTCOffset) {
 		const invalidReply = getInvalidMessage_wholeData(userInfo.s__lang_code);
-		await completeInvalidCommandHandlingBound(invalidReply, invalidCauseCodes.WHOLE_DATE_IS_INVALID);
+		await completeInvalidMessageCommandHandlingBound(invalidReply, invalidCauseCodes.WHOLE_DATE_IS_INVALID);
 		return;
 	}
 

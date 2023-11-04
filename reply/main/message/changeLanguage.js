@@ -2,9 +2,9 @@ const {makeChangeLanguageMessageInlineKeyboard} = require(`./reply_markup/inline
 const {makeMultiLangChangeLanguageMessageText} = require(`./text/languages/multiLang/changeLanguage.js`);
 
 
-const getChangeLanguageMessage = userInfo => {
+const getChangeLanguageMessage = tg_user_id => {
 	const message = {};
-	message.reply_markup = makeChangeLanguageMessageInlineKeyboard(userInfo);
+	message.reply_markup = makeChangeLanguageMessageInlineKeyboard(tg_user_id);
 	message.text = makeMultiLangChangeLanguageMessageText();
 	return message;
 };

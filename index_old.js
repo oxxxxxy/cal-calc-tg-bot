@@ -531,8 +531,8 @@ const createUserSubprocessAndGetItId = async (pgClient, row) => {
 	return res.rows[0].id;
 };
 
-const makePredefinedFnCreateUserSubprocessAndGetItId = (pgClient, getPredefinedRow) => row => {
-	row = {...row, ...getPredefinedRow()};
+const makePredefinedFnCreateUserSubprocessAndGetItId = (pgClient, predefinedRow) => row => {
+	row = {...row, ...predefinedRow};
 
 	return createUserSubprocessAndGetItId(pgClient, row);
 }
@@ -1089,7 +1089,7 @@ const makeFnEditTextOfSetMessageInSetChat = (chat_id, message_id) => {
 const makeFnSendMessageToChat = chatId => 
 	(...args) => sendMessage(chatId, ...args);
 
-const makeFnCompleteInvalidCommandHandling = (sendMessageToSetChat, insertCommandIntoTelegramUserSendedCommands, gotUserMessageId) => 
+const makeFnCompleteInvalidMessageCommandHandling = (sendMessageToSetChat, insertCommandIntoTelegramUserSendedCommands, gotUserMessageId) => 
 	async (commandNameCode, invalidReply, invalidCauseCode) => {
 		const res = await sendMessageToSetChat(invalidReply);
 
@@ -1099,10 +1099,7 @@ const makeFnCompleteInvalidCommandHandling = (sendMessageToSetChat, insertComman
 		
 		const row = {};	
 		row.name_code = commandNameCode;
-
-		if(invalidCauseCode){
-			row.invalid_cause_code = invalidCauseCode;
-		}
+		row.invalid_cause_code = invalidCauseCode;
 				
 		row.data = {};
 		row.data.u = gotUserMessageId;
@@ -1110,8 +1107,6 @@ const makeFnCompleteInvalidCommandHandling = (sendMessageToSetChat, insertComman
 		row.data = JSON.stringify(row.data);
 
 		await insertCommandIntoTelegramUserSendedCommands(row);
-
-		return res;//think
 	};
 
 
@@ -1167,9 +1162,9 @@ const makeFnCompleteInvalidCommandHandling = (sendMessageToSetChat, insertComman
 					;`;
 				}
 
-	const makeFnInsertCommandIntoTelegramUserSendedCommands = (predefinedRowWithTgUserIdNDateNInputType, insertIntoTelegramUserSendedCommands) =>
+	const makeFnInsertCommandIntoTelegramUserSendedCommands = (predefinedRow, insertIntoTelegramUserSendedCommands) =>
 		commandRow => {
-			let row = predefinedRowWithTgUserIdNDateNInputType;
+			let row = predefinedRow;
 		
 			if(typeof commandRow === `number`){
 					row.name_code = commandRow;
@@ -1271,7 +1266,7 @@ NUTRIENTS.forEach(i => {
 	}
 );
 
-console.log(NUTRIENTS, RE_RU_NUTRIENTS)
+// console.log(NUTRIENTS, RE_RU_NUTRIENTS)
 
 const cleanFromOldUserCommands = async () => {
 	while (true) {
@@ -1650,7 +1645,7 @@ bot.on(`message`, async ctx => {
 	const userLastCommand = await getUserLastCommand(DB_CLIENT, userInfo.tg_user_id);
 	const userSubprocess = await getUserSubProcess(DB_CLIENT, ctx.update.message.from.id);
 
-	const chatId = ctx.update.message.from.id;
+	const chatId = ctx.update.message.chat.id;
 	const gotUserMessageId = ctx.update.message.message_id;
 	
 	const reqDate = ctx.update.message.date * 1000;	
@@ -1661,16 +1656,18 @@ bot.on(`message`, async ctx => {
 	const languageCode = !userInfo.s__lang_code ? `ru` : userInfo.s__lang_code;
 	userInfo.s__lang_code = languageCode;
 
-	const row = {};
-	row.tg_user_id = userInfo.tg_user_id;
-	row.creation_date = creation_date;
-
-	const getPredefinedRowWithDateTgUserId = memoizeOneArgument(row);
+	const getPredefinedRowWithDateTgUserId = memoizeOneArgument(
+		{
+			tg_user_id : userInfo.tg_user_id
+			,creation_date : creation_date 
+		}
+	);
 	
 	const insertCommandIntoTelegramUserSendedCommands = makeFnInsertCommandIntoTelegramUserSendedCommands(
 		{
 			...getPredefinedRowWithDateTgUserId()
 			,input_type_code : inputTypeCodes.MESSAGE
+			,chat_id : chatId
 		}
 		,insertIntoTelegramUserSendedCommandsPostgresTable
 	);
@@ -1678,7 +1675,7 @@ bot.on(`message`, async ctx => {
 	const sendMessageToChat = makeFnSendMessageToChat(chatId);
 	const sendMessageToSetChat = makeFnSendMessageToSetChat(chatId);
 
-	const completeInvalidCommandHandling = makeFnCompleteInvalidCommandHandling(
+	const completeInvalidMessageCommandHandling = makeFnCompleteInvalidMessageCommandHandling(
 		sendMessageToSetChat
 		,insertCommandIntoTelegramUserSendedCommands
 		,gotUserMessageId
@@ -1690,7 +1687,7 @@ bot.on(`message`, async ctx => {
 	const fns = makeObjOfFnsFromObjsWith1Fn(
 		{sendMessageToSetChat}
 		,{insertCommandIntoTelegramUserSendedCommands}
-		,{completeInvalidCommandHandling}
+		,{completeInvalidMessageCommandHandling}
 		,{updateTelegramUsersPostgresTableBound}
 	);
 
@@ -1842,7 +1839,7 @@ bot.on(`message`, async ctx => {
 
 		} else if (Array.isArray(re_result = text.toLowerCase().match(RE_RU_MESSAGE__CHANGE_LANGUAGE))) {
 
-			const createUserSubprocessAndGetItIdPredefined = makePredefinedFnCreateUserSubprocessAndGetItId(pgClient, getPredefinedRowWithDateTgUserId);
+			const createUserSubprocessAndGetItIdPredefined = makePredefinedFnCreateUserSubprocessAndGetItId(pgClient, getPredefinedRowWithDateTgUserId());
 
 			const extendedFns = {...fns, ...makeObjOfFnsFromObjsWith1Fn({createUserSubprocessAndGetItIdPredefined})};
 
@@ -1861,14 +1858,14 @@ bot.on(`message`, async ctx => {
 			const limit_count_of_user_created_fidi = 100;
 			if (!userInfo.privilege_type && userInfo.limit_count_of_user_created_fidi >= limit_count_of_user_created_fidi) {
 				const invalidReply =`Вы не можете создавать еду или блюда больше ${limit_count_of_user_created_fidi} раз за 24ч.`;
-				await completeInvalidCommandHandling(invalidReply, COMMAND_NAME);
+				await completeInvalidMessageCommandHandling(invalidReply, COMMAND_NAME);
 				return;
 			}
 			
 
 			if (foodName.length < 4) {
 				const invalidReply = `Название еды должно состоять из хотя бы 4 символов.`;
-				await completeInvalidCommandHandling(invalidReply, COMMAND_NAME);
+				await completeInvalidMessageCommandHandling(invalidReply, COMMAND_NAME);
 				return;
 			}
 
@@ -1879,7 +1876,7 @@ bot.on(`message`, async ctx => {
 
 			if (findIdenticalNameResponse?.hits?.length) {
 				const invalidReply = `Еда с таким названием уже существует.`;
-				await completeInvalidCommandHandling(invalidReply, COMMAND_NAME);
+				await completeInvalidMessageCommandHandling(invalidReply, COMMAND_NAME);
 				return;
 			}
 
@@ -1912,7 +1909,7 @@ bot.on(`message`, async ctx => {
 
 			if (keysOfFoodNutrients.every(e => foodNutrients[e].value === undefined)) {
 				const invalidReply = `Нутриентов не обнаружено.`;
-				await completeInvalidCommandHandling(invalidReply, COMMAND_NAME);
+				await completeInvalidMessageCommandHandling(invalidReply, COMMAND_NAME);
 				return;
 			}
 
@@ -1962,7 +1959,7 @@ bot.on(`message`, async ctx => {
 			}
 
 			if(invalidReplyOfBJUKValues){
-				await completeInvalidCommandHandling(invalidReplyOfBJUKValues, COMMAND_NAME);
+				await completeInvalidMessageCommandHandling(invalidReplyOfBJUKValues, COMMAND_NAME);
 				return;
 			}
 
@@ -2056,7 +2053,7 @@ bot.on(`message`, async ctx => {
 				if(!userInfo.available_count_of_user_created_fi){
 					//invalidReply[language_code][command][name]
 					const invalidReply = `У вас нет созданной еды.`;
-					await completeInvalidCommandHandling(invalidReply);
+					await completeInvalidMessageCommandHandling(invalidReply);
 					return;
 				}
 
@@ -2073,12 +2070,12 @@ bot.on(`message`, async ctx => {
 					if(bjukMoreLessCondition.nutrientAbbreviation == `cal` && bjukMoreLessCondition.value > 900){
 						//invalidReply[language_code][command][name]
 						const invalidReply = `Калорийность не может превышать 900 ккал на 100 грамм.`;
-						await completeInvalidCommandHandling(invalidReply);
+						await completeInvalidMessageCommandHandling(invalidReply);
 						return;
 					} else if (bjukMoreLessCondition.value > 100) {
 						//invalidReply[language_code][command][name]
 						const invalidReply = `Ни один нутриент из БЖУ не может превышать 100 грамм.`;
-						await completeInvalidCommandHandling(invalidReply);
+						await completeInvalidMessageCommandHandling(invalidReply);
 						return;
 					}
 
@@ -2104,7 +2101,7 @@ bot.on(`message`, async ctx => {
 
 				if(!res.rows.length){
 					const invalidReply = `Созданной еды с таким критерием не найдено.`;
-					await completeInvalidCommandHandling(invalidReply);
+					await completeInvalidMessageCommandHandling(invalidReply);
 					return;
 				}
 				
@@ -2148,7 +2145,7 @@ bot.on(`message`, async ctx => {
 					m = getDeleteCreatedFoodMessage(`ru`, res.rows);
 				} else {
 					const invalidReply = `Не найдено еды с ${uniqueFi_id_for_userArr.length > 1 ? 'такими' : 'таким' } ID:${uniqueFi_id_for_userArr.join(', ')}.`;
-					await completeInvalidCommandHandling(invalidReply);
+					await completeInvalidMessageCommandHandling(invalidReply);
 					return;
 				}
 				
@@ -2178,7 +2175,7 @@ bot.on(`message`, async ctx => {
 
 			if (!userLastCommand.can_it_be_removed){
 				const invalidReply = `Последняя команда ничего не создавала, чтобы что-то удалить.`;
-				await completeInvalidCommandHandling(invalidReply);
+				await completeInvalidMessageCommandHandling(invalidReply);
 				return;
 			}
 			
@@ -2325,7 +2322,7 @@ bot.on(`message`, async ctx => {
 				
 				if (dishName.length < 4) {
 					const invalidReply = `Название еды должно иметь хотя бы 4 символа.`;
-					await completeInvalidCommandHandling(invalidReply);
+					await completeInvalidMessageCommandHandling(invalidReply);
 					return;
 				}
 
@@ -2343,7 +2340,7 @@ bot.on(`message`, async ctx => {
 				// console.log(findIdenticalNameResponse);
 				if (findIdenticalNameResponse?.hits?.length) {
 					const invalidReply = `Блюдо с таким названием уже существует.`;
-					await completeInvalidCommandHandling(invalidReply);
+					await completeInvalidMessageCommandHandling(invalidReply);
 					return;
 				}
 
@@ -2545,7 +2542,7 @@ bot.on(`message`, async ctx => {
 					console.log(`code me`)
 			} else {
 				const invalidReply = `Не понимаю команду.\n\nПолучить список команд.  /h`;
-				await completeInvalidCommandHandling(invalidReply);
+				await completeInvalidMessageCommandHandling(invalidReply);
 				return;
 			}
 		} else {
@@ -3739,12 +3736,6 @@ bot.on(`callback_query`, async ctx => {
 	
 	const sendMessageToSetChat = makeFnSendMessageToSetChat(chatId);
 	const editTextOfSetMessageInSetChat = makeFnEditTextOfSetMessageInSetChat(chatId, messageId);
-
-	/* const completeInvalidCommandHandling = makeFnCompleteInvalidCommandHandling(
-		sendMessageToSetChat
-		,insertCommandIntoTelegramUserSendedCommands
-		,gotUserMessageId
-	); */
 
 	const updateTelegramUsersPostgresTableBound = updateTelegramUsersPostgresTable.bind(null, userInfo.tg_user_id);
 
