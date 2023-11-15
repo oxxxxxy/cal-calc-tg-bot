@@ -17,7 +17,7 @@
 
 # going through [nodebestpractices](https://github.com/goldbergyoni/nodebestpractices)
 
-
 - [x] 5.4. Lock dependencies
+- [ ] ...
 
 
