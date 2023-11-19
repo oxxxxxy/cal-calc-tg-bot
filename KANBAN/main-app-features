@@ -1,0 +1,38 @@
+---------THIS IS ALL FOR USER-----------
+
+help/manual how to use it
+
+CRUD user foods
+add ufood to day bjuk
+
+CRUD user dishes
+add udish to day bjuk
+
+Read project fooddishes
+	add to result of search queue fooddishes from web
+Add project fooddishes to day bjuk
+
+search in all fooddishes and add it
+
+crud day bjuk limit and set day
+
+
+add eaten fooddish
+show eaten fooddishes today or in some special day by date
+remove eaten today fooddish or from any other day
+
+show list of some day bjuks and its results
+
+crud raspisanie of day bjuk limits and set it
+
+
+sharing user foods, dishes with other users
+	copy fooddish by some id
+	sync user's fooddish with other user
+
+sync user accounts from other clients( tgbot, webapp )
+
+user settings
+	set time for telegram only
+	set language
+

@@ -1,4 +1,15 @@
 
 razdelit' bota na interface bota kotoriy po api obraschaet'sya k serveru so vsey infoy
 
+tg_bot(
+	своя таблица в бд для содержания состояния процесса, т.к. тут не вебклиент.
+	
 
+		)
+
+api-server(
+	vse crud operacii s prilojeniem
+	auth
+	db
+
+		)

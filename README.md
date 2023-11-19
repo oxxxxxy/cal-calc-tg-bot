@@ -1,3 +1,8 @@
+# UPD
+
+Now this repo is an archive of old code and a dev state. 
+
+
 # Калькулятор калорий в реализации телеграм бота.
 
 # Features
