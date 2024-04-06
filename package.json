@@ -16,7 +16,7 @@
   "dependencies": {
     "chart.js": "^3.8.0",
     "dotenv": "^16.0.1",
-    "eslint": "^8.53.0",
+    "eslint": "^9.0.0",
     "meilisearch": "^0.34.0",
     "nodemon": "^2.0.19",
     "pg": "^8.7.3",
