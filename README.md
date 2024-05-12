@@ -1,10 +1,10 @@
 # Demo
 Когда-то РАБотало
-
-![demo](/readme/demo 1.png)
-![demo](/readme/demo 2.png)
-![demo](/readme/demo 3.png)
-![demo](/readme/demo 4.png)
+ 
+![demo](https://github.com/oxxxxxy/cal-calc-tg-bot/blob/master/readme/demo%201.png)
+![demo](https://github.com/oxxxxxy/cal-calc-tg-bot/blob/master/readme/demo%202.png)
+![demo](https://github.com/oxxxxxy/cal-calc-tg-bot/blob/master/readme/demo%203.png)
+![demo](https://github.com/oxxxxxy/cal-calc-tg-bot/blob/master/readme/demo%204.png)
 
 
 # UPD
